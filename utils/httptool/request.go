@@ -10,7 +10,6 @@ import (
 	"github.com/gin-gonic/gin"
 	com "github.com/shengyanli1982/orbit/common"
 	"github.com/shengyanli1982/orbit/internal/conver"
-	bp "github.com/shengyanli1982/orbit/internal/pool"
 )
 
 var (
@@ -26,8 +25,6 @@ var contentTypes = []string{
 	com.HttpHeaderYamlContentTypeValue,
 	com.HttpHeaderTomlContentTypeValue,
 }
-
-var RequestBodyBuffPool = bp.NewBufferPool(0)
 
 // CalcRequestSize返回请求(request)对象的大小
 func CalcRequestSize(r *http.Request) int64 {
@@ -105,7 +102,7 @@ func GenerateRequestBody(c *gin.Context) ([]byte, error) {
 	if o, ok := c.Get(com.RequestBodyBufferKey); ok {
 		buf = o.(*bytes.Buffer)
 	} else {
-		buf = RequestBodyBuffPool.Get()
+		buf = com.ReqBodyBuffPool.Get()
 		c.Set(com.RequestBodyBufferKey, buf)
 	}
 

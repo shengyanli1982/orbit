@@ -11,9 +11,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	com "github.com/shengyanli1982/orbit/common"
-	m "github.com/shengyanli1982/orbit/internal/middleware"
-	w "github.com/shengyanli1982/orbit/utils/wrapper"
-	gwf "github.com/swaggo/files"
+	mid "github.com/shengyanli1982/orbit/internal/middleware"
+	wrap "github.com/shengyanli1982/orbit/utils/wrapper"
+	swag "github.com/swaggo/files"
 	gs "github.com/swaggo/gin-swagger"
 	"go.uber.org/zap"
 )
@@ -24,20 +24,20 @@ var (
 
 func pprofService(g *gin.RouterGroup) {
 	// Get
-	g.GET("/", w.HandlerFuncToGin(pprof.Index))
-	g.GET("/cmdline", w.HandlerFuncToGin(pprof.Cmdline))
-	g.GET("/profile", w.HandlerFuncToGin(pprof.Profile))
-	g.GET("/symbol", w.HandlerFuncToGin(pprof.Symbol))
-	g.GET("/trace", w.HandlerFuncToGin(pprof.Trace))
-	g.GET("/allocs", w.HandlerFuncToGin(pprof.Handler("allocs").ServeHTTP))
-	g.GET("/block", w.HandlerFuncToGin(pprof.Handler("block").ServeHTTP))
-	g.GET("/goroutine", w.HandlerFuncToGin(pprof.Handler("goroutine").ServeHTTP))
-	g.GET("/heap", w.HandlerFuncToGin(pprof.Handler("heap").ServeHTTP))
-	g.GET("/mutex", w.HandlerFuncToGin(pprof.Handler("mutex").ServeHTTP))
-	g.GET("/threadcreate", w.HandlerFuncToGin(pprof.Handler("threadcreate").ServeHTTP))
+	g.GET("/", wrap.HandlerFuncWrapToGin(pprof.Index))
+	g.GET("/cmdline", wrap.HandlerFuncWrapToGin(pprof.Cmdline))
+	g.GET("/profile", wrap.HandlerFuncWrapToGin(pprof.Profile))
+	g.GET("/symbol", wrap.HandlerFuncWrapToGin(pprof.Symbol))
+	g.GET("/trace", wrap.HandlerFuncWrapToGin(pprof.Trace))
+	g.GET("/allocs", wrap.HandlerFuncWrapToGin(pprof.Handler("allocs").ServeHTTP))
+	g.GET("/block", wrap.HandlerFuncWrapToGin(pprof.Handler("block").ServeHTTP))
+	g.GET("/goroutine", wrap.HandlerFuncWrapToGin(pprof.Handler("goroutine").ServeHTTP))
+	g.GET("/heap", wrap.HandlerFuncWrapToGin(pprof.Handler("heap").ServeHTTP))
+	g.GET("/mutex", wrap.HandlerFuncWrapToGin(pprof.Handler("mutex").ServeHTTP))
+	g.GET("/threadcreate", wrap.HandlerFuncWrapToGin(pprof.Handler("threadcreate").ServeHTTP))
 
 	// Post
-	g.POST("/pprof/symbol", w.HandlerFuncToGin(pprof.Symbol))
+	g.POST("/pprof/symbol", wrap.HandlerFuncWrapToGin(pprof.Symbol))
 }
 
 type Service interface {
@@ -96,7 +96,7 @@ func NewEngine(conf *Config, opts *Options) *Engine {
 
 	// 添加 swagger
 	if e.opts.swagger {
-		e.root.GET(com.HttpSwaggerUrlPath+"/*any", gs.WrapHandler(gwf.Handler))
+		e.root.GET(com.HttpSwaggerUrlPath+"/*any", gs.WrapHandler(swag.Handler))
 	}
 
 	// 添加性能监控接口
@@ -105,7 +105,7 @@ func NewEngine(conf *Config, opts *Options) *Engine {
 	}
 
 	// 注册中间件
-	e.ginSvr.Use(m.BodyBuffer(), m.Recovery(e.config.Logger, e.config.RecoveryLogEventFunc), m.Cors())
+	e.ginSvr.Use(mid.BodyBuffer(), mid.Recovery(e.config.Logger, e.config.RecoveryLogEventFunc), mid.Cors())
 
 	return &e
 }
@@ -125,7 +125,7 @@ func (e *Engine) Run() {
 	e.registerAllServices()
 
 	// 注册必要的组件
-	e.ginSvr.Use(m.AccessLogger(e.config.Logger, e.config.AccessLogEventFunc, e.opts.recReqBody))
+	e.ginSvr.Use(mid.AccessLogger(e.config.Logger, e.config.AccessLogEventFunc, e.opts.recReqBody))
 
 	// 初始化 http server
 	e.httpSvr = &http.Server{

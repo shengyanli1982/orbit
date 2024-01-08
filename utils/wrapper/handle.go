@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func HandlerFuncToGin(h http.HandlerFunc) gin.HandlerFunc {
+func HandlerFuncWrapToGin(h http.HandlerFunc) gin.HandlerFunc {
 	// 返回一个匿名函数作为 gin.HandlerFunc
 	return func(c *gin.Context) {
 		// 调用输入的 http.Handler 的 ServeHTTP 方法

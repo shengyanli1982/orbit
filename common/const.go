@@ -1,4 +1,4 @@
-package orbit
+package common
 
 import "github.com/gin-gonic/gin/binding"
 
@@ -26,7 +26,7 @@ const (
 )
 
 const (
-	RequestBodyBufferKey  = "REQUEST_BOD_YzdiT5HaFaMF7ZfO556rZRYqn"
+	RequestBodyBufferKey  = "REQUEST_BODY_zdiT5HaFaMF7ZfO556rZRYqn"
 	ResponseBodyBufferKey = "RESPONSE_BODY_DT6IKLsNULVD3bTgnz1QJbeN"
 	RequestLoggerKey      = "REQUEST_LOGGER_3Z3opcTKBSe2O5yZQnSGD"
 )

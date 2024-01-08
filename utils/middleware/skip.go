@@ -1,4 +1,4 @@
-package httptool
+package middleware
 
 import (
 	"strings"

@@ -13,12 +13,11 @@ import (
 	"github.com/shengyanli1982/orbit/internal/conver"
 	bp "github.com/shengyanli1982/orbit/internal/pool"
 	"github.com/shengyanli1982/orbit/utils/httptool"
+	omid "github.com/shengyanli1982/orbit/utils/middleware"
 	"go.uber.org/zap"
 )
 
 type LogEventFunc func(l *zap.SugaredLogger, e *bp.LogEvent)
-
-var logEventPool = bp.NewLogEventPool()
 
 func DefaultAcceseEventFunc(l *zap.SugaredLogger, e *bp.LogEvent) {
 	l.Infow(
@@ -85,7 +84,7 @@ func AccessLogger(l *zap.SugaredLogger, fn LogEventFunc, record bool) gin.Handle
 		c.Set(com.RequestLoggerKey, l)
 
 		// 跳过不需要记录的路径
-		if httptool.SkipResources(c) {
+		if omid.SkipResources(c) {
 			c.Next()
 			// 回收日志读取对象指针
 			c.Set(com.RequestLoggerKey, nil)
@@ -113,7 +112,7 @@ func AccessLogger(l *zap.SugaredLogger, fn LogEventFunc, record bool) gin.Handle
 		} else {
 			latency := time.Since(start)
 
-			e := logEventPool.Get()
+			e := com.LogEventPool.Get()
 			e.Message = "http server access log"
 			e.ID = c.GetHeader(com.HttpRequestID)
 			e.IP = c.ClientIP()
@@ -129,7 +128,7 @@ func AccessLogger(l *zap.SugaredLogger, fn LogEventFunc, record bool) gin.Handle
 			e.ReqBody = conver.BytesToString(reqBody)
 
 			fn(l, e)
-			logEventPool.Put(e)
+			com.LogEventPool.Put(e)
 		}
 
 		// 回收日志读取对象指针
@@ -162,7 +161,7 @@ func Recovery(l *zap.SugaredLogger, fn LogEventFunc) gin.HandlerFunc {
 					body, _ = httptool.GenerateRequestBody(c)
 					requestContentType := httptool.StringFilterFlags(c.Request.Header.Get(com.HttpHeaderContentType))
 
-					e := logEventPool.Get()
+					e := com.LogEventPool.Get()
 					e.Message = "http server recovery from panic"
 					e.ID = c.GetHeader(com.HttpRequestID)
 					e.IP = c.ClientIP()
@@ -179,7 +178,7 @@ func Recovery(l *zap.SugaredLogger, fn LogEventFunc) gin.HandlerFunc {
 					e.ErrorStack = conver.BytesToString(debug.Stack())
 
 					fn(l, e)
-					logEventPool.Put(e)
+					com.LogEventPool.Put(e)
 				}
 
 				// If the connection is dead, we can't write a status to it.
