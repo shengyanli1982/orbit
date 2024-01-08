@@ -13,8 +13,8 @@ import (
 	com "github.com/shengyanli1982/orbit/common"
 	m "github.com/shengyanli1982/orbit/internal/middleware"
 	w "github.com/shengyanli1982/orbit/utils/wrapper"
-	ginSwaggerFiles "github.com/swaggo/files"
-	ginSwagger "github.com/swaggo/gin-swagger"
+	gwf "github.com/swaggo/files"
+	gs "github.com/swaggo/gin-swagger"
 	"go.uber.org/zap"
 )
 
@@ -96,7 +96,7 @@ func NewEngine(conf *Config, opts *Options) *Engine {
 
 	// 添加 swagger
 	if e.opts.swagger {
-		e.root.GET(com.HttpSwaggerUrlPath+"/*any", ginSwagger.WrapHandler(ginSwaggerFiles.Handler))
+		e.root.GET(com.HttpSwaggerUrlPath+"/*any", gs.WrapHandler(gwf.Handler))
 	}
 
 	// 添加性能监控接口

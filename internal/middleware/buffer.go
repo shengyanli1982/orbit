@@ -31,5 +31,4 @@ func BodyBuffer() gin.HandlerFunc {
 			httptool.RequestBodyBuffPool.Put(buf)
 		}
 	}
-
 }

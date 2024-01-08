@@ -113,8 +113,6 @@ func GenerateRequestBody(c *gin.Context) ([]byte, error) {
 	buf.Reset()
 
 	// 读取HTTP请求的Body
-	// c.Request.Body = io.NopCloser(b.GetBuffer()) 这里 c.Request.Body 就是一个 io.ReadCloser
-	// io.ReadAll 会调用 Read 接口，将内部的数据全部抽走，此时 b.GetBuffer() 返回的 bytes.Buffer 对象就是一个空对象。
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		return conver.StringToBytes("failed to get request body"), err

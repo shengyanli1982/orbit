@@ -97,7 +97,7 @@ func AccessLogger(l *zap.SugaredLogger, fn LogEventFunc, record bool) gin.Handle
 		path := httptool.GenerateRequestPath(c)
 		requestContentType := httptool.StringFilterFlags(c.Request.Header.Get(com.HttpHeaderContentType))
 
-		reqBody := []byte{}
+		var reqBody []byte
 		if record && httptool.CanRecordContextBody(c.Request.Header) {
 			reqBody, _ = httptool.GenerateRequestBody(c)
 		}
@@ -157,8 +157,9 @@ func Recovery(l *zap.SugaredLogger, fn LogEventFunc) gin.HandlerFunc {
 				if brokenPipe {
 					l.Error("broken connection", zap.Any("error", err))
 				} else {
+					var body []byte
 					path := httptool.GenerateRequestPath(c)
-					body, _ := httptool.GenerateRequestBody(c)
+					body, _ = httptool.GenerateRequestBody(c)
 					requestContentType := httptool.StringFilterFlags(c.Request.Header.Get(com.HttpHeaderContentType))
 
 					e := logEventPool.Get()
