@@ -6,6 +6,7 @@ type Options struct {
 	trailingSlash     bool
 	fixedPath         bool
 	forwordByClientIp bool
+	recReqBody        bool
 }
 
 func NewOptions() *Options {
@@ -14,6 +15,7 @@ func NewOptions() *Options {
 		swagger:       false,
 		trailingSlash: false,
 		fixedPath:     false,
+		recReqBody:    false,
 	}
 }
 
@@ -39,5 +41,10 @@ func (o *Options) EnableRedirectFixedPath() *Options {
 
 func (o *Options) EnableForwardedByClientIp() *Options {
 	o.forwordByClientIp = true
+	return o
+}
+
+func (o *Options) EnableRecordRequestBody() *Options {
+	o.recReqBody = true
 	return o
 }

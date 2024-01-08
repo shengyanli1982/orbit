@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	m "github.com/shengyanli1982/orbit/internal/middleware"
 	"go.uber.org/zap"
 )
 
@@ -24,6 +25,8 @@ type Config struct {
 	HttpWriteTimeout      uint32             `json:"httpWriteTimeout,omitempty" yaml:"httpWriteTimeout,omitempty"`
 	HttpReadHeaderTimeout uint32             `json:"httpReadHeaderTimeout,omitempty" yaml:"httpReadHeaderTimeout,omitempty"`
 	Logger                *zap.SugaredLogger `json:"-" yaml:"-"`
+	AccessLogEventFunc    m.LogEventFunc     `json:"-" yaml:"-"`
+	RecoveryLogEventFunc  m.LogEventFunc     `json:"-" yaml:"-"`
 }
 
 // NewConfig 创建一个新的配置
@@ -37,6 +40,8 @@ func NewConfig() *Config {
 		HttpWriteTimeout:      defaultIdleTimeout,
 		HttpReadHeaderTimeout: defaultIdleTimeout,
 		Logger:                defaultConsoleLogger.S().Named(defaultLoggerName),
+		AccessLogEventFunc:    m.DefaultAcceseEventFunc,
+		RecoveryLogEventFunc:  m.DefaultRecoveryEventFunc,
 	}
 }
 
@@ -96,6 +101,16 @@ func (c *Config) WithHttpReadHeaderTimeout(timeout uint32) *Config {
 	return c
 }
 
+func (c *Config) WithAccessLogEventFunc(fn m.LogEventFunc) *Config {
+	c.AccessLogEventFunc = fn
+	return c
+}
+
+func (c *Config) WithRecoveryLogEventFunc(fn m.LogEventFunc) *Config {
+	c.RecoveryLogEventFunc = fn
+	return c
+}
+
 // DefaultConfig 返回一个默认配置
 // DefaultConfig returns a default config
 func DefaultConfig() *Config {
@@ -123,6 +138,12 @@ func isConfigValid(conf *Config) *Config {
 		}
 		if conf.Logger == nil {
 			conf.Logger = defaultConsoleLogger.S().Named(defaultLoggerName)
+		}
+		if conf.AccessLogEventFunc == nil {
+			conf.AccessLogEventFunc = m.DefaultAcceseEventFunc
+		}
+		if conf.RecoveryLogEventFunc == nil {
+			conf.RecoveryLogEventFunc = m.DefaultRecoveryEventFunc
 		}
 	} else {
 		conf = NewConfig()

@@ -105,7 +105,7 @@ func NewEngine(conf *Config, opts *Options) *Engine {
 	}
 
 	// 注册中间件
-	e.ginSvr.Use(m.BodyBuffer(), m.Recovery(e.config.Logger), m.Cors())
+	e.ginSvr.Use(m.BodyBuffer(), m.Recovery(e.config.Logger, e.config.RecoveryLogEventFunc), m.Cors())
 
 	return &e
 }
@@ -125,7 +125,7 @@ func (e *Engine) Run() {
 	e.registerAllServices()
 
 	// 注册必要的组件
-	e.ginSvr.Use(m.AccessLogger(e.config.Logger, false))
+	e.ginSvr.Use(m.AccessLogger(e.config.Logger, e.config.AccessLogEventFunc, e.opts.recReqBody))
 
 	// 初始化 http server
 	e.httpSvr = &http.Server{
