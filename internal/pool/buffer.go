@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-const defaultBufferSize = 2048
+const DefaultBufferSize = 2048
 
 type BufferPool struct {
 	bp sync.Pool
@@ -13,7 +13,7 @@ type BufferPool struct {
 
 func NewBufferPool(size uint32) *BufferPool {
 	if size <= 0 {
-		size = defaultBufferSize
+		size = DefaultBufferSize
 	}
 	return &BufferPool{
 		bp: sync.Pool{

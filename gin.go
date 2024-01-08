@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	com "github.com/shengyanli1982/orbit/common"
+	m "github.com/shengyanli1982/orbit/internal/middleware"
 	w "github.com/shengyanli1982/orbit/utils/wrapper"
 	ginSwaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -20,9 +22,26 @@ var (
 	defaultShutdownTimeout = 10 * time.Second
 )
 
-type Callback interface {
-	OnRequest()
-	OnResponse()
+func pprofService(g *gin.RouterGroup) {
+	// Get
+	g.GET("/", w.HandlerFuncToGin(pprof.Index))
+	g.GET("/cmdline", w.HandlerFuncToGin(pprof.Cmdline))
+	g.GET("/profile", w.HandlerFuncToGin(pprof.Profile))
+	g.GET("/symbol", w.HandlerFuncToGin(pprof.Symbol))
+	g.GET("/trace", w.HandlerFuncToGin(pprof.Trace))
+	g.GET("/allocs", w.HandlerFuncToGin(pprof.Handler("allocs").ServeHTTP))
+	g.GET("/block", w.HandlerFuncToGin(pprof.Handler("block").ServeHTTP))
+	g.GET("/goroutine", w.HandlerFuncToGin(pprof.Handler("goroutine").ServeHTTP))
+	g.GET("/heap", w.HandlerFuncToGin(pprof.Handler("heap").ServeHTTP))
+	g.GET("/mutex", w.HandlerFuncToGin(pprof.Handler("mutex").ServeHTTP))
+	g.GET("/threadcreate", w.HandlerFuncToGin(pprof.Handler("threadcreate").ServeHTTP))
+
+	// Post
+	g.POST("/pprof/symbol", w.HandlerFuncToGin(pprof.Symbol))
+}
+
+type Service interface {
+	RegisterGroup(g *gin.RouterGroup)
 }
 
 type Engine struct {
@@ -62,20 +81,31 @@ func NewEngine(conf *Config, opts *Options) *Engine {
 	e.ginSvr = gin.New()
 	e.root = e.ginSvr.Group("/")
 
+	// 增加自定义 404/405 输出
+	e.ginSvr.NoRoute(func(c *gin.Context) {
+		c.String(http.StatusNotFound, "[404] http request route mismatch, method: "+c.Request.Method+", path: "+c.Request.URL.Path)
+	})
+	e.ginSvr.NoMethod(func(c *gin.Context) {
+		c.String(http.StatusMethodNotAllowed, "[405] http request method not allowed, method: "+c.Request.Method+", path: "+c.Request.URL.Path)
+	})
+
 	// 添加健康检测
-	e.root.GET(HttpHealthCheckUrlPath, func(c *gin.Context) {
-		c.String(http.StatusOK, "ok")
+	e.root.GET(com.HttpHealthCheckUrlPath, func(c *gin.Context) {
+		c.String(http.StatusOK, "ok!")
 	})
 
 	// 添加 swagger
 	if e.opts.swagger {
-		e.root.GET(HttpSwaggerUrlPath+"/*any", ginSwagger.WrapHandler(ginSwaggerFiles.Handler))
+		e.root.GET(com.HttpSwaggerUrlPath+"/*any", ginSwagger.WrapHandler(ginSwaggerFiles.Handler))
 	}
 
 	// 添加性能监控接口
 	if e.opts.pprof {
-		pprofService(e.root.Group(HttpPprofUrlPath))
+		pprofService(e.root.Group(com.HttpPprofUrlPath))
 	}
+
+	// 注册中间件
+	e.ginSvr.Use(m.BodyBuffer(), m.Recovery(e.config.Logger), m.Cors())
 
 	return &e
 }
@@ -93,6 +123,9 @@ func (e *Engine) Run() {
 
 	// 注册所有服务
 	e.registerAllServices()
+
+	// 注册必要的组件
+	e.ginSvr.Use(m.AccessLogger(e.config.Logger, false))
 
 	// 初始化 http server
 	e.httpSvr = &http.Server{
@@ -183,22 +216,4 @@ func (e *Engine) RegisterMiddleware(handler gin.HandlerFunc) {
 	if !e.running {
 		e.handlers = append(e.handlers, handler)
 	}
-}
-
-func pprofService(g *gin.RouterGroup) {
-	// Get
-	g.GET("/", w.HandlerFuncToGin(pprof.Index))
-	g.GET("/cmdline", w.HandlerFuncToGin(pprof.Cmdline))
-	g.GET("/profile", w.HandlerFuncToGin(pprof.Profile))
-	g.GET("/symbol", w.HandlerFuncToGin(pprof.Symbol))
-	g.GET("/trace", w.HandlerFuncToGin(pprof.Trace))
-	g.GET("/allocs", w.HandlerFuncToGin(pprof.Handler("allocs").ServeHTTP))
-	g.GET("/block", w.HandlerFuncToGin(pprof.Handler("block").ServeHTTP))
-	g.GET("/goroutine", w.HandlerFuncToGin(pprof.Handler("goroutine").ServeHTTP))
-	g.GET("/heap", w.HandlerFuncToGin(pprof.Handler("heap").ServeHTTP))
-	g.GET("/mutex", w.HandlerFuncToGin(pprof.Handler("mutex").ServeHTTP))
-	g.GET("/threadcreate", w.HandlerFuncToGin(pprof.Handler("threadcreate").ServeHTTP))
-
-	// Post
-	g.POST("/pprof/symbol", w.HandlerFuncToGin(pprof.Symbol))
 }
