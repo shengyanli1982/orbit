@@ -15,8 +15,8 @@ const HttpHeaderJSONContentTypeValue = binding.MIMEJSON
 // HttpHeaderXMLContentTypeValue represents the value for XML Content-Type.
 const HttpHeaderXMLContentTypeValue = binding.MIMEXML
 
-// HttpHeaderXML2ContentTypeValue represents the value for XML2 Content-Type.
-const HttpHeaderXML2ContentTypeValue = binding.MIMEXML2
+// HttpHeaderPXMLContentTypeValue represents the value for Test XML Content-Type.
+const HttpHeaderPXMLContentTypeValue = binding.MIMEXML2
 
 // HttpHeaderYAMLContentTypeValue represents the value for YAML Content-Type.
 const HttpHeaderYAMLContentTypeValue = binding.MIMEYAML

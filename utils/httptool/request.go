@@ -12,18 +12,18 @@ import (
 	"github.com/shengyanli1982/orbit/internal/conver"
 )
 
-var (
-	ErrContentTypeIsEmpty = errors.New("content type is empty")
-)
+// ErrContentTypeIsEmpty is the error that indicates the content type is empty.
+var ErrContentTypeIsEmpty = errors.New("content type is empty")
 
+// contentTypes is a slice of strings that represents the supported content types for HTTP requests.
 var contentTypes = []string{
-	com.HttpHeaderJSONContentTypeValue,
-	com.HttpHeaderJavascriptContentTypeValue,
-	com.HttpHeaderTextContentTypeValue,
-	com.HttpHeaderXMLContentTypeValue,
-	com.HttpHeaderXML2ContentTypeValue,
-	com.HttpHeaderYAMLContentTypeValue,
-	com.HttpHeaderTOMLContentTypeValue,
+	com.HttpHeaderJSONContentTypeValue,       // JSON content type
+	com.HttpHeaderJavascriptContentTypeValue, // JavaScript content type
+	com.HttpHeaderTextContentTypeValue,       // Text content type
+	com.HttpHeaderXMLContentTypeValue,        // XML content type
+	com.HttpHeaderPXMLContentTypeValue,       // Test XML content type
+	com.HttpHeaderYAMLContentTypeValue,       // YAML content type
+	com.HttpHeaderTOMLContentTypeValue,       // TOML content type
 }
 
 // CalcRequestSize returns the size of the request object
