@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	ErrorContentTypeIsEmpty = errors.New("content type is empty")
+	ErrContentTypeIsEmpty = errors.New("content type is empty")
 )
 
 var contentTypes = []string{
@@ -26,121 +26,121 @@ var contentTypes = []string{
 	com.HttpHeaderTOMLContentTypeValue,
 }
 
-// CalcRequestSize返回请求(request)对象的大小
-func CalcRequestSize(r *http.Request) int64 {
+// CalcRequestSize returns the size of the request object
+func CalcRequestSize(request *http.Request) int64 {
 	size := 0
 
-	// 计算URL的字符串长度
-	if r.URL != nil {
-		size += len(r.URL.String())
+	// Calculate the length of the URL string
+	if request.URL != nil {
+		size += len(request.URL.String())
 	}
 
-	// 将方法(Method)和协议(Proto)放到size变量中
-	size += len(r.Method)
-	size += len(r.Proto)
+	// Add the method and protocol to the size variable
+	size += len(request.Method)
+	size += len(request.Proto)
 
-	// 遍历 header，统计 header 的键值对大小，并加到请求大小中
-	for name, values := range r.Header {
+	// Iterate through the headers, calculate the size of the key-value pairs, and add it to the request size
+	for name, values := range request.Header {
 		size += len(name)
 		for _, value := range values {
 			size += len(value)
 		}
 	}
 
-	// size中增加了主机名(Host)的大小
-	size += len(r.Host)
+	// Add the size of the host name (Host) to the size
+	size += len(request.Host)
 
-	// 如果ContentLength设置不为-1，则将ContentLength添加到size中
-	if r.ContentLength != -1 {
-		size += int(r.ContentLength)
+	// If ContentLength is not -1, add ContentLength to the size
+	if request.ContentLength != -1 {
+		size += int(request.ContentLength)
 	}
 
 	return int64(size)
 }
 
-// StringFilterFlags 返回给定字符串中第一个标记。
+// StringFilterFlags returns the first token in the given string
 func StringFilterFlags(content string) string {
-	// 将字符串中第一个 ';' 或 ' ' 前的所有字符作为第一个标记。如果两者都不存在，则返回整个字符串。
+	// Return all characters before the first ';' or ' ' in the string. If neither exists, return the entire string.
 	if i := strings.IndexAny(content, "; "); i >= 0 {
 		return content[:i]
 	}
 	return content
 }
 
-// CanRecordContextBody 检查HTTP请求头中是否存在特定内容类型的值。
-func CanRecordContextBody(h http.Header) bool {
-	v := h.Get(com.HttpHeaderContentType)
+// CanRecordContextBody checks if the HTTP request header contains a value for a specific content type
+func CanRecordContextBody(header http.Header) bool {
+	contentType := header.Get(com.HttpHeaderContentType)
 
-	// 如果请求头为空或者内容信息不足以区分类型，则直接返回false
-	if v == "" || !strings.Contains(v, "/") {
+	// If the request header is empty or the content information is not sufficient to differentiate the type, return false directly
+	if contentType == "" || !strings.Contains(contentType, "/") {
 		return false
 	}
 
-	// 查找所有 definedContentTypes 列表中指定的内容类型。
-	typeStr := StringFilterFlags(v)
+	// Find the specified content type in the definedContentTypes list
+	typeStr := StringFilterFlags(contentType)
 	for _, ct := range contentTypes {
 		if strings.HasPrefix(typeStr, ct) {
 			return true
 		}
 	}
 
-	// 如果内容类型未被定义则返回false
+	// Return false if the content type is not defined
 	return false
 }
 
-func GenerateRequestPath(c *gin.Context) string {
-	if len(c.Request.URL.RawQuery) > 0 {
-		return c.Request.URL.RequestURI()
+func GenerateRequestPath(context *gin.Context) string {
+	if len(context.Request.URL.RawQuery) > 0 {
+		return context.Request.URL.RequestURI()
 	}
-	return c.Request.URL.Path
+	return context.Request.URL.Path
 }
 
-// GenerateRequestBody 从Gin的上下文中读取HTTP请求的Body，并将其存储到一个Buffer Pool对象中。
-func GenerateRequestBody(c *gin.Context) ([]byte, error) {
-	// 检查是否已经有相关Buffer Pool对象，如果没有，则创建一个新的实例
+// GenerateRequestBody reads the HTTP request body from the Gin context and stores it in a Buffer Pool object
+func GenerateRequestBody(context *gin.Context) ([]byte, error) {
+	// Check if there is already a related Buffer Pool object, if not, create a new instance
 	var buf *bytes.Buffer
-	if o, ok := c.Get(com.RequestBodyBufferKey); ok {
-		buf = o.(*bytes.Buffer)
+	if obj, ok := context.Get(com.RequestBodyBufferKey); ok {
+		buf = obj.(*bytes.Buffer)
 	} else {
 		buf = com.RequestBodyBufferPool.Get()
-		c.Set(com.RequestBodyBufferKey, buf)
+		context.Set(com.RequestBodyBufferKey, buf)
 	}
 
-	// 如果Buffer Pool对象已经被使用过，则需要先清空
+	// Reset the Buffer Pool object if it has been used before
 	buf.Reset()
 
-	// 读取HTTP请求的Body
-	body, err := io.ReadAll(c.Request.Body)
+	// Read the HTTP request body
+	body, err := io.ReadAll(context.Request.Body)
 	if err != nil {
 		return conver.StringToBytes("failed to get request body"), err
 	}
 
-	// 把内容写入 Buffer Pool 对象中
+	// Write the content to the Buffer Pool object
 	_, err = buf.Write(body)
 	if err != nil {
-		// 如果在把内容写入 Buff Pool 是出现了错误，则存储原始的内容
-		c.Request.Body = io.NopCloser(bytes.NewBuffer(body))
+		// If an error occurs while writing the content to the Buff Pool, store the original content
+		context.Request.Body = io.NopCloser(bytes.NewBuffer(body))
 	} else {
-		c.Request.Body = io.NopCloser(buf)
+		context.Request.Body = io.NopCloser(buf)
 	}
 
-	// 返回请求的 Body
+	// Return the request body
 	return body, nil
 }
 
-// ParseRequestBody 将 request body 解析为指定类型 value 的变量，emptyRequestBodyContent 表示是否允许为空。
-func ParseRequestBody(c *gin.Context, value interface{}, emptyRequestBodyContent bool) error {
-	// 判断 ContentType 是否为空
-	if c.ContentType() == "" {
-		return ErrorContentTypeIsEmpty
+// ParseRequestBody parses the request body into a variable of the specified type value, emptyRequestBodyContent indicates whether an empty body is allowed
+func ParseRequestBody(context *gin.Context, value interface{}, emptyRequestBodyContent bool) error {
+	// Check if ContentType is empty
+	if context.ContentType() == "" {
+		return ErrContentTypeIsEmpty
 	}
 
-	var b []byte
-	err := c.ShouldBind(value)
+	var body []byte
+	err := context.ShouldBind(value)
 	if err != nil {
-		b, err = GenerateRequestBody(c)
+		body, err = GenerateRequestBody(context)
 		if err == nil {
-			if emptyRequestBodyContent && len(b) <= 0 {
+			if emptyRequestBodyContent && len(body) <= 0 {
 				return nil
 			}
 		}

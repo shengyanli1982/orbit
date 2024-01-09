@@ -24,20 +24,20 @@ var (
 
 func pprofService(g *gin.RouterGroup) {
 	// Get
-	g.GET("/", wrap.HandlerFuncWrapToGin(pprof.Index))
-	g.GET("/cmdline", wrap.HandlerFuncWrapToGin(pprof.Cmdline))
-	g.GET("/profile", wrap.HandlerFuncWrapToGin(pprof.Profile))
-	g.GET("/symbol", wrap.HandlerFuncWrapToGin(pprof.Symbol))
-	g.GET("/trace", wrap.HandlerFuncWrapToGin(pprof.Trace))
-	g.GET("/allocs", wrap.HandlerFuncWrapToGin(pprof.Handler("allocs").ServeHTTP))
-	g.GET("/block", wrap.HandlerFuncWrapToGin(pprof.Handler("block").ServeHTTP))
-	g.GET("/goroutine", wrap.HandlerFuncWrapToGin(pprof.Handler("goroutine").ServeHTTP))
-	g.GET("/heap", wrap.HandlerFuncWrapToGin(pprof.Handler("heap").ServeHTTP))
-	g.GET("/mutex", wrap.HandlerFuncWrapToGin(pprof.Handler("mutex").ServeHTTP))
-	g.GET("/threadcreate", wrap.HandlerFuncWrapToGin(pprof.Handler("threadcreate").ServeHTTP))
+	g.GET("/", wrap.WrapHandlerFuncToGin(pprof.Index))
+	g.GET("/cmdline", wrap.WrapHandlerFuncToGin(pprof.Cmdline))
+	g.GET("/profile", wrap.WrapHandlerFuncToGin(pprof.Profile))
+	g.GET("/symbol", wrap.WrapHandlerFuncToGin(pprof.Symbol))
+	g.GET("/trace", wrap.WrapHandlerFuncToGin(pprof.Trace))
+	g.GET("/allocs", wrap.WrapHandlerFuncToGin(pprof.Handler("allocs").ServeHTTP))
+	g.GET("/block", wrap.WrapHandlerFuncToGin(pprof.Handler("block").ServeHTTP))
+	g.GET("/goroutine", wrap.WrapHandlerFuncToGin(pprof.Handler("goroutine").ServeHTTP))
+	g.GET("/heap", wrap.WrapHandlerFuncToGin(pprof.Handler("heap").ServeHTTP))
+	g.GET("/mutex", wrap.WrapHandlerFuncToGin(pprof.Handler("mutex").ServeHTTP))
+	g.GET("/threadcreate", wrap.WrapHandlerFuncToGin(pprof.Handler("threadcreate").ServeHTTP))
 
 	// Post
-	g.POST("/pprof/symbol", wrap.HandlerFuncWrapToGin(pprof.Symbol))
+	g.POST("/pprof/symbol", wrap.WrapHandlerFuncToGin(pprof.Symbol))
 }
 
 type Service interface {
@@ -91,7 +91,7 @@ func NewEngine(config *Config, options *Options) *Engine {
 
 	// Add health check
 	engine.root.GET(com.HealthCheckURLPath, func(c *gin.Context) {
-		c.String(http.StatusOK, "ok!")
+		c.String(http.StatusOK, com.RequestOK)
 	})
 
 	// Add swagger

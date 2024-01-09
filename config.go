@@ -2,7 +2,6 @@ package orbit
 
 import (
 	"strings"
-	"time"
 
 	com "github.com/shengyanli1982/orbit/common"
 	bp "github.com/shengyanli1982/orbit/internal/pool"
@@ -10,10 +9,10 @@ import (
 )
 
 var (
-	defaultConsoleLogger     = NewLogger(nil)                            // default console logger
-	defaultHttpListenAddress = "127.0.0.0"                               // default http listen address
-	defaultHttpListenPort    = uint16(8080)                              // default http listen port
-	defaultIdleTimeout       = uint32((15 * time.Second).Milliseconds()) // http idle timeout
+	defaultConsoleLogger     = NewLogger(nil) // default console logger
+	defaultHttpListenAddress = "127.0.0.0"    // default http listen address
+	defaultHttpListenPort    = uint16(8080)   // default http listen port
+	defaultIdleTimeout       = uint32(15000)  // http idle timeout
 )
 
 // Configuration
