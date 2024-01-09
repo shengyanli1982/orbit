@@ -16,92 +16,102 @@ import (
 	"go.uber.org/zap"
 )
 
-// 解决跨站
+// Cors is a middleware that adds CORS headers to the response.
 func Cors() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		method := c.Request.Method
-		c.Header("Access-Control-Allow-Origin", "*")
-		c.Header("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE, UPDATE")
-		c.Header("Access-Control-Allow-Headers", "*")
-		c.Header("Access-Control-Expose-Headers", "Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Cache-Control, Content-Language, Content-Type")
-		c.Header("Access-Control-Allow-Credentials", "true")
-		//设置缓存时间
-		c.Header("Access-Control-Max-Age", "172800")
+	return func(context *gin.Context) {
+		// Add cross-origin request headers
+		context.Header("Access-Control-Allow-Origin", "*")
+		context.Header("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE, UPDATE")
+		context.Header("Access-Control-Allow-Headers", "*")
+		context.Header("Access-Control-Expose-Headers", "Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Cache-Control, Content-Language, Content-Type")
+		context.Header("Access-Control-Allow-Credentials", "true")
+		context.Header("Access-Control-Max-Age", "172800")
 
-		if method == "OPTIONS" {
-			c.AbortWithStatus(http.StatusNoContent)
+		// Handle OPTIONS request
+		if context.Request.Method == "OPTIONS" {
+			context.AbortWithStatus(http.StatusNoContent)
 		}
 
-		// 下一个
-		c.Next()
+		// Handle the request
+		context.Next()
 	}
 }
 
+// AccessLogger is a middleware that logs HTTP server access information.
 func AccessLogger(logger *zap.SugaredLogger, logEventFunc com.LogEventFunc, record bool) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// 设置日志指针
-		c.Set(com.RequestLoggerKey, logger)
+	return func(context *gin.Context) {
+		// Set request logger
+		context.Set(com.RequestLoggerKey, logger)
 
-		// 跳过不需要记录的路径
-		if omid.SkipResources(c) {
-			c.Next()
-			// 回收日志读取对象指针
-			c.Set(com.RequestLoggerKey, nil)
+		// Skip resources
+		if omid.SkipResources(context) {
+			context.Next()
+			context.Set(com.RequestLoggerKey, nil)
 			return
 		}
 
-		// 正常处理系统日志
+		// Start time
 		start := time.Now()
-		path := httptool.GenerateRequestPath(c)
-		requestContentType := httptool.StringFilterFlags(c.Request.Header.Get(com.HttpHeaderContentType))
 
+		// Generate request info
+		path := httptool.GenerateRequestPath(context)
+		requestContentType := httptool.StringFilterFlags(context.Request.Header.Get(com.HttpHeaderContentType))
+
+		// Generate request body
 		var requestBody []byte
-		if record && httptool.CanRecordContextBody(c.Request.Header) {
-			requestBody, _ = httptool.GenerateRequestBody(c)
+		if record && httptool.CanRecordContextBody(context.Request.Header) {
+			requestBody, _ = httptool.GenerateRequestBody(context)
 		}
 
-		// 下一个
-		c.Next()
+		// To next middleware
+		context.Next()
 
-		// response 返回
-		if len(c.Errors) > 0 {
-			for _, err := range c.Errors.Errors() {
+		// Handle response
+		if len(context.Errors) > 0 {
+			// Log error
+			for _, err := range context.Errors.Errors() {
 				logger.Error(err)
 			}
 		} else {
+			// Response latency
 			latency := time.Since(start)
 
+			// Get log event object from pool
 			event := com.LogEventPool.Get()
+
+			// Request metadata
 			event.Message = "http server access log"
-			event.ID = c.GetHeader(com.HttpHeaderRequestID)
-			event.IP = c.ClientIP()
-			event.EndPoint = c.Request.RemoteAddr
+			event.ID = context.GetHeader(com.HttpHeaderRequestID)
+			event.IP = context.ClientIP()
+			event.EndPoint = context.Request.RemoteAddr
 			event.Path = path
-			event.Method = c.Request.Method
-			event.Code = c.Writer.Status()
+			event.Method = context.Request.Method
+			event.Code = context.Writer.Status()
 			event.Status = http.StatusText(event.Code)
 			event.Latency = latency.String()
-			event.Agent = c.Request.UserAgent()
+			event.Agent = context.Request.UserAgent()
 			event.ReqContentType = requestContentType
-			event.ReqQuery = c.Request.URL.RawQuery
+			event.ReqQuery = context.Request.URL.RawQuery
 			event.ReqBody = conver.BytesToString(requestBody)
 
+			// Log event
 			logEventFunc(logger, event)
+
+			// Put event object back to pool
 			com.LogEventPool.Put(event)
 		}
 
-		// 回收日志读取对象指针
-		c.Set(com.RequestLoggerKey, nil)
+		// Clear request logger
+		context.Set(com.RequestLoggerKey, nil)
 	}
 }
 
-// Recovery recover 掉项目可能出现的panic，并使用zap记录相关日志
+// Recovery is a middleware that recovers from panics and logs the error.
 func Recovery(logger *zap.SugaredLogger, logEventFunc com.LogEventFunc) gin.HandlerFunc {
-	return func(c *gin.Context) {
+	return func(context *gin.Context) {
 		defer func() {
+			// Recover from panic
 			if err := recover(); err != nil {
-				// Check for a broken connection, as it is not really a
-				// condition that warrants a panic f trace.
 				var brokenPipe bool
 				if ne, ok := err.(*net.OpError); ok {
 					if se, ok := ne.Err.(*os.SyscallError); ok {
@@ -112,46 +122,54 @@ func Recovery(logger *zap.SugaredLogger, logEventFunc com.LogEventFunc) gin.Hand
 					}
 				}
 
+				// Log error
 				if brokenPipe {
 					logger.Error("broken connection", zap.Any("error", err))
 				} else {
+					// Generate request body
 					var body []byte
-					path := httptool.GenerateRequestPath(c)
-					body, _ = httptool.GenerateRequestBody(c)
-					requestContentType := httptool.StringFilterFlags(c.Request.Header.Get(com.HttpHeaderContentType))
+					path := httptool.GenerateRequestPath(context)
+					body, _ = httptool.GenerateRequestBody(context)
+					requestContentType := httptool.StringFilterFlags(context.Request.Header.Get(com.HttpHeaderContentType))
 
+					// Get log event object from pool
 					event := com.LogEventPool.Get()
+
+					// Request metadata
 					event.Message = "http server recovery from panic"
-					event.ID = c.GetHeader(com.HttpHeaderRequestID)
-					event.IP = c.ClientIP()
-					event.EndPoint = c.Request.RemoteAddr
+					event.ID = context.GetHeader(com.HttpHeaderRequestID)
+					event.IP = context.ClientIP()
+					event.EndPoint = context.Request.RemoteAddr
 					event.Path = path
-					event.Method = c.Request.Method
-					event.Code = c.Writer.Status()
+					event.Method = context.Request.Method
+					event.Code = context.Writer.Status()
 					event.Status = http.StatusText(event.Code)
-					event.Agent = c.Request.UserAgent()
+					event.Agent = context.Request.UserAgent()
 					event.ReqContentType = requestContentType
-					event.ReqQuery = c.Request.URL.RawQuery
+					event.ReqQuery = context.Request.URL.RawQuery
 					event.ReqBody = conver.BytesToString(body)
 					event.Error = err
 					event.ErrorStack = conver.BytesToString(debug.Stack())
 
+					// Log event
 					logEventFunc(logger, event)
+
+					// Put event object back to pool
 					com.LogEventPool.Put(event)
 				}
 
-				// If the connection is dead, we can't write a status to it.
+				// Abort request
 				if brokenPipe {
-					_ = c.Error(err.(error)) // nolint: errcheck
-					c.Abort()
+					_ = context.Error(err.(error))
+					context.Abort()
 				} else {
-					c.AbortWithStatus(http.StatusInternalServerError)
-					c.String(http.StatusInternalServerError, "[500] http server internal error, method: "+c.Request.Method+", path: "+c.Request.URL.Path)
+					context.AbortWithStatus(http.StatusInternalServerError)
+					context.String(http.StatusInternalServerError, "[500] http server internal error, method: "+context.Request.Method+", path: "+context.Request.URL.Path)
 				}
 			}
 		}()
 
-		// 下一个
-		c.Next()
+		// To next middleware
+		context.Next()
 	}
 }

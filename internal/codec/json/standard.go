@@ -5,14 +5,20 @@ package json
 
 import "encoding/json"
 
-var (
-	Marshal       = json.Marshal
-	Unmarshal     = json.Unmarshal
-	MarshalIndent = json.MarshalIndent
-	NewDecoder    = json.NewDecoder
-	NewEncoder    = json.NewEncoder
-)
+// Marshal is a function that converts a Go value to JSON.
+var Marshal = json.Marshal
 
-type (
-	RawMessage = json.RawMessage
-)
+// Unmarshal is a function that converts JSON to a Go value.
+var Unmarshal = json.Unmarshal
+
+// MarshalIndent is a function that converts a Go value to JSON with indentation.
+var MarshalIndent = json.MarshalIndent
+
+// NewDecoder is a function that creates a new JSON decoder.
+var NewDecoder = json.NewDecoder
+
+// NewEncoder is a function that creates a new JSON encoder.
+var NewEncoder = json.NewEncoder
+
+// RawMessage is a raw encoded JSON value.
+type RawMessage = json.RawMessage

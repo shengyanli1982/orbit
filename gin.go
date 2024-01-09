@@ -18,49 +18,52 @@ import (
 	"go.uber.org/zap"
 )
 
-var (
-	defaultShutdownTimeout = 10 * time.Second
-)
+// defaultShutdownTimeout is the default timeout for graceful shutdown.
+var defaultShutdownTimeout = 10 * time.Second
 
+// pprofService registers the pprof handlers to the given router group.
 func pprofService(g *gin.RouterGroup) {
 	// Get
-	g.GET("/", wrap.WrapHandlerFuncToGin(pprof.Index))
-	g.GET("/cmdline", wrap.WrapHandlerFuncToGin(pprof.Cmdline))
-	g.GET("/profile", wrap.WrapHandlerFuncToGin(pprof.Profile))
-	g.GET("/symbol", wrap.WrapHandlerFuncToGin(pprof.Symbol))
-	g.GET("/trace", wrap.WrapHandlerFuncToGin(pprof.Trace))
-	g.GET("/allocs", wrap.WrapHandlerFuncToGin(pprof.Handler("allocs").ServeHTTP))
-	g.GET("/block", wrap.WrapHandlerFuncToGin(pprof.Handler("block").ServeHTTP))
-	g.GET("/goroutine", wrap.WrapHandlerFuncToGin(pprof.Handler("goroutine").ServeHTTP))
-	g.GET("/heap", wrap.WrapHandlerFuncToGin(pprof.Handler("heap").ServeHTTP))
-	g.GET("/mutex", wrap.WrapHandlerFuncToGin(pprof.Handler("mutex").ServeHTTP))
-	g.GET("/threadcreate", wrap.WrapHandlerFuncToGin(pprof.Handler("threadcreate").ServeHTTP))
+	g.GET("/", wrap.WrapHandlerFuncToGin(pprof.Index))                                         // Get the pprof index page
+	g.GET("/cmdline", wrap.WrapHandlerFuncToGin(pprof.Cmdline))                                // Get the command line arguments
+	g.GET("/profile", wrap.WrapHandlerFuncToGin(pprof.Profile))                                // Get the profiling goroutine stack traces
+	g.GET("/symbol", wrap.WrapHandlerFuncToGin(pprof.Symbol))                                  // Get the symbol table
+	g.GET("/trace", wrap.WrapHandlerFuncToGin(pprof.Trace))                                    // Get the execution trace
+	g.GET("/allocs", wrap.WrapHandlerFuncToGin(pprof.Handler("allocs").ServeHTTP))             // Get the heap allocations
+	g.GET("/block", wrap.WrapHandlerFuncToGin(pprof.Handler("block").ServeHTTP))               // Get the goroutine blocking profile
+	g.GET("/goroutine", wrap.WrapHandlerFuncToGin(pprof.Handler("goroutine").ServeHTTP))       // Get the goroutine profile
+	g.GET("/heap", wrap.WrapHandlerFuncToGin(pprof.Handler("heap").ServeHTTP))                 // Get the heap profile
+	g.GET("/mutex", wrap.WrapHandlerFuncToGin(pprof.Handler("mutex").ServeHTTP))               // Get the mutex profile
+	g.GET("/threadcreate", wrap.WrapHandlerFuncToGin(pprof.Handler("threadcreate").ServeHTTP)) // Get the thread creation profile
 
 	// Post
-	g.POST("/pprof/symbol", wrap.WrapHandlerFuncToGin(pprof.Symbol))
+	g.POST("/pprof/symbol", wrap.WrapHandlerFuncToGin(pprof.Symbol)) // Get the symbol table
 }
 
+// Service is the interface that represents a service.
 type Service interface {
-	RegisterGroup(routerGroup *gin.RouterGroup)
+	RegisterGroup(routerGroup *gin.RouterGroup) // Register the service to the router group
 }
 
+// Engine is the main struct that represents the Orbit engine.
 type Engine struct {
-	running  bool
-	endpoint string
-	ginSvr   *gin.Engine
-	httpSvr  *http.Server
-	root     *gin.RouterGroup
-	config   *Config
-	opts     *Options
-	lock     sync.RWMutex
-	wg       sync.WaitGroup
-	once     sync.Once
-	ctx      context.Context
-	cancel   context.CancelFunc
-	handlers []gin.HandlerFunc
-	services []Service
+	running  bool               // Indicates if the engine is running
+	endpoint string             // The endpoint of the engine
+	ginSvr   *gin.Engine        // The Gin engine
+	httpSvr  *http.Server       // The HTTP server
+	root     *gin.RouterGroup   // The root router group
+	config   *Config            // The engine configuration
+	opts     *Options           // The engine options
+	lock     sync.RWMutex       // Mutex for concurrent access
+	wg       sync.WaitGroup     // WaitGroup for graceful shutdown
+	once     sync.Once          // Once for graceful shutdown
+	ctx      context.Context    // Context for graceful shutdown
+	cancel   context.CancelFunc // Cancel function for graceful shutdown
+	handlers []gin.HandlerFunc  // List of middleware handlers
+	services []Service          // List of registered services
 }
 
+// NewEngine creates a new instance of the Engine.
 func NewEngine(config *Config, options *Options) *Engine {
 	config = isConfigValid(config)
 	if config.ReleaseMode {
@@ -110,6 +113,7 @@ func NewEngine(config *Config, options *Options) *Engine {
 	return &engine
 }
 
+// Run starts the Orbit engine.
 func (e *Engine) Run() {
 	// Prevent duplicate startup
 	e.lock.Lock()
@@ -159,6 +163,7 @@ func (e *Engine) Run() {
 	e.once = sync.Once{}
 }
 
+// Stop stops the Orbit engine.
 func (e *Engine) Stop() {
 	e.once.Do(func() {
 		e.lock.Lock()
@@ -176,12 +181,14 @@ func (e *Engine) Stop() {
 	})
 }
 
+// IsRunning returns true if the Orbit engine is running.
 func (e *Engine) IsRunning() bool {
 	e.lock.RLock()
 	defer e.lock.RUnlock()
 	return e.running
 }
 
+// registerAllServices registers all services to the root router group.
 func (e *Engine) registerAllServices() {
 	e.lock.RLock()
 	defer e.lock.RUnlock()
@@ -192,6 +199,7 @@ func (e *Engine) registerAllServices() {
 	}
 }
 
+// registerAllMiddlewares registers all middlewares to the engine.
 func (e *Engine) registerAllMiddlewares() {
 	e.lock.Lock()
 	defer e.lock.Unlock()
@@ -202,6 +210,7 @@ func (e *Engine) registerAllMiddlewares() {
 	}
 }
 
+// RegisterService registers a service to the Orbit engine.
 func (e *Engine) RegisterService(service Service) {
 	e.lock.Lock()
 	defer e.lock.Unlock()
@@ -210,6 +219,7 @@ func (e *Engine) RegisterService(service Service) {
 	}
 }
 
+// RegisterMiddleware registers a middleware to the Orbit engine.
 func (e *Engine) RegisterMiddleware(handler gin.HandlerFunc) {
 	e.lock.Lock()
 	defer e.lock.Unlock()

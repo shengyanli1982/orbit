@@ -15,20 +15,20 @@ var (
 	defaultIdleTimeout       = uint32(15000)  // http idle timeout
 )
 
-// Configuration
+// Configuration represents the configuration for the Orbit framework.
 type Config struct {
-	Address               string             `json:"address,omitempty" yaml:"address,omitempty"`
-	Port                  uint16             `json:"port,omitempty" yaml:"port,omitempty"`
-	ReleaseMode           bool               `json:"releaseMode,omitempty" yaml:"releaseMode,omitempty"`
-	HttpReadTimeout       uint32             `json:"httpReadTimeout,omitempty" yaml:"httpReadTimeout,omitempty"`
-	HttpWriteTimeout      uint32             `json:"httpWriteTimeout,omitempty" yaml:"httpWriteTimeout,omitempty"`
-	HttpReadHeaderTimeout uint32             `json:"httpReadHeaderTimeout,omitempty" yaml:"httpReadHeaderTimeout,omitempty"`
-	Logger                *zap.SugaredLogger `json:"-" yaml:"-"`
-	AccessLogEventFunc    com.LogEventFunc   `json:"-" yaml:"-"`
-	RecoveryLogEventFunc  com.LogEventFunc   `json:"-" yaml:"-"`
+	Address               string             `json:"address,omitempty" yaml:"address,omitempty"`                             // Address to listen on
+	Port                  uint16             `json:"port,omitempty" yaml:"port,omitempty"`                                   // Port to listen on
+	ReleaseMode           bool               `json:"releaseMode,omitempty" yaml:"releaseMode,omitempty"`                     // Release mode flag
+	HttpReadTimeout       uint32             `json:"httpReadTimeout,omitempty" yaml:"httpReadTimeout,omitempty"`             // HTTP read timeout
+	HttpWriteTimeout      uint32             `json:"httpWriteTimeout,omitempty" yaml:"httpWriteTimeout,omitempty"`           // HTTP write timeout
+	HttpReadHeaderTimeout uint32             `json:"httpReadHeaderTimeout,omitempty" yaml:"httpReadHeaderTimeout,omitempty"` // HTTP read header timeout
+	Logger                *zap.SugaredLogger `json:"-" yaml:"-"`                                                             // Logger instance
+	AccessLogEventFunc    com.LogEventFunc   `json:"-" yaml:"-"`                                                             // Access log event function
+	RecoveryLogEventFunc  com.LogEventFunc   `json:"-" yaml:"-"`                                                             // Recovery log event function
 }
 
-// NewConfig creates a new config
+// NewConfig creates a new Config instance with default values.
 func NewConfig() *Config {
 	return &Config{
 		Address:               defaultHttpListenAddress,
@@ -43,70 +43,72 @@ func NewConfig() *Config {
 	}
 }
 
-// WithSugaredLogger sets a new sugared logger
+// WithSugaredLogger sets a new sugared logger for the Config instance.
 func (c *Config) WithSugaredLogger(logger *zap.SugaredLogger) *Config {
 	c.Logger = logger
 	return c
 }
 
-// WithLogger sets a new logger
+// WithLogger sets a new logger for the Config instance.
 func (c *Config) WithLogger(logger *zap.Logger) *Config {
 	c.Logger = logger.Sugar()
 	return c
 }
 
-// WithAddress sets a new address
+// WithAddress sets a new address for the Config instance.
 func (c *Config) WithAddress(address string) *Config {
 	c.Address = address
 	return c
 }
 
-// WithPort sets a new port
+// WithPort sets a new port for the Config instance.
 func (c *Config) WithPort(port uint16) *Config {
 	c.Port = port
 	return c
 }
 
-// WithRelease sets to Release mode
+// WithRelease sets the Config instance to release mode.
 func (c *Config) WithRelease() *Config {
 	c.ReleaseMode = true
 	return c
 }
 
-// WithHttpReadTimeout sets a new Http read timeout
+// WithHttpReadTimeout sets a new HTTP read timeout for the Config instance.
 func (c *Config) WithHttpReadTimeout(timeout uint32) *Config {
 	c.HttpReadTimeout = timeout
 	return c
 }
 
-// WithHttpWriteTimeout sets a new Http write timeout
+// WithHttpWriteTimeout sets a new HTTP write timeout for the Config instance.
 func (c *Config) WithHttpWriteTimeout(timeout uint32) *Config {
 	c.HttpWriteTimeout = timeout
 	return c
 }
 
-// WithHttpReadHeaderTimeout sets a new Http read header timeout
+// WithHttpReadHeaderTimeout sets a new HTTP read header timeout for the Config instance.
 func (c *Config) WithHttpReadHeaderTimeout(timeout uint32) *Config {
 	c.HttpReadHeaderTimeout = timeout
 	return c
 }
 
+// WithAccessLogEventFunc sets a new access log event function for the Config instance.
 func (c *Config) WithAccessLogEventFunc(fn com.LogEventFunc) *Config {
 	c.AccessLogEventFunc = fn
 	return c
 }
 
+// WithRecoveryLogEventFunc sets a new recovery log event function for the Config instance.
 func (c *Config) WithRecoveryLogEventFunc(fn com.LogEventFunc) *Config {
 	c.RecoveryLogEventFunc = fn
 	return c
 }
 
-// DefaultConfig returns a default config
+// DefaultConfig returns a new Config instance with default values.
 func DefaultConfig() *Config {
 	return NewConfig()
 }
 
-// isConfigValid checks if the configuration is valid
+// isConfigValid checks if the configuration is valid and applies default values if necessary.
 func isConfigValid(conf *Config) *Config {
 	if conf != nil {
 		if len(strings.TrimSpace(conf.Address)) == 0 {
@@ -140,6 +142,7 @@ func isConfigValid(conf *Config) *Config {
 	return conf
 }
 
+// DefaultAccessEventFunc is the default access log event function.
 func DefaultAccessEventFunc(logger *zap.SugaredLogger, event *bp.LogEvent) {
 	logger.Infow(
 		event.Message,
@@ -158,6 +161,7 @@ func DefaultAccessEventFunc(logger *zap.SugaredLogger, event *bp.LogEvent) {
 	)
 }
 
+// DefaultRecoveryEventFunc is the default recovery log event function.
 func DefaultRecoveryEventFunc(logger *zap.SugaredLogger, event *bp.LogEvent) {
 	logger.Errorw(
 		event.Message,

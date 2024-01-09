@@ -5,15 +5,20 @@ package json
 
 import jsoniter "github.com/json-iterator/go"
 
-var (
-	json          = jsoniter.ConfigCompatibleWithStandardLibrary
-	Marshal       = json.Marshal
-	Unmarshal     = json.Unmarshal
-	MarshalIndent = json.MarshalIndent
-	NewDecoder    = json.NewDecoder
-	NewEncoder    = json.NewEncoder
-)
+// json is an instance of jsoniter.ConfigCompatibleWithStandardLibrary.
+var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
-type (
-	RawMessage = jsoniter.RawMessage
-)
+// Unmarshal is a function that converts JSON to a Go value.
+var Unmarshal = json.Unmarshal
+
+// MarshalIndent is a function that converts a Go value to JSON with indentation.
+var MarshalIndent = json.MarshalIndent
+
+// NewDecoder is a function that creates a new JSON decoder.
+var NewDecoder = json.NewDecoder
+
+// NewEncoder is a function that creates a new JSON encoder.
+var NewEncoder = json.NewEncoder
+
+// RawMessage is a raw encoded JSON value.
+type RawMessage = json.RawMessage

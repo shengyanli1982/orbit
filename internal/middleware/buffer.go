@@ -8,6 +8,7 @@ import (
 	omid "github.com/shengyanli1982/orbit/utils/middleware"
 )
 
+// BodyBuffer is a middleware that buffers the request and response bodies.
 func BodyBuffer() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Skip resources that do not need to be recorded

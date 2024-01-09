@@ -4,8 +4,11 @@ import (
 	bp "github.com/shengyanli1982/orbit/internal/pool"
 )
 
-var (
-	RequestBodyBufferPool  = bp.NewBufferPool(0)
-	ResponseBodyBufferPool = bp.NewBufferPool(0)
-	LogEventPool           = bp.NewLogEventPool()
-)
+// RequestBodyBufferPool is a buffer pool for request bodies.
+var RequestBodyBufferPool = bp.NewBufferPool(0)
+
+// ResponseBodyBufferPool is a buffer pool for response bodies.
+var ResponseBodyBufferPool = bp.NewBufferPool(0)
+
+// LogEventPool is a pool for log events.
+var LogEventPool = bp.NewLogEventPool()
