@@ -17,17 +17,15 @@ var (
 	defaultLoggerName = "default"
 )
 
-// 根据 build 参数定义使用那种 json 解析器
-// Use json parser based on build parameters
-func jsonReflectedEncoder(w io.Writer) zapcore.ReflectedEncoder {
+// UseJSONReflectedEncoder returns a zapcore.ReflectedEncoder using json parser
+func UseJSONReflectedEncoder(w io.Writer) zapcore.ReflectedEncoder {
 	enc := json.NewEncoder(w)
 	enc.SetEscapeHTML(false)
 	return enc
 }
 
-// 日志编码配置
-// Log encoding configuration
-var enccfg = zapcore.EncoderConfig{
+// LogEncodingConfig represents the log encoding configuration
+var LogEncodingConfig = zapcore.EncoderConfig{
 	TimeKey:             "time",
 	LevelKey:            "level",
 	NameKey:             "logger",
@@ -36,18 +34,17 @@ var enccfg = zapcore.EncoderConfig{
 	MessageKey:          "message",
 	StacktraceKey:       "stacktrace",
 	LineEnding:          zapcore.DefaultLineEnding,
-	EncodeLevel:         zapcore.CapitalLevelEncoder, // 日志级别使用大写显示 (Log level is displayed in uppercase)
-	EncodeTime:          zapcore.ISO8601TimeEncoder,  // 自定义输出时间格式 (Custom output time format)
+	EncodeLevel:         zapcore.CapitalLevelEncoder,
+	EncodeTime:          zapcore.ISO8601TimeEncoder,
 	EncodeDuration:      zapcore.StringDurationEncoder,
 	EncodeCaller:        zapcore.ShortCallerEncoder,
-	NewReflectedEncoder: jsonReflectedEncoder, // 使用 json 解析器 (Use json parser)
+	NewReflectedEncoder: UseJSONReflectedEncoder,
 }
 
 type Logger struct {
 	l *zap.Logger
 }
 
-// NewLogger 创建一个新的日志记录器
 // NewLogger creates a new logger
 func NewLogger(ws zapcore.WriteSyncer, opts ...zap.Option) *Logger {
 	if ws == nil {
@@ -55,34 +52,30 @@ func NewLogger(ws zapcore.WriteSyncer, opts ...zap.Option) *Logger {
 	}
 
 	core := zapcore.NewCore(
-		zapcore.NewJSONEncoder(enccfg), // 构建 json 解码器 (Build json decoder)
+		zapcore.NewJSONEncoder(LogEncodingConfig),
 		ws,
-		zap.NewAtomicLevelAt(zap.DebugLevel), // 将日志级别设置为 DEBUG (Set log level to DEBUG)
+		zap.NewAtomicLevelAt(zap.DebugLevel),
 	)
 
 	return &Logger{l: zap.New(core, zap.AddCaller()).WithOptions(opts...)}
 }
 
-// 返回 zap 日志记录器
-// Return zap logger
-func (l *Logger) L() *zap.Logger {
+// GetZapLogger returns the zap logger
+func (l *Logger) GetZapLogger() *zap.Logger {
 	return l.l
 }
 
-// 返回 zap 日志记录器的 sugar
-// Return zap logger sugar
-func (l *Logger) S() *zap.SugaredLogger {
+// GetZapSugaredLogger returns the zap logger sugar
+func (l *Logger) GetZapSugaredLogger() *zap.SugaredLogger {
 	return l.l.Sugar()
 }
 
-// 返回标准库日志记录器
-// Return standard library logger
-func (l *Logger) Std() *log.Logger {
+// GetStdLogger returns the standard library logger
+func (l *Logger) GetStdLogger() *log.Logger {
 	return zap.NewStdLog(l.l)
 }
 
-// 返回 logr 日志记录器
-// Return logr logger
-func (l *Logger) Lr() logr.Logger {
+// GetLogrLogger returns the logr logger
+func (l *Logger) GetLogrLogger() logr.Logger {
 	return zapr.NewLogger(l.l)
 }

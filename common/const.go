@@ -1,28 +1,32 @@
 package common
 
-import "github.com/gin-gonic/gin/binding"
+import (
+	"github.com/gin-gonic/gin/binding"
+	bp "github.com/shengyanli1982/orbit/internal/pool"
+	"go.uber.org/zap"
+)
 
 const (
 	HttpHeaderContentType                = "Content-Type"
-	HttpHeaderJsonContentTypeValue       = binding.MIMEJSON
-	HttpHeaderXmlContentTypeValue        = binding.MIMEXML
-	HttpHeaderXml2ContentTypeValue       = binding.MIMEXML2
-	HttpHeaderYamlContentTypeValue       = binding.MIMEYAML
-	HttpHeaderTomlContentTypeValue       = binding.MIMETOML
+	HttpHeaderJSONContentTypeValue       = binding.MIMEJSON
+	HttpHeaderXMLContentTypeValue        = binding.MIMEXML
+	HttpHeaderXML2ContentTypeValue       = binding.MIMEXML2
+	HttpHeaderYAMLContentTypeValue       = binding.MIMEYAML
+	HttpHeaderTOMLContentTypeValue       = binding.MIMETOML
 	HttpHeaderTextContentTypeValue       = binding.MIMEPlain
 	HttpHeaderJavascriptContentTypeValue = "application/javascript"
 )
 
 const (
-	HttpRequestID = "X-Request-Id"
+	HttpHeaderRequestID = "X-Request-Id"
 )
 
 const (
-	PromMetricUrlPath      = "/metrics"
-	HttpHealthCheckUrlPath = "/ping"
-	RootUrlPath            = "/"
-	HttpSwaggerUrlPath     = "/docs"
-	HttpPprofUrlPath       = "/debug/pprof"
+	PromMetricURLPath  = "/metrics"
+	HealthCheckURLPath = "/ping"
+	RootURLPath        = "/"
+	SwaggerURLPath     = "/docs"
+	PprofURLPath       = "/debug/pprof"
 )
 
 const (
@@ -32,10 +36,12 @@ const (
 )
 
 const (
-	HttpRequestOkCode    int64 = 0
-	HttpRequestErrorCode int64 = iota + 10
+	RequestOKCode    int64 = 0
+	RequestErrorCode int64 = iota + 10
 )
 
 const (
-	HttpRequestOk = "success"
+	RequestOK = "success"
 )
+
+type LogEventFunc func(logger *zap.SugaredLogger, event *bp.LogEvent)

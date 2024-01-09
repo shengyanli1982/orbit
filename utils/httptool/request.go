@@ -17,13 +17,13 @@ var (
 )
 
 var contentTypes = []string{
-	com.HttpHeaderJsonContentTypeValue,
+	com.HttpHeaderJSONContentTypeValue,
 	com.HttpHeaderJavascriptContentTypeValue,
 	com.HttpHeaderTextContentTypeValue,
-	com.HttpHeaderXmlContentTypeValue,
-	com.HttpHeaderXml2ContentTypeValue,
-	com.HttpHeaderYamlContentTypeValue,
-	com.HttpHeaderTomlContentTypeValue,
+	com.HttpHeaderXMLContentTypeValue,
+	com.HttpHeaderXML2ContentTypeValue,
+	com.HttpHeaderYAMLContentTypeValue,
+	com.HttpHeaderTOMLContentTypeValue,
 }
 
 // CalcRequestSize返回请求(request)对象的大小
@@ -102,7 +102,7 @@ func GenerateRequestBody(c *gin.Context) ([]byte, error) {
 	if o, ok := c.Get(com.RequestBodyBufferKey); ok {
 		buf = o.(*bytes.Buffer)
 	} else {
-		buf = com.ReqBodyBuffPool.Get()
+		buf = com.RequestBodyBufferPool.Get()
 		c.Set(com.RequestBodyBufferKey, buf)
 	}
 

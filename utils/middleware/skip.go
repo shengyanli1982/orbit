@@ -8,10 +8,10 @@ import (
 )
 
 var skipPaths = []string{
-	com.PromMetricUrlPath,
-	com.HttpHealthCheckUrlPath,
-	com.HttpSwaggerUrlPath,
-	com.HttpPprofUrlPath,
+	com.PromMetricURLPath,
+	com.HealthCheckURLPath,
+	com.SwaggerURLPath,
+	com.PprofURLPath,
 }
 
 func SkipResources(c *gin.Context) bool {

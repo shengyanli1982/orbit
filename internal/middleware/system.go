@@ -11,51 +11,10 @@ import (
 	"github.com/gin-gonic/gin"
 	com "github.com/shengyanli1982/orbit/common"
 	"github.com/shengyanli1982/orbit/internal/conver"
-	bp "github.com/shengyanli1982/orbit/internal/pool"
 	"github.com/shengyanli1982/orbit/utils/httptool"
 	omid "github.com/shengyanli1982/orbit/utils/middleware"
 	"go.uber.org/zap"
 )
-
-type LogEventFunc func(l *zap.SugaredLogger, e *bp.LogEvent)
-
-func DefaultAcceseEventFunc(l *zap.SugaredLogger, e *bp.LogEvent) {
-	l.Infow(
-		e.Message,
-		"id", e.ID,
-		"ip", e.IP,
-		"endpoint", e.EndPoint,
-		"path", e.Path,
-		"method", e.Method,
-		"code", e.Code,
-		"status", e.Status,
-		"latency", e.Latency,
-		"agent", e.Agent,
-		"query", e.ReqQuery,
-		"reqContentType", e.ReqContentType,
-		"reqBody", e.ReqBody,
-	)
-}
-
-func DefaultRecoveryEventFunc(l *zap.SugaredLogger, e *bp.LogEvent) {
-	l.Errorw(
-		e.Message,
-		"id", e.ID,
-		"ip", e.IP,
-		"endpoint", e.EndPoint,
-		"path", e.Path,
-		"method", e.Method,
-		"code", e.Code,
-		"status", e.Status,
-		"latency", e.Latency,
-		"agent", e.Agent,
-		"query", e.ReqQuery,
-		"reqContentType", e.ReqContentType,
-		"reqBody", e.ReqBody,
-		"error", e.Error,
-		"errorStack", e.ErrorStack,
-	)
-}
 
 // 解决跨站
 func Cors() gin.HandlerFunc {
@@ -78,10 +37,10 @@ func Cors() gin.HandlerFunc {
 	}
 }
 
-func AccessLogger(l *zap.SugaredLogger, fn LogEventFunc, record bool) gin.HandlerFunc {
+func AccessLogger(logger *zap.SugaredLogger, logEventFunc com.LogEventFunc, record bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// 设置日志指针
-		c.Set(com.RequestLoggerKey, l)
+		c.Set(com.RequestLoggerKey, logger)
 
 		// 跳过不需要记录的路径
 		if omid.SkipResources(c) {
@@ -96,9 +55,9 @@ func AccessLogger(l *zap.SugaredLogger, fn LogEventFunc, record bool) gin.Handle
 		path := httptool.GenerateRequestPath(c)
 		requestContentType := httptool.StringFilterFlags(c.Request.Header.Get(com.HttpHeaderContentType))
 
-		var reqBody []byte
+		var requestBody []byte
 		if record && httptool.CanRecordContextBody(c.Request.Header) {
-			reqBody, _ = httptool.GenerateRequestBody(c)
+			requestBody, _ = httptool.GenerateRequestBody(c)
 		}
 
 		// 下一个
@@ -106,29 +65,29 @@ func AccessLogger(l *zap.SugaredLogger, fn LogEventFunc, record bool) gin.Handle
 
 		// response 返回
 		if len(c.Errors) > 0 {
-			for _, e := range c.Errors.Errors() {
-				l.Error(e)
+			for _, err := range c.Errors.Errors() {
+				logger.Error(err)
 			}
 		} else {
 			latency := time.Since(start)
 
-			e := com.LogEventPool.Get()
-			e.Message = "http server access log"
-			e.ID = c.GetHeader(com.HttpRequestID)
-			e.IP = c.ClientIP()
-			e.EndPoint = c.Request.RemoteAddr
-			e.Path = path
-			e.Method = c.Request.Method
-			e.Code = c.Writer.Status()
-			e.Status = http.StatusText(e.Code)
-			e.Latency = latency.String()
-			e.Agent = c.Request.UserAgent()
-			e.ReqContentType = requestContentType
-			e.ReqQuery = c.Request.URL.RawQuery
-			e.ReqBody = conver.BytesToString(reqBody)
+			event := com.LogEventPool.Get()
+			event.Message = "http server access log"
+			event.ID = c.GetHeader(com.HttpHeaderRequestID)
+			event.IP = c.ClientIP()
+			event.EndPoint = c.Request.RemoteAddr
+			event.Path = path
+			event.Method = c.Request.Method
+			event.Code = c.Writer.Status()
+			event.Status = http.StatusText(event.Code)
+			event.Latency = latency.String()
+			event.Agent = c.Request.UserAgent()
+			event.ReqContentType = requestContentType
+			event.ReqQuery = c.Request.URL.RawQuery
+			event.ReqBody = conver.BytesToString(requestBody)
 
-			fn(l, e)
-			com.LogEventPool.Put(e)
+			logEventFunc(logger, event)
+			com.LogEventPool.Put(event)
 		}
 
 		// 回收日志读取对象指针
@@ -137,7 +96,7 @@ func AccessLogger(l *zap.SugaredLogger, fn LogEventFunc, record bool) gin.Handle
 }
 
 // Recovery recover 掉项目可能出现的panic，并使用zap记录相关日志
-func Recovery(l *zap.SugaredLogger, fn LogEventFunc) gin.HandlerFunc {
+func Recovery(logger *zap.SugaredLogger, logEventFunc com.LogEventFunc) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		defer func() {
 			if err := recover(); err != nil {
@@ -154,31 +113,31 @@ func Recovery(l *zap.SugaredLogger, fn LogEventFunc) gin.HandlerFunc {
 				}
 
 				if brokenPipe {
-					l.Error("broken connection", zap.Any("error", err))
+					logger.Error("broken connection", zap.Any("error", err))
 				} else {
 					var body []byte
 					path := httptool.GenerateRequestPath(c)
 					body, _ = httptool.GenerateRequestBody(c)
 					requestContentType := httptool.StringFilterFlags(c.Request.Header.Get(com.HttpHeaderContentType))
 
-					e := com.LogEventPool.Get()
-					e.Message = "http server recovery from panic"
-					e.ID = c.GetHeader(com.HttpRequestID)
-					e.IP = c.ClientIP()
-					e.EndPoint = c.Request.RemoteAddr
-					e.Path = path
-					e.Method = c.Request.Method
-					e.Code = c.Writer.Status()
-					e.Status = http.StatusText(e.Code)
-					e.Agent = c.Request.UserAgent()
-					e.ReqContentType = requestContentType
-					e.ReqQuery = c.Request.URL.RawQuery
-					e.ReqBody = conver.BytesToString(body)
-					e.Error = err
-					e.ErrorStack = conver.BytesToString(debug.Stack())
+					event := com.LogEventPool.Get()
+					event.Message = "http server recovery from panic"
+					event.ID = c.GetHeader(com.HttpHeaderRequestID)
+					event.IP = c.ClientIP()
+					event.EndPoint = c.Request.RemoteAddr
+					event.Path = path
+					event.Method = c.Request.Method
+					event.Code = c.Writer.Status()
+					event.Status = http.StatusText(event.Code)
+					event.Agent = c.Request.UserAgent()
+					event.ReqContentType = requestContentType
+					event.ReqQuery = c.Request.URL.RawQuery
+					event.ReqBody = conver.BytesToString(body)
+					event.Error = err
+					event.ErrorStack = conver.BytesToString(debug.Stack())
 
-					fn(l, e)
-					com.LogEventPool.Put(e)
+					logEventFunc(logger, event)
+					com.LogEventPool.Put(event)
 				}
 
 				// If the connection is dead, we can't write a status to it.

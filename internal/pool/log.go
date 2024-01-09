@@ -1,6 +1,8 @@
 package pool
 
-import "sync"
+import (
+	"sync"
+)
 
 type LogEvent struct {
 	Message        string `json:"message,omitempty" yaml:"message,omitempty"`
@@ -9,7 +11,7 @@ type LogEvent struct {
 	EndPoint       string `json:"endpoint,omitempty" yaml:"endpoint,omitempty"`
 	Path           string `json:"path,omitempty" yaml:"path,omitempty"`
 	Method         string `json:"method,omitempty" yaml:"method,omitempty"`
-	Code           int    `json:"statuscode,omitempty" yaml:"statucode,omitempty"`
+	Code           int    `json:"statusCode,omitempty" yaml:"statusCode,omitempty"`
 	Status         string `json:"status,omitempty" yaml:"status,omitempty"`
 	Latency        string `json:"latency,omitempty" yaml:"latency,omitempty"`
 	Agent          string `json:"agent,omitempty" yaml:"agent,omitempty"`
@@ -39,12 +41,12 @@ func (e *LogEvent) Reset() {
 }
 
 type LogEventPool struct {
-	bp *sync.Pool
+	eventPool *sync.Pool
 }
 
 func NewLogEventPool() *LogEventPool {
 	return &LogEventPool{
-		bp: &sync.Pool{
+		eventPool: &sync.Pool{
 			New: func() interface{} {
 				return &LogEvent{}
 			},
@@ -53,12 +55,12 @@ func NewLogEventPool() *LogEventPool {
 }
 
 func (p *LogEventPool) Get() *LogEvent {
-	return p.bp.Get().(*LogEvent)
+	return p.eventPool.Get().(*LogEvent)
 }
 
 func (p *LogEventPool) Put(e *LogEvent) {
 	if e != nil {
 		e.Reset()
-		p.bp.Put(e)
+		p.eventPool.Put(e)
 	}
 }

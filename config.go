@@ -4,19 +4,19 @@ import (
 	"strings"
 	"time"
 
-	m "github.com/shengyanli1982/orbit/internal/middleware"
+	com "github.com/shengyanli1982/orbit/common"
+	bp "github.com/shengyanli1982/orbit/internal/pool"
 	"go.uber.org/zap"
 )
 
 var (
 	defaultConsoleLogger     = NewLogger(nil)                            // default console logger
-	defaultHttpListemAddress = "127.0.0.0"                               // default http listen address
-	defaultHttpListemPort    = uint16(8080)                              // default http listen port
+	defaultHttpListenAddress = "127.0.0.0"                               // default http listen address
+	defaultHttpListenPort    = uint16(8080)                              // default http listen port
 	defaultIdleTimeout       = uint32((15 * time.Second).Milliseconds()) // http idle timeout
 )
 
-// 配置
-// configuration
+// Configuration
 type Config struct {
 	Address               string             `json:"address,omitempty" yaml:"address,omitempty"`
 	Port                  uint16             `json:"port,omitempty" yaml:"port,omitempty"`
@@ -25,107 +25,96 @@ type Config struct {
 	HttpWriteTimeout      uint32             `json:"httpWriteTimeout,omitempty" yaml:"httpWriteTimeout,omitempty"`
 	HttpReadHeaderTimeout uint32             `json:"httpReadHeaderTimeout,omitempty" yaml:"httpReadHeaderTimeout,omitempty"`
 	Logger                *zap.SugaredLogger `json:"-" yaml:"-"`
-	AccessLogEventFunc    m.LogEventFunc     `json:"-" yaml:"-"`
-	RecoveryLogEventFunc  m.LogEventFunc     `json:"-" yaml:"-"`
+	AccessLogEventFunc    com.LogEventFunc   `json:"-" yaml:"-"`
+	RecoveryLogEventFunc  com.LogEventFunc   `json:"-" yaml:"-"`
 }
 
-// NewConfig 创建一个新的配置
 // NewConfig creates a new config
 func NewConfig() *Config {
 	return &Config{
-		Address:               defaultHttpListemAddress,
-		Port:                  defaultHttpListemPort,
+		Address:               defaultHttpListenAddress,
+		Port:                  defaultHttpListenPort,
 		ReleaseMode:           false,
 		HttpReadTimeout:       defaultIdleTimeout,
 		HttpWriteTimeout:      defaultIdleTimeout,
 		HttpReadHeaderTimeout: defaultIdleTimeout,
-		Logger:                defaultConsoleLogger.S().Named(defaultLoggerName),
-		AccessLogEventFunc:    m.DefaultAcceseEventFunc,
-		RecoveryLogEventFunc:  m.DefaultRecoveryEventFunc,
+		Logger:                defaultConsoleLogger.GetZapSugaredLogger().Named(defaultLoggerName),
+		AccessLogEventFunc:    DefaultAccessEventFunc,
+		RecoveryLogEventFunc:  DefaultRecoveryEventFunc,
 	}
 }
 
-// WithSugaredLogger 设置一个新的日志记录器
 // WithSugaredLogger sets a new sugared logger
 func (c *Config) WithSugaredLogger(logger *zap.SugaredLogger) *Config {
 	c.Logger = logger
 	return c
 }
 
-// WithLogger 设置一个新的日志记录器
 // WithLogger sets a new logger
 func (c *Config) WithLogger(logger *zap.Logger) *Config {
 	c.Logger = logger.Sugar()
 	return c
 }
 
-// WithAddress 设置一个新的地址
 // WithAddress sets a new address
 func (c *Config) WithAddress(address string) *Config {
 	c.Address = address
 	return c
 }
 
-// WithPort 设置一个新的端口
 // WithPort sets a new port
 func (c *Config) WithPort(port uint16) *Config {
 	c.Port = port
 	return c
 }
 
-// WithRelease 设置为 Release 模式
 // WithRelease sets to Release mode
 func (c *Config) WithRelease() *Config {
 	c.ReleaseMode = true
 	return c
 }
 
-// WithHttpReadTimeout 设置一个新的 Http 读取超时时间
 // WithHttpReadTimeout sets a new Http read timeout
 func (c *Config) WithHttpReadTimeout(timeout uint32) *Config {
 	c.HttpReadTimeout = timeout
 	return c
 }
 
-// WithHttpWriteTimeout 设置一个新的 Http 写入超时时间
 // WithHttpWriteTimeout sets a new Http write timeout
 func (c *Config) WithHttpWriteTimeout(timeout uint32) *Config {
 	c.HttpWriteTimeout = timeout
 	return c
 }
 
-// WithHttpReadHeaderTimeout 设置一个新的 Http 读取头部超时时间
 // WithHttpReadHeaderTimeout sets a new Http read header timeout
 func (c *Config) WithHttpReadHeaderTimeout(timeout uint32) *Config {
 	c.HttpReadHeaderTimeout = timeout
 	return c
 }
 
-func (c *Config) WithAccessLogEventFunc(fn m.LogEventFunc) *Config {
+func (c *Config) WithAccessLogEventFunc(fn com.LogEventFunc) *Config {
 	c.AccessLogEventFunc = fn
 	return c
 }
 
-func (c *Config) WithRecoveryLogEventFunc(fn m.LogEventFunc) *Config {
+func (c *Config) WithRecoveryLogEventFunc(fn com.LogEventFunc) *Config {
 	c.RecoveryLogEventFunc = fn
 	return c
 }
 
-// DefaultConfig 返回一个默认配置
 // DefaultConfig returns a default config
 func DefaultConfig() *Config {
 	return NewConfig()
 }
 
-// isConfigValid 检查配置是否有效
 // isConfigValid checks if the configuration is valid
 func isConfigValid(conf *Config) *Config {
 	if conf != nil {
 		if len(strings.TrimSpace(conf.Address)) == 0 {
-			conf.Address = defaultHttpListemAddress
+			conf.Address = defaultHttpListenAddress
 		}
 		if conf.Port <= 0 {
-			conf.Port = defaultHttpListemPort
+			conf.Port = defaultHttpListenPort
 		}
 		if conf.HttpReadTimeout <= 0 {
 			conf.HttpReadTimeout = defaultIdleTimeout
@@ -137,17 +126,55 @@ func isConfigValid(conf *Config) *Config {
 			conf.HttpReadHeaderTimeout = defaultIdleTimeout
 		}
 		if conf.Logger == nil {
-			conf.Logger = defaultConsoleLogger.S().Named(defaultLoggerName)
+			conf.Logger = defaultConsoleLogger.GetZapSugaredLogger().Named(defaultLoggerName)
 		}
 		if conf.AccessLogEventFunc == nil {
-			conf.AccessLogEventFunc = m.DefaultAcceseEventFunc
+			conf.AccessLogEventFunc = DefaultAccessEventFunc
 		}
 		if conf.RecoveryLogEventFunc == nil {
-			conf.RecoveryLogEventFunc = m.DefaultRecoveryEventFunc
+			conf.RecoveryLogEventFunc = DefaultRecoveryEventFunc
 		}
 	} else {
 		conf = NewConfig()
 	}
 
 	return conf
+}
+
+func DefaultAccessEventFunc(logger *zap.SugaredLogger, event *bp.LogEvent) {
+	logger.Infow(
+		event.Message,
+		"id", event.ID,
+		"ip", event.IP,
+		"endpoint", event.EndPoint,
+		"path", event.Path,
+		"method", event.Method,
+		"code", event.Code,
+		"status", event.Status,
+		"latency", event.Latency,
+		"agent", event.Agent,
+		"query", event.ReqQuery,
+		"reqContentType", event.ReqContentType,
+		"reqBody", event.ReqBody,
+	)
+}
+
+func DefaultRecoveryEventFunc(logger *zap.SugaredLogger, event *bp.LogEvent) {
+	logger.Errorw(
+		event.Message,
+		"id", event.ID,
+		"ip", event.IP,
+		"endpoint", event.EndPoint,
+		"path", event.Path,
+		"method", event.Method,
+		"code", event.Code,
+		"status", event.Status,
+		"latency", event.Latency,
+		"agent", event.Agent,
+		"query", event.ReqQuery,
+		"reqContentType", event.ReqContentType,
+		"reqBody", event.ReqBody,
+		"error", event.Error,
+		"errorStack", event.ErrorStack,
+	)
 }

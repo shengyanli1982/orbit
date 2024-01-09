@@ -8,29 +8,29 @@ import (
 const DefaultBufferSize = 2048
 
 type BufferPool struct {
-	bp sync.Pool
+	pool sync.Pool
 }
 
-func NewBufferPool(size uint32) *BufferPool {
-	if size <= 0 {
-		size = DefaultBufferSize
+func NewBufferPool(bufferSize uint32) *BufferPool {
+	if bufferSize <= 0 {
+		bufferSize = DefaultBufferSize
 	}
 	return &BufferPool{
-		bp: sync.Pool{
+		pool: sync.Pool{
 			New: func() interface{} {
-				return bytes.NewBuffer(make([]byte, 0, size))
+				return bytes.NewBuffer(make([]byte, 0, bufferSize))
 			},
 		},
 	}
 }
 
 func (p *BufferPool) Get() *bytes.Buffer {
-	return p.bp.Get().(*bytes.Buffer)
+	return p.pool.Get().(*bytes.Buffer)
 }
 
-func (p *BufferPool) Put(b *bytes.Buffer) {
-	if b != nil {
-		b.Reset()
-		p.bp.Put(b)
+func (p *BufferPool) Put(buffer *bytes.Buffer) {
+	if buffer != nil {
+		buffer.Reset()
+		p.pool.Put(buffer)
 	}
 }

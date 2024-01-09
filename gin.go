@@ -41,7 +41,7 @@ func pprofService(g *gin.RouterGroup) {
 }
 
 type Service interface {
-	RegisterGroup(g *gin.RouterGroup)
+	RegisterGroup(routerGroup *gin.RouterGroup)
 }
 
 type Engine struct {
@@ -61,101 +61,101 @@ type Engine struct {
 	services []Service
 }
 
-func NewEngine(conf *Config, opts *Options) *Engine {
-	conf = isConfigValid(conf)
-	if conf.ReleaseMode {
+func NewEngine(config *Config, options *Options) *Engine {
+	config = isConfigValid(config)
+	if config.ReleaseMode {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
 	gin.DisableConsoleColor()
-	e := Engine{
+	engine := Engine{
 		running:  false,
-		endpoint: fmt.Sprintf("%s:%d", conf.Address, conf.Port),
-		config:   conf,
-		opts:     opts,
+		endpoint: fmt.Sprintf("%s:%d", config.Address, config.Port),
+		config:   config,
+		opts:     options,
 		lock:     sync.RWMutex{},
 		wg:       sync.WaitGroup{},
 		once:     sync.Once{},
 	}
-	e.ctx, e.cancel = context.WithTimeout(context.Background(), defaultShutdownTimeout)
-	e.ginSvr = gin.New()
-	e.root = e.ginSvr.Group("/")
+	engine.ctx, engine.cancel = context.WithTimeout(context.Background(), defaultShutdownTimeout)
+	engine.ginSvr = gin.New()
+	engine.root = engine.ginSvr.Group("/")
 
-	// 增加自定义 404/405 输出
-	e.ginSvr.NoRoute(func(c *gin.Context) {
+	// Add custom 404/405 output
+	engine.ginSvr.NoRoute(func(c *gin.Context) {
 		c.String(http.StatusNotFound, "[404] http request route mismatch, method: "+c.Request.Method+", path: "+c.Request.URL.Path)
 	})
-	e.ginSvr.NoMethod(func(c *gin.Context) {
+	engine.ginSvr.NoMethod(func(c *gin.Context) {
 		c.String(http.StatusMethodNotAllowed, "[405] http request method not allowed, method: "+c.Request.Method+", path: "+c.Request.URL.Path)
 	})
 
-	// 添加健康检测
-	e.root.GET(com.HttpHealthCheckUrlPath, func(c *gin.Context) {
+	// Add health check
+	engine.root.GET(com.HealthCheckURLPath, func(c *gin.Context) {
 		c.String(http.StatusOK, "ok!")
 	})
 
-	// 添加 swagger
-	if e.opts.swagger {
-		e.root.GET(com.HttpSwaggerUrlPath+"/*any", gs.WrapHandler(swag.Handler))
+	// Add swagger
+	if engine.opts.swagger {
+		engine.root.GET(com.SwaggerURLPath+"/*any", gs.WrapHandler(swag.Handler))
 	}
 
-	// 添加性能监控接口
-	if e.opts.pprof {
-		pprofService(e.root.Group(com.HttpPprofUrlPath))
+	// Add performance monitoring interface
+	if engine.opts.pprof {
+		pprofService(engine.root.Group(com.PprofURLPath))
 	}
 
-	// 注册中间件
-	e.ginSvr.Use(mid.BodyBuffer(), mid.Recovery(e.config.Logger, e.config.RecoveryLogEventFunc), mid.Cors())
+	// Register middleware
+	engine.ginSvr.Use(mid.BodyBuffer(), mid.Recovery(engine.config.Logger, engine.config.RecoveryLogEventFunc), mid.Cors())
 
-	return &e
+	return &engine
 }
 
 func (e *Engine) Run() {
-	// 防止重复启动
+	// Prevent duplicate startup
 	e.lock.Lock()
 	if e.running {
 		e.lock.Unlock()
 		return
 	}
 
-	// 注册所有中间件
+	// Register all middleware
 	e.registerAllMiddlewares()
 
-	// 注册所有服务
+	// Register all services
 	e.registerAllServices()
 
-	// 注册必要的组件
+	// Register necessary components
 	e.ginSvr.Use(mid.AccessLogger(e.config.Logger, e.config.AccessLogEventFunc, e.opts.recReqBody))
 
-	// 初始化 http server
+	// Initialize http server
 	e.httpSvr = &http.Server{
 		Addr:              e.endpoint,
 		Handler:           e.ginSvr,
 		ReadTimeout:       time.Duration(e.config.HttpReadTimeout) * time.Millisecond,
 		ReadHeaderTimeout: time.Duration(e.config.HttpReadHeaderTimeout) * time.Millisecond,
 		WriteTimeout:      time.Duration(e.config.HttpWriteTimeout) * time.Millisecond,
-		IdleTimeout:       0, // 使用 HttpReadTimeout 做为这里的值
+		IdleTimeout:       0, // Use HttpReadTimeout as the value here
 		MaxHeaderBytes:    math.MaxUint32,
 		ErrorLog:          zap.NewStdLog(e.config.Logger.Desugar()),
 	}
 
-	// 启动 http server
+	// Start http server
 	e.wg.Add(1)
 	go func() {
 		defer e.wg.Done()
 		e.config.Logger.Infow("http server is ready", "address", e.endpoint)
-		e.httpSvr.SetKeepAlivesEnabled(true) // 默认开启 keepalive， grpc/http 共享
+		e.httpSvr.SetKeepAlivesEnabled(true) // Enable keepalive by default, shared by grpc/http
 		if err := e.httpSvr.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			e.config.Logger.Fatalw("failed to start http server", "error", err)
 		}
 	}()
 
-	// 标记为已启动
+	// Mark as running
 	e.lock.Lock()
 	e.running = true
 	e.lock.Unlock()
 
-	// 重置关闭信号
+	// Reset shutdown signal
 	e.once = sync.Once{}
 }
 
@@ -166,7 +166,7 @@ func (e *Engine) Stop() {
 		e.lock.Unlock()
 		e.cancel()
 		e.wg.Wait()
-		// 关闭 http server
+		// Close http server
 		if e.httpSvr != nil {
 			if err := e.httpSvr.Shutdown(e.ctx); err != nil {
 				e.config.Logger.Fatalw("http server forced to shutdown", "address", e.endpoint, "error", err)
@@ -202,11 +202,11 @@ func (e *Engine) registerAllMiddlewares() {
 	}
 }
 
-func (e *Engine) RegisterService(svc Service) {
+func (e *Engine) RegisterService(service Service) {
 	e.lock.Lock()
 	defer e.lock.Unlock()
 	if !e.running {
-		e.services = append(e.services, svc)
+		e.services = append(e.services, service)
 	}
 }
 
