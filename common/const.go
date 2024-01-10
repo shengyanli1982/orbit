@@ -2,7 +2,7 @@ package common
 
 import (
 	"github.com/gin-gonic/gin/binding"
-	bp "github.com/shengyanli1982/orbit/internal/pool"
+	"github.com/shengyanli1982/orbit/utils/log"
 	"go.uber.org/zap"
 )
 
@@ -72,4 +72,4 @@ const RequestErrorCode int64 = 10
 const RequestOK = "success"
 
 // LogEventFunc represents a function for logging events.
-type LogEventFunc func(logger *zap.SugaredLogger, event *bp.LogEvent)
+type LogEventFunc func(logger *zap.SugaredLogger, event *log.LogEvent)

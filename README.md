@@ -231,13 +231,88 @@ $ go run demo.go
 **Example**
 
 ```go
+package main
 
+import (
+	"net/http"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/shengyanli1982/orbit"
+	ocom "github.com/shengyanli1982/orbit/common"
+)
+
+type service struct{}
+
+func (s *service) RegisterGroup(g *gin.RouterGroup) {
+	// Register a custom router group.
+	g = g.Group("/demo")
+
+	// /demo
+	g.GET(ocom.EmptyURLPath, func(c *gin.Context) {
+		c.String(http.StatusOK, "demo")
+	})
+
+	// /demo/test
+	g.GET("/test", func(c *gin.Context) {
+		c.String(http.StatusOK, "test")
+	})
+}
+
+func main() {
+	// Create a new orbit configuration.
+	config := orbit.NewConfig()
+
+	// Create a new orbit feature options.
+	opts := orbit.NewOptions().EnableMetric()
+
+	// Create a new orbit engine.
+	engine := orbit.NewEngine(config, opts)
+
+	// Register a custom router group.
+	engine.RegisterService(&service{})
+
+	// Start the engine.
+	engine.Run()
+
+	// Wait for 30 seconds.
+	time.Sleep(30 * time.Second)
+
+	// Stop the engine.
+	engine.Stop()
+}
 ```
 
 **Result**
 
 ```bash
+$ curl -i http://127.0.0.1:8080/demo
+HTTP/1.1 200 OK
+Access-Control-Allow-Credentials: true
+Access-Control-Allow-Headers: *
+Access-Control-Allow-Methods: POST, GET, OPTIONS, PUT, DELETE, UPDATE
+Access-Control-Allow-Origin: *
+Access-Control-Expose-Headers: Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Cache-Control, Content-Language, Content-Type
+Access-Control-Max-Age: 172800
+Content-Type: text/plain; charset=utf-8
+Date: Wed, 10 Jan 2024 12:09:37 GMT
+Content-Length: 4
 
+demo
+
+$ curl -i http://127.0.0.1:8080/demo/test
+HTTP/1.1 200 OK
+Access-Control-Allow-Credentials: true
+Access-Control-Allow-Headers: *
+Access-Control-Allow-Methods: POST, GET, OPTIONS, PUT, DELETE, UPDATE
+Access-Control-Allow-Origin: *
+Access-Control-Expose-Headers: Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Cache-Control, Content-Language, Content-Type
+Access-Control-Max-Age: 172800
+Content-Type: text/plain; charset=utf-8
+Date: Wed, 10 Jan 2024 12:09:43 GMT
+Content-Length: 4
+
+test
 ```
 
 ## 6. Custom Access Log
@@ -245,13 +320,59 @@ $ go run demo.go
 **Example**
 
 ```go
+package main
 
+import (
+	"net/http"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/shengyanli1982/orbit"
+	"github.com/shengyanli1982/orbit/utils/log"
+	"go.uber.org/zap"
+)
+
+type service struct{}
+
+func (s *service) RegisterGroup(g *gin.RouterGroup) {
+	// /demo
+	g.GET("/demo", func(c *gin.Context) {
+		c.String(http.StatusOK, "demo")
+	})
+}
+
+func customAccessLogger(logger *zap.SugaredLogger, event *log.LogEvent) {
+	logger.Infow("access log", "path", event.Path, "method", event.Method)
+}
+
+func main() {
+	// Create a new orbit configuration.
+	config := orbit.NewConfig().WithAccessLogEventFunc(customAccessLogger)
+
+	// Create a new orbit feature options.
+	opts := orbit.NewOptions()
+
+	// Create a new orbit engine.
+	engine := orbit.NewEngine(config, opts)
+
+	// Register a custom router group.
+	engine.RegisterService(&service{})
+
+	// Start the engine.
+	engine.Run()
+
+	// Wait for 30 seconds.
+	time.Sleep(30 * time.Second)
+
+	// Stop the engine.
+	engine.Stop()
+}
 ```
 
 **Result**
 
 ```bash
-
+{"level":"INFO","time":"2024-01-10T20:22:01.244+0800","logger":"default","caller":"accesslog/demo.go:24","message":"access log","path":"/demo","method":"GET"}
 ```
 
 ## 7. Custom Recovery Log
@@ -259,13 +380,59 @@ $ go run demo.go
 **Example**
 
 ```go
+package main
+
+import (
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/shengyanli1982/orbit"
+	"github.com/shengyanli1982/orbit/utils/log"
+	"go.uber.org/zap"
+)
+
+type service struct{}
+
+func (s *service) RegisterGroup(g *gin.RouterGroup) {
+	// /demo
+	g.GET("/demo", func(c *gin.Context) {
+		panic("demo")
+	})
+}
+
+func customRecoveryLogger(logger *zap.SugaredLogger, event *log.LogEvent) {
+	logger.Infow("recovery log", "path", event.Path, "method", event.Method, "error", event.Error, "errorStack", event.ErrorStack)
+}
+
+func main() {
+	// Create a new orbit configuration.
+	config := orbit.NewConfig().WithRecoveryLogEventFunc(customRecoveryLogger)
+
+	// Create a new orbit feature options.
+	opts := orbit.NewOptions()
+
+	// Create a new orbit engine.
+	engine := orbit.NewEngine(config, opts)
+
+	// Register a custom router group.
+	engine.RegisterService(&service{})
+
+	// Start the engine.
+	engine.Run()
+
+	// Wait for 30 seconds.
+	time.Sleep(30 * time.Second)
+
+	// Stop the engine.
+	engine.Stop()
+}
 
 ```
 
 **Result**
 
 ```bash
-
+{"level":"INFO","time":"2024-01-10T20:27:10.041+0800","logger":"default","caller":"recoverylog/demo.go:22","message":"recovery log","path":"/demo","method":"GET","error":"demo","errorStack":"goroutine 6 [running]:\nruntime/debug.Stack()\n\t/usr/local/go/src/runtime/debug/stack.go:24 +0x65\ngithub.com/shengyanli1982/orbit/internal/middleware.Recovery.func1.1()\n\t/Volumes/DATA/programs/GolandProjects/orbit/internal/middleware/system.go:145 +0x559\npanic({0x170ec80, 0x191cb70})\n\t/usr/local/go/src/runtime/panic.go:884 +0x213\nmain.(*service).RegisterGroup.func1(0x0?)\n\t/Volumes/DATA/programs/GolandProjects/orbit/example/recoverylog/demo.go:17 +0x27\ngithub.com/gin-gonic/gin.(*Context).Next(...)\n\t/Volumes/CACHE/programs/gopkgs/pkg/mod/github.com/gin-gonic/gin@v1.8.2/context.go:173\ngithub.com/shengyanli1982/orbit/internal/middleware.AccessLogger.func1(0xc0001e6300)\n\t/Volumes/DATA/programs/GolandProjects/orbit/internal/middleware/system.go:59 +0x1a5\ngithub.com/gin-gonic/gin.(*Context).Next(...)\n\t/Volumes/CACHE/programs/gopkgs/pkg/mod/github.com/gin-gonic/gin@v1.8.2/context.go:173\ngithub.com/shengyanli1982/orbit/internal/middleware.Cors.func1(0xc0001e6300)\n\t/Volumes/DATA/programs/GolandProjects/orbit/internal/middleware/system.go:35 +0x139\ngithub.com/gin-gonic/gin.(*Context).Next(...)\n\t/Volumes/CACHE/programs/gopkgs/pkg/mod/github.com/gin-gonic/gin@v1.8.2/context.go:173\ngithub.com/shengyanli1982/orbit/internal/middleware.BodyBuffer.func1(0xc0001e6300)\n\t/Volumes/DATA/programs/GolandProjects/orbit/internal/middleware/buffer.go:18 +0x92\ngithub.com/gin-gonic/gin.(*Context).Next(...)\n\t/Volumes/CACHE/programs/gopkgs/pkg/mod/github.com/gin-gonic/gin@v1.8.2/context.go:173\ngithub.com/shengyanli1982/orbit/internal/middleware.Recovery.func1(0xc0001e6300)\n\t/Volumes/DATA/programs/GolandProjects/orbit/internal/middleware/system.go:166 +0x82\ngithub.com/gin-gonic/gin.(*Context).Next(...)\n\t/Volumes/CACHE/programs/gopkgs/pkg/mod/github.com/gin-gonic/gin@v1.8.2/context.go:173\ngithub.com/gin-gonic/gin.(*Engine).handleHTTPRequest(0xc0000076c0, 0xc0001e6300)\n\t/Volumes/CACHE/programs/gopkgs/pkg/mod/github.com/gin-gonic/gin@v1.8.2/gin.go:616 +0x66b\ngithub.com/gin-gonic/gin.(*Engine).ServeHTTP(0xc0000076c0, {0x1924a30?, 0xc0000c02a0}, 0xc0001e6200)\n\t/Volumes/CACHE/programs/gopkgs/pkg/mod/github.com/gin-gonic/gin@v1.8.2/gin.go:572 +0x1dd\nnet/http.serverHandler.ServeHTTP({0xc00008be30?}, {0x1924a30, 0xc0000c02a0}, 0xc0001e6200)\n\t/usr/local/go/src/net/http/server.go:2936 +0x316\nnet/http.(*conn).serve(0xc0000962d0, {0x19253e0, 0xc00008bd40})\n\t/usr/local/go/src/net/http/server.go:1995 +0x612\ncreated by net/http.(*Server).Serve\n\t/usr/local/go/src/net/http/server.go:3089 +0x5ed\n"}
 ```
 
 ## 8. Prometheus Metrics
@@ -273,6 +440,48 @@ $ go run demo.go
 **Example**
 
 ```go
+package main
+
+import (
+	"net/http"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/shengyanli1982/orbit"
+)
+
+type service struct{}
+
+func (s *service) RegisterGroup(g *gin.RouterGroup) {
+	// /demo
+	g.GET("/demo", func(c *gin.Context) {
+		c.String(http.StatusOK, "demo")
+	})
+
+}
+
+func main() {
+	// Create a new orbit configuration.
+	config := orbit.NewConfig()
+
+	// Create a new orbit feature options.
+	opts := orbit.NewOptions().EnableMetric()
+
+	// Create a new orbit engine.
+	engine := orbit.NewEngine(config, opts)
+
+	// Register a custom router group.
+	engine.RegisterService(&service{})
+
+	// Start the engine.
+	engine.Run()
+
+	// Wait for 30 seconds.
+	time.Sleep(30 * time.Second)
+
+	// Stop the engine.
+	engine.Stop()
+}
 
 ```
 

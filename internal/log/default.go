@@ -1,12 +1,12 @@
 package log
 
 import (
-	bp "github.com/shengyanli1982/orbit/internal/pool"
+	"github.com/shengyanli1982/orbit/utils/log"
 	"go.uber.org/zap"
 )
 
 // DefaultAccessEventFunc is the default access log event function.
-func DefaultAccessEventFunc(logger *zap.SugaredLogger, event *bp.LogEvent) {
+func DefaultAccessEventFunc(logger *zap.SugaredLogger, event *log.LogEvent) {
 	logger.Infow(
 		event.Message,
 		"id", event.ID,
@@ -25,7 +25,7 @@ func DefaultAccessEventFunc(logger *zap.SugaredLogger, event *bp.LogEvent) {
 }
 
 // DefaultRecoveryEventFunc is the default recovery log event function.
-func DefaultRecoveryEventFunc(logger *zap.SugaredLogger, event *bp.LogEvent) {
+func DefaultRecoveryEventFunc(logger *zap.SugaredLogger, event *log.LogEvent) {
 	logger.Errorw(
 		event.Message,
 		"id", event.ID,
