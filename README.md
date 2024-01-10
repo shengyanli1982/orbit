@@ -228,6 +228,10 @@ $ go run demo.go
 
 ## 5. Custom Router Group
 
+Custom router group is a very useful feature, you can use it to register a custom router group. You can use it to register a custom router group for `demo` service.
+
+**eg:** `/demo` and `/demo/test`
+
 **Example**
 
 ```go
@@ -317,6 +321,32 @@ test
 
 ## 6. Custom Access Log
 
+Http server access log is very important, you can use `orbit` to custom access log format and fields. Here is a example to custom access log format and fields.
+
+**Default LogEvent Fields**
+
+```go
+// LogEvent represents a log event.
+type LogEvent struct {
+	Message        string `json:"message,omitempty" yaml:"message,omitempty"`               // Message contains the log message.
+	ID             string `json:"id,omitempty" yaml:"id,omitempty"`                         // ID contains the unique identifier of the log event.
+	IP             string `json:"ip,omitempty" yaml:"ip,omitempty"`                         // IP contains the IP address of the client.
+	EndPoint       string `json:"endpoint,omitempty" yaml:"endpoint,omitempty"`             // EndPoint contains the endpoint of the request.
+	Path           string `json:"path,omitempty" yaml:"path,omitempty"`                     // Path contains the path of the request.
+	Method         string `json:"method,omitempty" yaml:"method,omitempty"`                 // Method contains the HTTP method of the request.
+	Code           int    `json:"statusCode,omitempty" yaml:"statusCode,omitempty"`         // Code contains the HTTP status code of the response.
+	Status         string `json:"status,omitempty" yaml:"status,omitempty"`                 // Status contains the status message of the response.
+	Latency        string `json:"latency,omitempty" yaml:"latency,omitempty"`               // Latency contains the request latency.
+	Agent          string `json:"agent,omitempty" yaml:"agent,omitempty"`                   // Agent contains the user agent of the client.
+	ReqContentType string `json:"reqContentType,omitempty" yaml:"reqContentType,omitempty"` // ReqContentType contains the content type of the request.
+	ReqQuery       string `json:"query,omitempty" yaml:"query,omitempty"`                   // ReqQuery contains the query parameters of the request.
+	ReqBody        string `json:"reqBody,omitempty" yaml:"reqBody,omitempty"`               // ReqBody contains the request body.
+	Error          any    `json:"error,omitempty" yaml:"error,omitempty"`                   // Error contains the error object.
+	ErrorStack     string `json:"errorStack,omitempty" yaml:"errorStack,omitempty"`         // ErrorStack contains the stack trace of the error.
+}
+
+```
+
 **Example**
 
 ```go
@@ -376,6 +406,8 @@ func main() {
 ```
 
 ## 7. Custom Recovery Log
+
+Http server recovery log give you a chance to know what happened when your service panic. You can use `orbit` to custom recovery log format and fields. Here is a example to custom recovery log format and fields.
 
 **Example**
 
@@ -437,6 +469,11 @@ func main() {
 
 ## 8. Prometheus Metrics
 
+`orbit` support `prometheus` metrics, you can use `EnableMetric` to enable it. Here is a example to use `demo` service to collect `demo` metrics.
+
+> [!TIP]
+> Use curl http://127.0.0.1:8080/metrics to get metrics.
+
 **Example**
 
 ```go
@@ -488,5 +525,18 @@ func main() {
 **Result**
 
 ```bash
-
+# HELP orbit_http_request_latency_milliseconds HTTP request latencies in Milliseconds.
+# TYPE orbit_http_request_latency_milliseconds gauge
+orbit_http_request_latency_milliseconds{method="GET",path="/demo",status="200"} 0
+# HELP orbit_http_request_latency_milliseconds_histogram HTTP request latencies in Milliseconds(Histogram).
+# TYPE orbit_http_request_latency_milliseconds_histogram histogram
+orbit_http_request_latency_milliseconds_histogram_bucket{method="GET",path="/demo",status="200",le="0.1"} 3
+orbit_http_request_latency_milliseconds_histogram_bucket{method="GET",path="/demo",status="200",le="0.5"} 3
+orbit_http_request_latency_milliseconds_histogram_bucket{method="GET",path="/demo",status="200",le="1"} 3
+orbit_http_request_latency_milliseconds_histogram_bucket{method="GET",path="/demo",status="200",le="2"} 3
+orbit_http_request_latency_milliseconds_histogram_bucket{method="GET",path="/demo",status="200",le="5"} 3
+orbit_http_request_latency_milliseconds_histogram_bucket{method="GET",path="/demo",status="200",le="10"} 3
+orbit_http_request_latency_milliseconds_histogram_bucket{method="GET",path="/demo",status="200",le="+Inf"} 3
+orbit_http_request_latency_milliseconds_histogram_sum{method="GET",path="/demo",status="200"} 0
+orbit_http_request_latency_milliseconds_histogram_count{method="GET",path="/demo",status="200"} 3
 ```
