@@ -40,15 +40,14 @@ func Cors() gin.HandlerFunc {
 // AccessLogger is a middleware that logs HTTP server access information.
 func AccessLogger(logger *zap.SugaredLogger, logEventFunc com.LogEventFunc, record bool) gin.HandlerFunc {
 	return func(context *gin.Context) {
-		// Set request logger
-		context.Set(com.RequestLoggerKey, logger)
-
 		// Skip resources
 		if omid.SkipResources(context) {
 			context.Next()
-			context.Set(com.RequestLoggerKey, nil)
 			return
 		}
+
+		// Set request logger
+		context.Set(com.RequestLoggerKey, logger)
 
 		// Start time
 		start := time.Now()
@@ -109,8 +108,15 @@ func AccessLogger(logger *zap.SugaredLogger, logEventFunc com.LogEventFunc, reco
 // Recovery is a middleware that recovers from panics and logs the error.
 func Recovery(logger *zap.SugaredLogger, logEventFunc com.LogEventFunc) gin.HandlerFunc {
 	return func(context *gin.Context) {
+		// Skip resources
+		if omid.SkipResources(context) {
+			context.Next()
+			return
+		}
+
+		// Recover from panic
 		defer func() {
-			// Recover from panic
+			// Get panic error
 			if err := recover(); err != nil {
 				var brokenPipe bool
 				if ne, ok := err.(*net.OpError); ok {

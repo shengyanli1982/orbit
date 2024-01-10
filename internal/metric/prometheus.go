@@ -1,4 +1,4 @@
-package orbit
+package metric
 
 import (
 	"strconv"
@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
 	com "github.com/shengyanli1982/orbit/common"
+	"go.uber.org/zap"
 )
 
 // metricLabels contains the labels of the metrics.
@@ -102,7 +103,7 @@ func (m *ServerMetrics) Reset() {
 }
 
 // HandlerFunc returns a Gin middleware handler function.
-func (m *ServerMetrics) HandlerFunc() gin.HandlerFunc {
+func (m *ServerMetrics) HandlerFunc(logger *zap.SugaredLogger) gin.HandlerFunc {
 	return func(context *gin.Context) {
 		// Start time
 		start := time.Now()
@@ -114,7 +115,7 @@ func (m *ServerMetrics) HandlerFunc() gin.HandlerFunc {
 		if len(context.Errors) > 0 {
 			// Log error
 			for _, err := range context.Errors {
-				com.DefaultSugeredLogger.Errorf("server metrics error: %s", err.Error())
+				logger.Error(err)
 			}
 		} else {
 			// Response latency

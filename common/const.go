@@ -35,6 +35,9 @@ const HttpHeaderJavascriptContentTypeValue = "application/javascript"
 // HttpHeaderRequestID represents the HTTP header key for Request ID.
 const HttpHeaderRequestID = "X-Request-Id"
 
+// EmptyURLPath represents the empty URL path.
+const EmptyURLPath = ""
+
 // PromMetricURLPath represents the URL path for Prometheus metrics.
 const PromMetricURLPath = "/metrics"
 

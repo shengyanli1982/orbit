@@ -10,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	com "github.com/shengyanli1982/orbit/common"
+	mtc "github.com/shengyanli1982/orbit/internal/metric"
 	mid "github.com/shengyanli1982/orbit/internal/middleware"
 
 	"go.uber.org/zap"
@@ -39,7 +40,7 @@ type Engine struct {
 	cancel   context.CancelFunc // Cancel function for graceful shutdown
 	handlers []gin.HandlerFunc  // List of middleware handlers
 	services []Service          // List of registered services
-	metric   *ServerMetrics     // Prometheus metric
+	metric   *mtc.ServerMetrics // Prometheus metric
 }
 
 // NewEngine creates a new instance of the Engine.
@@ -69,19 +70,35 @@ func NewEngine(config *Config, options *Options) *Engine {
 		once:     sync.Once{},
 		handlers: make([]gin.HandlerFunc, 0),
 		services: make([]Service, 0),
-		metric:   NewServerMetrics(config.PrometheusRegistry),
+		metric:   mtc.NewServerMetrics(config.prometheusRegistry),
 	}
 	engine.ctx, engine.cancel = context.WithTimeout(context.Background(), defaultShutdownTimeout)
+
+	// Create Gin engine
 	engine.ginSvr = gin.New()
+
+	// Create root router group
 	engine.root = engine.ginSvr.Group("/")
 
+	// Set Gin engine options
+	engine.ginSvr.ForwardedByClientIP = options.forwordByClientIp
+	engine.ginSvr.RedirectTrailingSlash = options.trailingSlash
+	engine.ginSvr.RedirectFixedPath = options.fixedPath
+
 	// Add custom 404/405 output
-	engine.ginSvr.NoRoute(func(c *gin.Context) {
-		c.String(http.StatusNotFound, "[404] http request route mismatch, method: "+c.Request.Method+", path: "+c.Request.URL.Path)
+	engine.ginSvr.NoRoute(func(context *gin.Context) {
+		context.String(http.StatusNotFound, "[404] http request route mismatch, method: "+context.Request.Method+", path: "+context.Request.URL.Path)
 	})
-	engine.ginSvr.NoMethod(func(c *gin.Context) {
-		c.String(http.StatusMethodNotAllowed, "[405] http request method not allowed, method: "+c.Request.Method+", path: "+c.Request.URL.Path)
+	engine.ginSvr.NoMethod(func(context *gin.Context) {
+		context.String(http.StatusMethodNotAllowed, "[405] http request method not allowed, method: "+context.Request.Method+", path: "+context.Request.URL.Path)
 	})
+
+	// Register middleware
+	engine.ginSvr.Use(
+		mid.Recovery(engine.config.logger, engine.config.recoveryLogEventFunc), // Recovery from panic
+		mid.BodyBuffer(), // Buffer for request/response body
+		mid.Cors(),       // Cross-origin resource sharing
+	)
 
 	// Add health check
 	healthcheckService(engine.root.Group(com.HealthCheckURLPath))
@@ -100,15 +117,8 @@ func NewEngine(config *Config, options *Options) *Engine {
 	if engine.opts.metric {
 		engine.metric.Register()
 		metricService(engine.root.Group(com.PromMetricURLPath))
+		engine.ginSvr.Use(engine.metric.HandlerFunc(engine.config.logger))
 	}
-
-	// Register middleware
-	engine.ginSvr.Use(
-		mid.Recovery(engine.config.Logger, engine.config.RecoveryLogEventFunc), // Recovery from panic
-		mid.BodyBuffer(),            // Buffer for request/response body
-		engine.metric.HandlerFunc(), // Prometheus metric
-		mid.Cors(),                  // Cross-origin resource sharing
-	)
 
 	return &engine
 }
@@ -116,20 +126,18 @@ func NewEngine(config *Config, options *Options) *Engine {
 // Run starts the Orbit engine.
 func (e *Engine) Run() {
 	// Prevent duplicate startup
-	e.lock.Lock()
-	if e.running {
-		e.lock.Unlock()
+	if e.IsRunning() {
 		return
 	}
 
-	// Register all middleware
+	// Register all middlewares
 	e.registerAllMiddlewares()
 
 	// Register all services
 	e.registerAllServices()
 
 	// Register necessary components
-	e.ginSvr.Use(mid.AccessLogger(e.config.Logger, e.config.AccessLogEventFunc, e.opts.recReqBody))
+	e.ginSvr.Use(mid.AccessLogger(e.config.logger, e.config.accessLogEventFunc, e.opts.recReqBody))
 
 	// Initialize http server
 	e.httpSvr = &http.Server{
@@ -140,24 +148,23 @@ func (e *Engine) Run() {
 		WriteTimeout:      time.Duration(e.config.HttpWriteTimeout) * time.Millisecond,
 		IdleTimeout:       0, // Use HttpReadTimeout as the value here
 		MaxHeaderBytes:    math.MaxUint32,
-		ErrorLog:          zap.NewStdLog(e.config.Logger.Desugar()),
+		ErrorLog:          zap.NewStdLog(e.config.logger.Desugar()),
 	}
 
 	// Start http server
 	e.wg.Add(1)
 	go func() {
 		defer e.wg.Done()
-		e.config.Logger.Infow("http server is ready", "address", e.endpoint)
-		e.httpSvr.SetKeepAlivesEnabled(true) // Enable keepalive by default, shared by grpc/http
+		// Enable keepalive by default, shared by grpc/http
+		e.httpSvr.SetKeepAlivesEnabled(true)
+		e.config.logger.Infow("http server is ready", "address", e.endpoint)
 		if err := e.httpSvr.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			e.config.Logger.Fatalw("failed to start http server", "error", err)
+			e.config.logger.Fatalw("failed to start http server", "error", err)
 		}
 	}()
 
 	// Mark as running
-	e.lock.Lock()
-	e.running = true
-	e.lock.Unlock()
+	e.setRuningStatus(true)
 
 	// Reset shutdown signal
 	e.once = sync.Once{}
@@ -167,9 +174,7 @@ func (e *Engine) Run() {
 func (e *Engine) Stop() {
 	e.once.Do(func() {
 		// Mark as not running
-		e.lock.Lock()
-		e.running = false
-		e.lock.Unlock()
+		e.setRuningStatus(false)
 
 		// Signal shutdown
 		e.cancel()
@@ -178,10 +183,10 @@ func (e *Engine) Stop() {
 		// Close http server
 		if e.httpSvr != nil {
 			if err := e.httpSvr.Shutdown(e.ctx); err != nil {
-				e.config.Logger.Fatalw("http server forced to shutdown", "address", e.endpoint, "error", err)
+				e.config.logger.Fatalw("http server forced to shutdown", "address", e.endpoint, "error", err)
 			}
 		}
-		e.config.Logger.Infow("http server is shutdown", "address", e.endpoint)
+		e.config.logger.Infow("http server is shutdown", "address", e.endpoint)
 
 		// Unregister Prometheus metric
 		if e.opts.metric {
@@ -195,6 +200,12 @@ func (e *Engine) IsRunning() bool {
 	e.lock.RLock()
 	defer e.lock.RUnlock()
 	return e.running
+}
+
+func (e *Engine) setRuningStatus(status bool) {
+	e.lock.RLock()
+	defer e.lock.RUnlock()
+	e.running = status
 }
 
 // registerAllServices registers all services to the root router group.
@@ -213,9 +224,7 @@ func (e *Engine) registerAllMiddlewares() {
 	e.lock.Lock()
 	defer e.lock.Unlock()
 	if !e.running {
-		for i := 0; i < len(e.handlers); i++ {
-			e.ginSvr.Use(e.handlers[i])
-		}
+		e.ginSvr.Use(e.handlers...)
 	}
 }
 

@@ -15,7 +15,7 @@ import (
 // pprofService registers the pprof handlers to the given router group.
 func pprofService(group *gin.RouterGroup) {
 	// Get
-	group.GET("/", wrap.WrapHandlerFuncToGin(pprof.Index))                                         // Get the pprof index page
+	group.GET(com.EmptyURLPath, wrap.WrapHandlerFuncToGin(pprof.Index))                            // Get the pprof index page
 	group.GET("/cmdline", wrap.WrapHandlerFuncToGin(pprof.Cmdline))                                // Get the command line arguments
 	group.GET("/profile", wrap.WrapHandlerFuncToGin(pprof.Profile))                                // Get the profiling goroutine stack traces
 	group.GET("/symbol", wrap.WrapHandlerFuncToGin(pprof.Symbol))                                  // Get the symbol table
@@ -33,7 +33,7 @@ func pprofService(group *gin.RouterGroup) {
 
 // metricService registers the prometheus metrics handlers to the given router group.
 func metricService(group *gin.RouterGroup) {
-	group.GET("/", wrap.WrapHandlerToGin(promhttp.Handler()))
+	group.GET(com.EmptyURLPath, wrap.WrapHandlerToGin(promhttp.Handler()))
 }
 
 // swaggerService registers the swagger handlers to the given router group.
@@ -43,7 +43,7 @@ func swaggerService(group *gin.RouterGroup) {
 
 // healthcheckService registers the healthcheck handlers to the given router group.
 func healthcheckService(group *gin.RouterGroup) {
-	group.GET("/", func(c *gin.Context) {
+	group.GET(com.EmptyURLPath, func(c *gin.Context) {
 		c.String(http.StatusOK, com.RequestOK)
 	})
 }

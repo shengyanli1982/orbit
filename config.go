@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	defaultHttpListenAddress = "127.0.0.0"   // default http listen address
+	defaultHttpListenAddress = "127.0.0.1"   // default http listen address
 	defaultHttpListenPort    = uint16(8080)  // default http listen port
 	defaultIdleTimeout       = uint32(15000) // http idle timeout
 )
@@ -23,10 +23,10 @@ type Config struct {
 	HttpReadTimeout       uint32               `json:"httpReadTimeout,omitempty" yaml:"httpReadTimeout,omitempty"`             // HTTP read timeout
 	HttpWriteTimeout      uint32               `json:"httpWriteTimeout,omitempty" yaml:"httpWriteTimeout,omitempty"`           // HTTP write timeout
 	HttpReadHeaderTimeout uint32               `json:"httpReadHeaderTimeout,omitempty" yaml:"httpReadHeaderTimeout,omitempty"` // HTTP read header timeout
-	Logger                *zap.SugaredLogger   `json:"-" yaml:"-"`                                                             // Logger instance
-	AccessLogEventFunc    com.LogEventFunc     `json:"-" yaml:"-"`                                                             // Access log event function
-	RecoveryLogEventFunc  com.LogEventFunc     `json:"-" yaml:"-"`                                                             // Recovery log event function
-	PrometheusRegistry    *prometheus.Registry `json:"-" yaml:"-"`                                                             // Prometheus registry
+	logger                *zap.SugaredLogger   `json:"-" yaml:"-"`                                                             // Logger instance
+	accessLogEventFunc    com.LogEventFunc     `json:"-" yaml:"-"`                                                             // Access log event function
+	recoveryLogEventFunc  com.LogEventFunc     `json:"-" yaml:"-"`                                                             // Recovery log event function
+	prometheusRegistry    *prometheus.Registry `json:"-" yaml:"-"`                                                             // Prometheus registry
 }
 
 // NewConfig creates a new Config instance with default values.
@@ -38,22 +38,22 @@ func NewConfig() *Config {
 		HttpReadTimeout:       defaultIdleTimeout,
 		HttpWriteTimeout:      defaultIdleTimeout,
 		HttpReadHeaderTimeout: defaultIdleTimeout,
-		Logger:                com.DefaultSugeredLogger,
-		AccessLogEventFunc:    DefaultAccessEventFunc,
-		RecoveryLogEventFunc:  DefaultRecoveryEventFunc,
-		PrometheusRegistry:    prometheus.DefaultRegisterer.(*prometheus.Registry),
+		logger:                com.DefaultSugeredLogger,
+		accessLogEventFunc:    DefaultAccessEventFunc,
+		recoveryLogEventFunc:  DefaultRecoveryEventFunc,
+		prometheusRegistry:    prometheus.DefaultRegisterer.(*prometheus.Registry),
 	}
 }
 
 // WithSugaredLogger sets a new sugared logger for the Config instance.
 func (c *Config) WithSugaredLogger(logger *zap.SugaredLogger) *Config {
-	c.Logger = logger
+	c.logger = logger
 	return c
 }
 
 // WithLogger sets a new logger for the Config instance.
 func (c *Config) WithLogger(logger *zap.Logger) *Config {
-	c.Logger = logger.Sugar()
+	c.logger = logger.Sugar()
 	return c
 }
 
@@ -95,19 +95,19 @@ func (c *Config) WithHttpReadHeaderTimeout(timeout uint32) *Config {
 
 // WithAccessLogEventFunc sets a new access log event function for the Config instance.
 func (c *Config) WithAccessLogEventFunc(fn com.LogEventFunc) *Config {
-	c.AccessLogEventFunc = fn
+	c.accessLogEventFunc = fn
 	return c
 }
 
 // WithRecoveryLogEventFunc sets a new recovery log event function for the Config instance.
 func (c *Config) WithRecoveryLogEventFunc(fn com.LogEventFunc) *Config {
-	c.RecoveryLogEventFunc = fn
+	c.recoveryLogEventFunc = fn
 	return c
 }
 
 // WithPrometheusRegistry sets a new Prometheus registry for the Config instance.
 func (c *Config) WithPrometheusRegistry(registry *prometheus.Registry) *Config {
-	c.PrometheusRegistry = registry
+	c.prometheusRegistry = registry
 	return c
 }
 
@@ -134,17 +134,17 @@ func isConfigValid(conf *Config) *Config {
 		if conf.HttpReadHeaderTimeout <= 0 {
 			conf.HttpReadHeaderTimeout = defaultIdleTimeout
 		}
-		if conf.Logger == nil {
-			conf.Logger = com.DefaultSugeredLogger
+		if conf.logger == nil {
+			conf.logger = com.DefaultSugeredLogger
 		}
-		if conf.AccessLogEventFunc == nil {
-			conf.AccessLogEventFunc = DefaultAccessEventFunc
+		if conf.accessLogEventFunc == nil {
+			conf.accessLogEventFunc = DefaultAccessEventFunc
 		}
-		if conf.RecoveryLogEventFunc == nil {
-			conf.RecoveryLogEventFunc = DefaultRecoveryEventFunc
+		if conf.recoveryLogEventFunc == nil {
+			conf.recoveryLogEventFunc = DefaultRecoveryEventFunc
 		}
-		if conf.PrometheusRegistry == nil {
-			conf.PrometheusRegistry = prometheus.DefaultRegisterer.(*prometheus.Registry)
+		if conf.prometheusRegistry == nil {
+			conf.prometheusRegistry = prometheus.DefaultRegisterer.(*prometheus.Registry)
 		}
 	} else {
 		conf = NewConfig()

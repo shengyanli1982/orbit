@@ -10,26 +10,26 @@ import (
 
 // BodyBuffer is a middleware that buffers the request and response bodies.
 func BodyBuffer() gin.HandlerFunc {
-	return func(c *gin.Context) {
+	return func(context *gin.Context) {
 		// Skip resources that do not need to be recorded
-		if omid.SkipResources(c) {
-			c.Next()
+		if omid.SkipResources(context) {
+			context.Next() 
 			return
 		}
 
 		// Set request and response body buffers
-		c.Set(com.RequestBodyBufferKey, com.RequestBodyBufferPool.Get())
-		c.Set(com.ResponseBodyBufferKey, com.ResponseBodyBufferPool.Get())
+		context.Set(com.RequestBodyBufferKey, com.RequestBodyBufferPool.Get())
+		context.Set(com.ResponseBodyBufferKey, com.ResponseBodyBufferPool.Get())
 
 		// Execute the next middleware
-		c.Next()
+		context.Next()
 
 		// Recycle buffer pool objects
-		if requestBodyBuffer, ok := c.Get(com.RequestBodyBufferKey); ok {
+		if requestBodyBuffer, ok := context.Get(com.RequestBodyBufferKey); ok {
 			requestBuffer := requestBodyBuffer.(*bytes.Buffer)
 			com.RequestBodyBufferPool.Put(requestBuffer)
 		}
-		if responseBodyBuffer, ok := c.Get(com.ResponseBodyBufferKey); ok {
+		if responseBodyBuffer, ok := context.Get(com.ResponseBodyBufferKey); ok {
 			responseBuffer := responseBodyBuffer.(*bytes.Buffer)
 			com.ResponseBodyBufferPool.Put(responseBuffer)
 		}
