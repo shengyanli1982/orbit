@@ -5,11 +5,13 @@ import (
 	"net/http/pprof"
 
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	com "github.com/shengyanli1982/orbit/common"
 	wrap "github.com/shengyanli1982/orbit/utils/wrapper"
 	swag "github.com/swaggo/files"
 	gs "github.com/swaggo/gin-swagger"
+	"go.uber.org/zap"
 )
 
 // pprofService registers the pprof handlers to the given router group.
@@ -32,8 +34,13 @@ func pprofService(group *gin.RouterGroup) {
 }
 
 // metricService registers the prometheus metrics handlers to the given router group.
-func metricService(group *gin.RouterGroup) {
-	group.GET(com.EmptyURLPath, wrap.WrapHandlerToGin(promhttp.Handler()))
+func metricService(group *gin.RouterGroup, registry *prometheus.Registry, logger *zap.SugaredLogger) {
+	group.GET(com.EmptyURLPath, wrap.WrapHandlerToGin(promhttp.InstrumentMetricHandler(
+		registry, promhttp.HandlerFor(registry, promhttp.HandlerOpts{
+			ErrorLog: zap.NewStdLog(logger.Desugar()),
+		}),
+	)))
+
 }
 
 // swaggerService registers the swagger handlers to the given router group.

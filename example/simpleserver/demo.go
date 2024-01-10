@@ -19,8 +19,8 @@ func main() {
 	// Start the engine.
 	engine.Run()
 
-	// Wait for 10 seconds.
-	time.Sleep(10 * time.Second)
+	// Wait for 30 seconds.
+	time.Sleep(30 * time.Second)
 
 	// Stop the engine.
 	engine.Stop()

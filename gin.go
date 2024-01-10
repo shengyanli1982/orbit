@@ -78,7 +78,8 @@ func NewEngine(config *Config, options *Options) *Engine {
 	engine.ginSvr = gin.New()
 
 	// Create root router group
-	engine.root = engine.ginSvr.Group("/")
+	// (*) all default middlewares are registered to the root router group, don't change this
+	engine.root = &engine.ginSvr.RouterGroup
 
 	// Set Gin engine options
 	engine.ginSvr.ForwardedByClientIP = options.forwordByClientIp
@@ -92,13 +93,6 @@ func NewEngine(config *Config, options *Options) *Engine {
 	engine.ginSvr.NoMethod(func(context *gin.Context) {
 		context.String(http.StatusMethodNotAllowed, "[405] http request method not allowed, method: "+context.Request.Method+", path: "+context.Request.URL.Path)
 	})
-
-	// Register middleware
-	engine.ginSvr.Use(
-		mid.Recovery(engine.config.logger, engine.config.recoveryLogEventFunc), // Recovery from panic
-		mid.BodyBuffer(), // Buffer for request/response body
-		mid.Cors(),       // Cross-origin resource sharing
-	)
 
 	// Add health check
 	healthcheckService(engine.root.Group(com.HealthCheckURLPath))
@@ -116,9 +110,17 @@ func NewEngine(config *Config, options *Options) *Engine {
 	// Add Prometheus metric interface
 	if engine.opts.metric {
 		engine.metric.Register()
-		metricService(engine.root.Group(com.PromMetricURLPath))
+		// HandlerFunc Must be called before router registered
 		engine.ginSvr.Use(engine.metric.HandlerFunc(engine.config.logger))
+		metricService(engine.root.Group(com.PromMetricURLPath), engine.config.prometheusRegistry, engine.config.logger)
 	}
+
+	// Register necessary middlewares
+	engine.ginSvr.Use(
+		mid.Recovery(engine.config.logger, engine.config.recoveryLogEventFunc), // Recovery from panic
+		mid.BodyBuffer(), // Buffer for request/response body
+		mid.Cors(),       // Cross-origin resource sharing
+	)
 
 	return &engine
 }
@@ -133,11 +135,11 @@ func (e *Engine) Run() {
 	// Register all middlewares
 	e.registerAllMiddlewares()
 
-	// Register all services
-	e.registerAllServices()
-
-	// Register necessary components
+	// Register necessary middleware
 	e.ginSvr.Use(mid.AccessLogger(e.config.logger, e.config.accessLogEventFunc, e.opts.recReqBody))
+
+	// Register all services, it Must be called after all middlewares are registered
+	e.registerAllServices()
 
 	// Initialize http server
 	e.httpSvr = &http.Server{
@@ -176,10 +178,6 @@ func (e *Engine) Stop() {
 		// Mark as not running
 		e.setRuningStatus(false)
 
-		// Signal shutdown
-		e.cancel()
-		e.wg.Wait()
-
 		// Close http server
 		if e.httpSvr != nil {
 			if err := e.httpSvr.Shutdown(e.ctx); err != nil {
@@ -187,6 +185,10 @@ func (e *Engine) Stop() {
 			}
 		}
 		e.config.logger.Infow("http server is shutdown", "address", e.endpoint)
+
+		// Signal shutdown
+		e.cancel()
+		e.wg.Wait()
 
 		// Unregister Prometheus metric
 		if e.opts.metric {

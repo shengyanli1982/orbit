@@ -10,7 +10,7 @@ import (
 
 func customMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		fmt.Println("xxxx")
+		fmt.Println(">>>>>>!!! demo")
 		c.Next()
 	}
 }
@@ -18,11 +18,7 @@ func customMiddleware() gin.HandlerFunc {
 type service struct{}
 
 func (s *service) RegisterGroup(g *gin.RouterGroup) {
-	g.GET("/demo", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"message": "pong",
-		})
-	})
+	g.GET("/demo", func(c *gin.Context) {})
 }
 
 func main() {
@@ -44,8 +40,8 @@ func main() {
 	// Start the engine.
 	engine.Run()
 
-	// Wait for 10 seconds.
-	time.Sleep(10 * time.Second)
+	// Wait for 30 seconds.
+	time.Sleep(30 * time.Second)
 
 	// Stop the engine.
 	engine.Stop()

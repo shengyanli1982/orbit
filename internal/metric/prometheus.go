@@ -34,7 +34,7 @@ func NewServerMetrics(registry *prometheus.Registry) *ServerMetrics {
 			prometheus.HistogramOpts{
 				Namespace: com.OrbitName,
 				Name:      "http_request_latency_milliseconds", // HTTP请求延迟直方图（毫秒） (HTTP request latency histogram in Milliseconds)
-				Help:      "HTTP request latencies in Milliseconds.",
+				Help:      "HTTP request latencies in Milliseconds(Histogram).",
 				Buckets:   []float64{0.1, 0.5, 1, 2, 5, 10},
 			},
 			metricLabels,

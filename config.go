@@ -5,7 +5,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	com "github.com/shengyanli1982/orbit/common"
-	bp "github.com/shengyanli1982/orbit/internal/pool"
+	ilog "github.com/shengyanli1982/orbit/internal/log"
 	"go.uber.org/zap"
 )
 
@@ -39,8 +39,8 @@ func NewConfig() *Config {
 		HttpWriteTimeout:      defaultIdleTimeout,
 		HttpReadHeaderTimeout: defaultIdleTimeout,
 		logger:                com.DefaultSugeredLogger,
-		accessLogEventFunc:    DefaultAccessEventFunc,
-		recoveryLogEventFunc:  DefaultRecoveryEventFunc,
+		accessLogEventFunc:    ilog.DefaultAccessEventFunc,
+		recoveryLogEventFunc:  ilog.DefaultRecoveryEventFunc,
 		prometheusRegistry:    prometheus.DefaultRegisterer.(*prometheus.Registry),
 	}
 }
@@ -138,10 +138,10 @@ func isConfigValid(conf *Config) *Config {
 			conf.logger = com.DefaultSugeredLogger
 		}
 		if conf.accessLogEventFunc == nil {
-			conf.accessLogEventFunc = DefaultAccessEventFunc
+			conf.accessLogEventFunc = ilog.DefaultAccessEventFunc
 		}
 		if conf.recoveryLogEventFunc == nil {
-			conf.recoveryLogEventFunc = DefaultRecoveryEventFunc
+			conf.recoveryLogEventFunc = ilog.DefaultRecoveryEventFunc
 		}
 		if conf.prometheusRegistry == nil {
 			conf.prometheusRegistry = prometheus.DefaultRegisterer.(*prometheus.Registry)
@@ -151,44 +151,4 @@ func isConfigValid(conf *Config) *Config {
 	}
 
 	return conf
-}
-
-// DefaultAccessEventFunc is the default access log event function.
-func DefaultAccessEventFunc(logger *zap.SugaredLogger, event *bp.LogEvent) {
-	logger.Infow(
-		event.Message,
-		"id", event.ID,
-		"ip", event.IP,
-		"endpoint", event.EndPoint,
-		"path", event.Path,
-		"method", event.Method,
-		"code", event.Code,
-		"status", event.Status,
-		"latency", event.Latency,
-		"agent", event.Agent,
-		"query", event.ReqQuery,
-		"reqContentType", event.ReqContentType,
-		"reqBody", event.ReqBody,
-	)
-}
-
-// DefaultRecoveryEventFunc is the default recovery log event function.
-func DefaultRecoveryEventFunc(logger *zap.SugaredLogger, event *bp.LogEvent) {
-	logger.Errorw(
-		event.Message,
-		"id", event.ID,
-		"ip", event.IP,
-		"endpoint", event.EndPoint,
-		"path", event.Path,
-		"method", event.Method,
-		"code", event.Code,
-		"status", event.Status,
-		"latency", event.Latency,
-		"agent", event.Agent,
-		"query", event.ReqQuery,
-		"reqContentType", event.ReqContentType,
-		"reqBody", event.ReqBody,
-		"error", event.Error,
-		"errorStack", event.ErrorStack,
-	)
 }

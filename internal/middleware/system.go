@@ -12,7 +12,6 @@ import (
 	com "github.com/shengyanli1982/orbit/common"
 	"github.com/shengyanli1982/orbit/internal/conver"
 	"github.com/shengyanli1982/orbit/utils/httptool"
-	omid "github.com/shengyanli1982/orbit/utils/middleware"
 	"go.uber.org/zap"
 )
 
@@ -40,12 +39,6 @@ func Cors() gin.HandlerFunc {
 // AccessLogger is a middleware that logs HTTP server access information.
 func AccessLogger(logger *zap.SugaredLogger, logEventFunc com.LogEventFunc, record bool) gin.HandlerFunc {
 	return func(context *gin.Context) {
-		// Skip resources
-		if omid.SkipResources(context) {
-			context.Next()
-			return
-		}
-
 		// Set request logger
 		context.Set(com.RequestLoggerKey, logger)
 
@@ -108,12 +101,6 @@ func AccessLogger(logger *zap.SugaredLogger, logEventFunc com.LogEventFunc, reco
 // Recovery is a middleware that recovers from panics and logs the error.
 func Recovery(logger *zap.SugaredLogger, logEventFunc com.LogEventFunc) gin.HandlerFunc {
 	return func(context *gin.Context) {
-		// Skip resources
-		if omid.SkipResources(context) {
-			context.Next()
-			return
-		}
-
 		// Recover from panic
 		defer func() {
 			// Get panic error
