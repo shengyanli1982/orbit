@@ -54,3 +54,18 @@ func healthcheckService(group *gin.RouterGroup) {
 		c.String(http.StatusOK, com.RequestOK)
 	})
 }
+
+// WrapRegisterService is a wrapper for the service registration function.
+type WrapRegisterService struct {
+	registerFunc func(*gin.RouterGroup)
+}
+
+// RegisterGroup registers the service to the given router group.
+func (w *WrapRegisterService) RegisterGroup(group *gin.RouterGroup) {
+	w.registerFunc(group)
+}
+
+// NewHttpService creates a new instance of the WrapRegisterService.
+func NewHttpService(registerFunc func(*gin.RouterGroup)) *WrapRegisterService {
+	return &WrapRegisterService{registerFunc: registerFunc}
+}

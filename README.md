@@ -96,6 +96,17 @@ After you create `orbit` config and feature options, you can create `orbit` inst
 >
 > If you want to block the current goroutine, you can use project [`GS`](https://github.com/shengyanli1982/gs) to provide a `Waitting` to block the current goroutine.
 
+> [!TIP]
+> Here is a way to lazy. You can use `NewHttpService` to wrap `func(*gin.RouterGroup)` to `Service` interface implementation.
+>
+> ```go
+> NewHttpService(func(g *gin.RouterGroup) {
+>   g.GET("/demo", func(c *gin.Context) {
+>       c.String(http.StatusOK, "demo")
+>   })
+> })
+> ```
+
 **Example**
 
 ```go
