@@ -6,6 +6,8 @@ import (
 	"go.uber.org/zap"
 )
 
+const OrbitName = "orbit"
+
 // HttpHeaderContentType represents the HTTP header key for Content-Type.
 const HttpHeaderContentType = "Content-Type"
 
@@ -61,7 +63,7 @@ const RequestLoggerKey = "REQUEST_LOGGER_3Z3opcTKBSe2O5yZQnSGD"
 const RequestOKCode int64 = 0
 
 // RequestErrorCode represents the error code for a request.
-const RequestErrorCode int64 = iota + 10
+const RequestErrorCode int64 = 10
 
 // RequestOK represents the success message for a request.
 const RequestOK = "success"

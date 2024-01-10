@@ -13,3 +13,11 @@ func WrapHandlerFuncToGin(handler http.HandlerFunc) gin.HandlerFunc {
 		handler.ServeHTTP(context.Writer, context.Request)
 	}
 }
+
+// WrapHandlerToGin wraps an http.Handler to a gin.HandlerFunc.
+// It converts the input http.Handler to a gin.HandlerFunc by serving the HTTP request using the provided handler.
+func WrapHandlerToGin(handler http.Handler) gin.HandlerFunc {
+	return func(context *gin.Context) {
+		handler.ServeHTTP(context.Writer, context.Request)
+	}
+}

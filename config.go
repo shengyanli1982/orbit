@@ -3,29 +3,30 @@ package orbit
 import (
 	"strings"
 
+	"github.com/prometheus/client_golang/prometheus"
 	com "github.com/shengyanli1982/orbit/common"
 	bp "github.com/shengyanli1982/orbit/internal/pool"
 	"go.uber.org/zap"
 )
 
 var (
-	defaultConsoleLogger     = NewLogger(nil) // default console logger
-	defaultHttpListenAddress = "127.0.0.0"    // default http listen address
-	defaultHttpListenPort    = uint16(8080)   // default http listen port
-	defaultIdleTimeout       = uint32(15000)  // http idle timeout
+	defaultHttpListenAddress = "127.0.0.0"   // default http listen address
+	defaultHttpListenPort    = uint16(8080)  // default http listen port
+	defaultIdleTimeout       = uint32(15000) // http idle timeout
 )
 
 // Configuration represents the configuration for the Orbit framework.
 type Config struct {
-	Address               string             `json:"address,omitempty" yaml:"address,omitempty"`                             // Address to listen on
-	Port                  uint16             `json:"port,omitempty" yaml:"port,omitempty"`                                   // Port to listen on
-	ReleaseMode           bool               `json:"releaseMode,omitempty" yaml:"releaseMode,omitempty"`                     // Release mode flag
-	HttpReadTimeout       uint32             `json:"httpReadTimeout,omitempty" yaml:"httpReadTimeout,omitempty"`             // HTTP read timeout
-	HttpWriteTimeout      uint32             `json:"httpWriteTimeout,omitempty" yaml:"httpWriteTimeout,omitempty"`           // HTTP write timeout
-	HttpReadHeaderTimeout uint32             `json:"httpReadHeaderTimeout,omitempty" yaml:"httpReadHeaderTimeout,omitempty"` // HTTP read header timeout
-	Logger                *zap.SugaredLogger `json:"-" yaml:"-"`                                                             // Logger instance
-	AccessLogEventFunc    com.LogEventFunc   `json:"-" yaml:"-"`                                                             // Access log event function
-	RecoveryLogEventFunc  com.LogEventFunc   `json:"-" yaml:"-"`                                                             // Recovery log event function
+	Address               string               `json:"address,omitempty" yaml:"address,omitempty"`                             // Address to listen on
+	Port                  uint16               `json:"port,omitempty" yaml:"port,omitempty"`                                   // Port to listen on
+	ReleaseMode           bool                 `json:"releaseMode,omitempty" yaml:"releaseMode,omitempty"`                     // Release mode flag
+	HttpReadTimeout       uint32               `json:"httpReadTimeout,omitempty" yaml:"httpReadTimeout,omitempty"`             // HTTP read timeout
+	HttpWriteTimeout      uint32               `json:"httpWriteTimeout,omitempty" yaml:"httpWriteTimeout,omitempty"`           // HTTP write timeout
+	HttpReadHeaderTimeout uint32               `json:"httpReadHeaderTimeout,omitempty" yaml:"httpReadHeaderTimeout,omitempty"` // HTTP read header timeout
+	Logger                *zap.SugaredLogger   `json:"-" yaml:"-"`                                                             // Logger instance
+	AccessLogEventFunc    com.LogEventFunc     `json:"-" yaml:"-"`                                                             // Access log event function
+	RecoveryLogEventFunc  com.LogEventFunc     `json:"-" yaml:"-"`                                                             // Recovery log event function
+	PrometheusRegistry    *prometheus.Registry `json:"-" yaml:"-"`                                                             // Prometheus registry
 }
 
 // NewConfig creates a new Config instance with default values.
@@ -37,9 +38,10 @@ func NewConfig() *Config {
 		HttpReadTimeout:       defaultIdleTimeout,
 		HttpWriteTimeout:      defaultIdleTimeout,
 		HttpReadHeaderTimeout: defaultIdleTimeout,
-		Logger:                defaultConsoleLogger.GetZapSugaredLogger().Named(defaultLoggerName),
+		Logger:                com.DefaultSugeredLogger,
 		AccessLogEventFunc:    DefaultAccessEventFunc,
 		RecoveryLogEventFunc:  DefaultRecoveryEventFunc,
+		PrometheusRegistry:    prometheus.DefaultRegisterer.(*prometheus.Registry),
 	}
 }
 
@@ -103,6 +105,12 @@ func (c *Config) WithRecoveryLogEventFunc(fn com.LogEventFunc) *Config {
 	return c
 }
 
+// WithPrometheusRegistry sets a new Prometheus registry for the Config instance.
+func (c *Config) WithPrometheusRegistry(registry *prometheus.Registry) *Config {
+	c.PrometheusRegistry = registry
+	return c
+}
+
 // DefaultConfig returns a new Config instance with default values.
 func DefaultConfig() *Config {
 	return NewConfig()
@@ -127,13 +135,16 @@ func isConfigValid(conf *Config) *Config {
 			conf.HttpReadHeaderTimeout = defaultIdleTimeout
 		}
 		if conf.Logger == nil {
-			conf.Logger = defaultConsoleLogger.GetZapSugaredLogger().Named(defaultLoggerName)
+			conf.Logger = com.DefaultSugeredLogger
 		}
 		if conf.AccessLogEventFunc == nil {
 			conf.AccessLogEventFunc = DefaultAccessEventFunc
 		}
 		if conf.RecoveryLogEventFunc == nil {
 			conf.RecoveryLogEventFunc = DefaultRecoveryEventFunc
+		}
+		if conf.PrometheusRegistry == nil {
+			conf.PrometheusRegistry = prometheus.DefaultRegisterer.(*prometheus.Registry)
 		}
 	} else {
 		conf = NewConfig()

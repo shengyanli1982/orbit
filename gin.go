@@ -5,40 +5,18 @@ import (
 	"fmt"
 	"math"
 	"net/http"
-	"net/http/pprof"
 	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	com "github.com/shengyanli1982/orbit/common"
 	mid "github.com/shengyanli1982/orbit/internal/middleware"
-	wrap "github.com/shengyanli1982/orbit/utils/wrapper"
-	swag "github.com/swaggo/files"
-	gs "github.com/swaggo/gin-swagger"
+
 	"go.uber.org/zap"
 )
 
 // defaultShutdownTimeout is the default timeout for graceful shutdown.
 var defaultShutdownTimeout = 10 * time.Second
-
-// pprofService registers the pprof handlers to the given router group.
-func pprofService(g *gin.RouterGroup) {
-	// Get
-	g.GET("/", wrap.WrapHandlerFuncToGin(pprof.Index))                                         // Get the pprof index page
-	g.GET("/cmdline", wrap.WrapHandlerFuncToGin(pprof.Cmdline))                                // Get the command line arguments
-	g.GET("/profile", wrap.WrapHandlerFuncToGin(pprof.Profile))                                // Get the profiling goroutine stack traces
-	g.GET("/symbol", wrap.WrapHandlerFuncToGin(pprof.Symbol))                                  // Get the symbol table
-	g.GET("/trace", wrap.WrapHandlerFuncToGin(pprof.Trace))                                    // Get the execution trace
-	g.GET("/allocs", wrap.WrapHandlerFuncToGin(pprof.Handler("allocs").ServeHTTP))             // Get the heap allocations
-	g.GET("/block", wrap.WrapHandlerFuncToGin(pprof.Handler("block").ServeHTTP))               // Get the goroutine blocking profile
-	g.GET("/goroutine", wrap.WrapHandlerFuncToGin(pprof.Handler("goroutine").ServeHTTP))       // Get the goroutine profile
-	g.GET("/heap", wrap.WrapHandlerFuncToGin(pprof.Handler("heap").ServeHTTP))                 // Get the heap profile
-	g.GET("/mutex", wrap.WrapHandlerFuncToGin(pprof.Handler("mutex").ServeHTTP))               // Get the mutex profile
-	g.GET("/threadcreate", wrap.WrapHandlerFuncToGin(pprof.Handler("threadcreate").ServeHTTP)) // Get the thread creation profile
-
-	// Post
-	g.POST("/pprof/symbol", wrap.WrapHandlerFuncToGin(pprof.Symbol)) // Get the symbol table
-}
 
 // Service is the interface that represents a service.
 type Service interface {
@@ -61,6 +39,7 @@ type Engine struct {
 	cancel   context.CancelFunc // Cancel function for graceful shutdown
 	handlers []gin.HandlerFunc  // List of middleware handlers
 	services []Service          // List of registered services
+	metric   *ServerMetrics     // Prometheus metric
 }
 
 // NewEngine creates a new instance of the Engine.
@@ -79,6 +58,9 @@ func NewEngine(config *Config, options *Options) *Engine {
 		lock:     sync.RWMutex{},
 		wg:       sync.WaitGroup{},
 		once:     sync.Once{},
+		handlers: make([]gin.HandlerFunc, 0),
+		services: make([]Service, 0),
+		metric:   NewServerMetrics(config.PrometheusRegistry),
 	}
 	engine.ctx, engine.cancel = context.WithTimeout(context.Background(), defaultShutdownTimeout)
 	engine.ginSvr = gin.New()
@@ -93,13 +75,11 @@ func NewEngine(config *Config, options *Options) *Engine {
 	})
 
 	// Add health check
-	engine.root.GET(com.HealthCheckURLPath, func(c *gin.Context) {
-		c.String(http.StatusOK, com.RequestOK)
-	})
+	healthcheckService(engine.root.Group(com.HealthCheckURLPath))
 
 	// Add swagger
 	if engine.opts.swagger {
-		engine.root.GET(com.SwaggerURLPath+"/*any", gs.WrapHandler(swag.Handler))
+		swaggerService(engine.root.Group(com.SwaggerURLPath))
 	}
 
 	// Add performance monitoring interface
@@ -107,8 +87,19 @@ func NewEngine(config *Config, options *Options) *Engine {
 		pprofService(engine.root.Group(com.PprofURLPath))
 	}
 
+	// Add Prometheus metric interface
+	if engine.opts.metric {
+		engine.metric.Register()
+		metricService(engine.root.Group(com.PromMetricURLPath))
+	}
+
 	// Register middleware
-	engine.ginSvr.Use(mid.BodyBuffer(), mid.Recovery(engine.config.Logger, engine.config.RecoveryLogEventFunc), mid.Cors())
+	engine.ginSvr.Use(
+		mid.BodyBuffer(), // Buffer for request/response body
+		mid.Recovery(engine.config.Logger, engine.config.RecoveryLogEventFunc), // Recovery from panic
+		engine.metric.HandlerFunc(), // Prometheus metric
+		mid.Cors(),                  // Cross-origin resource sharing
+	)
 
 	return &engine
 }
@@ -166,9 +157,11 @@ func (e *Engine) Run() {
 // Stop stops the Orbit engine.
 func (e *Engine) Stop() {
 	e.once.Do(func() {
+		// Mark as not running
 		e.lock.Lock()
 		e.running = false
 		e.lock.Unlock()
+		// Signal shutdown
 		e.cancel()
 		e.wg.Wait()
 		// Close http server
@@ -178,6 +171,10 @@ func (e *Engine) Stop() {
 			}
 		}
 		e.config.Logger.Infow("http server is shutdown", "address", e.endpoint)
+		// Unregister Prometheus metric
+		if e.opts.metric {
+			e.metric.Unregister()
+		}
 	})
 }
 

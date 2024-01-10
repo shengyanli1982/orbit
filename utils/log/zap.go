@@ -1,4 +1,4 @@
-package orbit
+package log
 
 import (
 	"io"
@@ -13,9 +13,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var (
-	defaultLoggerName = "default"
-)
+const DefaultLoggerName = "default"
 
 // UseJSONReflectedEncoder returns a zapcore.ReflectedEncoder using json parser
 func UseJSONReflectedEncoder(w io.Writer) zapcore.ReflectedEncoder {
