@@ -44,12 +44,18 @@ type Engine struct {
 
 // NewEngine creates a new instance of the Engine.
 func NewEngine(config *Config, options *Options) *Engine {
+	// Validate config
 	config = isConfigValid(config)
+
+	// Check running mode
 	if config.ReleaseMode {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
+	// Disable console color
 	gin.DisableConsoleColor()
+
+	// Create engine
 	engine := Engine{
 		running:  false,
 		endpoint: fmt.Sprintf("%s:%d", config.Address, config.Port),
@@ -161,9 +167,11 @@ func (e *Engine) Stop() {
 		e.lock.Lock()
 		e.running = false
 		e.lock.Unlock()
+
 		// Signal shutdown
 		e.cancel()
 		e.wg.Wait()
+
 		// Close http server
 		if e.httpSvr != nil {
 			if err := e.httpSvr.Shutdown(e.ctx); err != nil {
@@ -171,6 +179,7 @@ func (e *Engine) Stop() {
 			}
 		}
 		e.config.Logger.Infow("http server is shutdown", "address", e.endpoint)
+
 		// Unregister Prometheus metric
 		if e.opts.metric {
 			e.metric.Unregister()

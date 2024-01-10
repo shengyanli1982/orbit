@@ -88,7 +88,9 @@ func CanRecordContextBody(header http.Header) bool {
 	return false
 }
 
+// GenerateRequestPath returns the request path from the Gin context
 func GenerateRequestPath(context *gin.Context) string {
+	// If the request contains a query string, return the entire URL, otherwise return the path
 	if len(context.Request.URL.RawQuery) > 0 {
 		return context.Request.URL.RequestURI()
 	}
@@ -121,6 +123,7 @@ func GenerateRequestBody(context *gin.Context) ([]byte, error) {
 		// If an error occurs while writing the content to the Buff Pool, store the original content
 		context.Request.Body = io.NopCloser(bytes.NewBuffer(body))
 	} else {
+		// If the content is written successfully, store the content in the Buffer Pool object
 		context.Request.Body = io.NopCloser(buf)
 	}
 
@@ -135,16 +138,18 @@ func ParseRequestBody(context *gin.Context, value interface{}, emptyRequestBodyC
 		return ErrContentTypeIsEmpty
 	}
 
+	// Bind the request body to the specified type value
 	var body []byte
 	err := context.ShouldBind(value)
 	if err != nil {
+		// Get the request body
 		body, err = GenerateRequestBody(context)
 		if err == nil {
+			// If the request body is empty and emptyRequestBodyContent is true, return nil directly
 			if emptyRequestBodyContent && len(body) <= 0 {
 				return nil
 			}
 		}
-
 	}
 
 	return err
