@@ -95,8 +95,8 @@ func NewEngine(config *Config, options *Options) *Engine {
 
 	// Register middleware
 	engine.ginSvr.Use(
-		mid.BodyBuffer(), // Buffer for request/response body
 		mid.Recovery(engine.config.Logger, engine.config.RecoveryLogEventFunc), // Recovery from panic
+		mid.BodyBuffer(),            // Buffer for request/response body
 		engine.metric.HandlerFunc(), // Prometheus metric
 		mid.Cors(),                  // Cross-origin resource sharing
 	)
