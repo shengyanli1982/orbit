@@ -33,8 +33,8 @@ func NewServerMetrics(registry *prometheus.Registry) *ServerMetrics {
 		requestLatencies: prometheus.NewHistogramVec(
 			prometheus.HistogramOpts{
 				Namespace: com.OrbitName,
-				Name:      "http_request_latency_milliseconds_histogram", // HTTP请求延迟直方图（毫秒） (HTTP request latency histogram in Milliseconds)
-				Help:      "HTTP request latencies in Milliseconds(Histogram).",
+				Name:      "http_request_latency_seconds_histogram", // HTTP请求延迟直方图（毫秒） (HTTP request latency histogram in seconds)
+				Help:      "HTTP request latencies in seconds(Histogram).",
 				Buckets:   []float64{0.1, 0.5, 1, 2, 5, 10},
 			},
 			metricLabels,
@@ -42,8 +42,8 @@ func NewServerMetrics(registry *prometheus.Registry) *ServerMetrics {
 		requestLatency: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Namespace: com.OrbitName,
-				Name:      "http_request_latency_milliseconds", // HTTP请求延迟仪表盘（毫秒） (HTTP request latency gauge in Milliseconds)
-				Help:      "HTTP request latencies in Milliseconds.",
+				Name:      "http_request_latency_seconds", // HTTP请求延迟仪表盘（毫秒） (HTTP request latency gauge in seconds)
+				Help:      "HTTP request latencies in seconds.",
 			},
 			metricLabels,
 		),
@@ -118,8 +118,8 @@ func (m *ServerMetrics) HandlerFunc(logger *zap.SugaredLogger) gin.HandlerFunc {
 				logger.Error(err)
 			}
 		} else {
-			// Response latency
-			latency := float64(time.Since(start).Milliseconds())
+			// Response latenc
+			latency := time.Since(start).Seconds()
 			status := strconv.Itoa(context.Writer.Status())
 
 			// Record metrics

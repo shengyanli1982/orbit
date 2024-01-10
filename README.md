@@ -536,18 +536,18 @@ func main() {
 **Result**
 
 ```bash
-# HELP orbit_http_request_latency_milliseconds HTTP request latencies in Milliseconds.
-# TYPE orbit_http_request_latency_milliseconds gauge
-orbit_http_request_latency_milliseconds{method="GET",path="/demo",status="200"} 0
-# HELP orbit_http_request_latency_milliseconds_histogram HTTP request latencies in Milliseconds(Histogram).
-# TYPE orbit_http_request_latency_milliseconds_histogram histogram
-orbit_http_request_latency_milliseconds_histogram_bucket{method="GET",path="/demo",status="200",le="0.1"} 3
-orbit_http_request_latency_milliseconds_histogram_bucket{method="GET",path="/demo",status="200",le="0.5"} 3
-orbit_http_request_latency_milliseconds_histogram_bucket{method="GET",path="/demo",status="200",le="1"} 3
-orbit_http_request_latency_milliseconds_histogram_bucket{method="GET",path="/demo",status="200",le="2"} 3
-orbit_http_request_latency_milliseconds_histogram_bucket{method="GET",path="/demo",status="200",le="5"} 3
-orbit_http_request_latency_milliseconds_histogram_bucket{method="GET",path="/demo",status="200",le="10"} 3
-orbit_http_request_latency_milliseconds_histogram_bucket{method="GET",path="/demo",status="200",le="+Inf"} 3
-orbit_http_request_latency_milliseconds_histogram_sum{method="GET",path="/demo",status="200"} 0
-orbit_http_request_latency_milliseconds_histogram_count{method="GET",path="/demo",status="200"} 3
+# HELP orbit_http_request_latency_seconds HTTP request latencies in seconds.
+# TYPE orbit_http_request_latency_seconds gauge
+orbit_http_request_latency_seconds{method="GET",path="/demo",status="200"} 0
+# HELP orbit_http_request_latency_seconds_histogram HTTP request latencies in seconds(Histogram).
+# TYPE orbit_http_request_latency_seconds_histogram histogram
+orbit_http_request_latency_seconds_histogram_bucket{method="GET",path="/demo",status="200",le="0.1"} 3
+orbit_http_request_latency_seconds_histogram_bucket{method="GET",path="/demo",status="200",le="0.5"} 3
+orbit_http_request_latency_seconds_histogram_bucket{method="GET",path="/demo",status="200",le="1"} 3
+orbit_http_request_latency_seconds_histogram_bucket{method="GET",path="/demo",status="200",le="2"} 3
+orbit_http_request_latency_seconds_histogram_bucket{method="GET",path="/demo",status="200",le="5"} 3
+orbit_http_request_latency_seconds_histogram_bucket{method="GET",path="/demo",status="200",le="10"} 3
+orbit_http_request_latency_seconds_histogram_bucket{method="GET",path="/demo",status="200",le="+Inf"} 3
+orbit_http_request_latency_seconds_histogram_sum{method="GET",path="/demo",status="200"} 0
+orbit_http_request_latency_seconds_histogram_count{method="GET",path="/demo",status="200"} 3
 ```
