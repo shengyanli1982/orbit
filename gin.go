@@ -47,6 +47,9 @@ func NewEngine(config *Config, options *Options) *Engine {
 	// Validate config
 	config = isConfigValid(config)
 
+	// Validate options
+	options = isOptionsValid(options)
+
 	// Check running mode
 	if config.ReleaseMode {
 		gin.SetMode(gin.ReleaseMode)

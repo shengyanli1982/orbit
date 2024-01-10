@@ -13,13 +13,7 @@ type Options struct {
 
 // NewOptions creates a new instance of Options.
 func NewOptions() *Options {
-	return &Options{
-		pprof:         true,
-		swagger:       false,
-		trailingSlash: false,
-		fixedPath:     false,
-		recReqBody:    false,
-	}
+	return &Options{}
 }
 
 // EnablePProf enables the pprof endpoint.
@@ -62,4 +56,22 @@ func (o *Options) EnableForwardedByClientIp() *Options {
 func (o *Options) EnableRecordRequestBody() *Options {
 	o.recReqBody = true
 	return o
+}
+
+// DebugOptions returns the debug options.
+func DebugOptions() *Options {
+	return NewOptions().EnablePProf().EnableSwagger().EnableMetric().EnableRecordRequestBody()
+}
+
+// ReleaseOptions returns the release options.
+func ReleaseOptions() *Options {
+	return NewOptions().EnableMetric()
+}
+
+// isOptionsValid checks if the options is valid and applies default values if necessary.
+func isOptionsValid(opts *Options) *Options {
+	if opts == nil {
+		opts = DebugOptions()
+	}
+	return opts
 }
