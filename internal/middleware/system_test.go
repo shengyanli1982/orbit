@@ -28,7 +28,7 @@ func TestCors(t *testing.T) {
 	router.GET("/test", handler)
 
 	// Create a test request
-	req, _ := http.NewRequest("GET", "/test", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/test", nil)
 
 	// Create a test response recorder
 	recorder := httptest.NewRecorder()
@@ -68,7 +68,7 @@ func TestRecovery(t *testing.T) {
 	router.GET("/test", handler)
 
 	// Create a test request
-	req, _ := http.NewRequest("GET", "/test", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/test", nil)
 
 	// Create a test response recorder
 	recorder := httptest.NewRecorder()
@@ -105,7 +105,7 @@ func TestAccessLogger(t *testing.T) {
 	router.GET("/test", handler)
 
 	// Create a test request
-	req, _ := http.NewRequest("GET", "/test", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/test", nil)
 
 	// Create a test response recorder
 	recorder := httptest.NewRecorder()

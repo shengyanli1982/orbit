@@ -35,29 +35,6 @@ func TestGenerateRequestBody(t *testing.T) {
 	assert.Equal(t, requestBody, bufferedBody)
 }
 
-// func TestParseRequestBody(t *testing.T) {
-// 	// Create a new Gin context
-// 	gin.SetMode(gin.TestMode)
-// 	context, _ := gin.CreateTestContext(httptest.NewRecorder())
-
-// 	// Create a request with a sample body
-// 	requestBody := []byte("test body")
-// 	request := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBuffer(requestBody))
-// 	request.Header.Set("Content-Type", "text/plain")
-// 	context.Request = request
-
-// 	// Call the ParseRequestBody function
-// 	var value interface{}
-// 	err := ParseRequestBody(context, value, false)
-
-// 	// Assert that there is no error
-// 	assert.NoError(t, err)
-// 	assert.NotNil(t, value)
-
-// 	// Assert that the returned body matches the original request body
-// 	assert.Equal(t, requestBody, value)
-// }
-
 func TestParseRequestBodyJSON(t *testing.T) {
 	// Create a new Gin context
 	gin.SetMode(gin.TestMode)
@@ -182,11 +159,11 @@ func TestStringFilterFlags(t *testing.T) {
 
 func TestCalcRequestSize(t *testing.T) {
 	// Create a new request
-	request, _ := http.NewRequest(http.MethodGet, "http://example.com", nil)
+	request, _ := http.NewRequest(http.MethodGet, "/ping", nil)
 
 	// Calculate the request size
 	size := CalcRequestSize(request)
 
 	// Assert that the size is correct
-	assert.Equal(t, int64(40), size)
+	assert.Equal(t, int64(16), size)
 }

@@ -32,7 +32,7 @@ func TestBodyBuffer(t *testing.T) {
 	})
 
 	// Create a test request
-	req, _ := http.NewRequest("GET", "/test", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/test", nil)
 
 	// Create a test response recorder
 	rec := httptest.NewRecorder()

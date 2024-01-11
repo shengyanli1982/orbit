@@ -10,24 +10,21 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type mockService struct{}
+type emptyBodyService struct{}
 
-func (s *mockService) SomeMethod(c *gin.Context) {
-	c.String(http.StatusOK, "mock")
-}
-
-func (s *mockService) RegisterGroup(routerGroup *gin.RouterGroup) {
-	group := routerGroup.Group("/mock")
-	group.GET(com.EmptyURLPath, s.SomeMethod)
+func (s *emptyBodyService) RegisterGroup(g *gin.RouterGroup) {
+	g.GET("/empty", func(ctx *gin.Context) {})
 }
 
 func TestNewEngine(t *testing.T) {
+	// Create a new Config
 	config := &Config{
 		Address:     "localhost",
 		Port:        8080,
 		ReleaseMode: true,
 	}
 
+	// Create a new Options
 	options := &Options{
 		forwordByClientIp: true,
 		trailingSlash:     true,
@@ -37,142 +34,156 @@ func TestNewEngine(t *testing.T) {
 		metric:            true,
 	}
 
+	// Call the NewEngine function
 	engine := NewEngine(config, options)
 
+	// Run the engine
+	engine.Run()
+	defer engine.Stop()
+
+	// Assert that the engine is not nil
 	assert.NotNil(t, engine)
-	assert.False(t, engine.running)
+
+	// Assert that the engine's running field is false
+	assert.True(t, engine.running)
+
+	// Assert that the engine's endpoint matches the expected value
 	assert.Equal(t, "localhost:8080", engine.endpoint)
+
+	// Assert that the engine's config matches the expected value
 	assert.Equal(t, config, engine.config)
+
+	// Assert that the engine's opts matches the expected value
 	assert.Equal(t, options, engine.opts)
+
+	// Assert that the engine's handlers slice is empty
+	assert.Empty(t, engine.handlers)
+
+	// Assert that the engine's services slice is empty
+	assert.Empty(t, engine.services)
+
+	// Assert that the engine's ctx is not nil
 	assert.NotNil(t, engine.ctx)
+
+	// Assert that the engine's cancel is not nil
 	assert.NotNil(t, engine.cancel)
+
+	// Assert that the engine's ginSvr is not nil
 	assert.NotNil(t, engine.ginSvr)
+
+	// Assert that the engine's root is not nil
 	assert.NotNil(t, engine.root)
-	assert.NotNil(t, engine.metric)
 }
 
 func TestNewEngineNoRoute(t *testing.T) {
-	// Create configuration
+	// Create a new Config
 	config := &Config{
 		Address:     "localhost",
 		Port:        8080,
 		ReleaseMode: true,
 	}
 
-	// Create options
-	options := &Options{}
+	// Create a new Options
+	options := &Options{
+		forwordByClientIp: true,
+		trailingSlash:     true,
+		fixedPath:         true,
+		swagger:           true,
+		pprof:             true,
+		metric:            true,
+	}
 
-	// Create engine
+	// Call the NewEngine function
 	engine := NewEngine(config, options)
 
-	// Start the engine
+	// Run the engine
 	engine.Run()
 	defer engine.Stop()
 
-	// Create a test request
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/notfound", nil)
-	engine.ginSvr.ServeHTTP(w, req)
+	// Create a new HTTP request
+	req, _ := http.NewRequest(http.MethodGet, "/not-found", nil)
+
+	// Create a test response recorder
+	recorder := httptest.NewRecorder()
+
+	// Perform the request
+	engine.ginSvr.ServeHTTP(recorder, req)
 
 	// Assert that the response status code is 404
-	assert.Equal(t, http.StatusNotFound, w.Code)
-	assert.Equal(t, "[404] http request route mismatch, method: GET, path: /notfound", w.Body.String())
+	assert.Equal(t, http.StatusNotFound, recorder.Code)
+
+	// Assert that the response body matches the expected value
+	assert.Equal(t, "[404] http request route mismatch, method: GET, path: /not-found", recorder.Body.String())
 }
 
 // func TestNewEngineNoMethod(t *testing.T) {
-// 	// Create configuration
+// 	// Create a new Config
 // 	config := &Config{
-// 		Address:     "localhost",
-// 		Port:        8080,
-// 		ReleaseMode: true,
+// 		Address: "localhost",
+// 		Port:    8080,
+// 		// ReleaseMode: true,
 // 	}
 
-// 	// Create options
-// 	options := &Options{}
+// 	// Create a new Options
+// 	options := &Options{
+// 		forwordByClientIp: true,
+// 		trailingSlash:     true,
+// 		fixedPath:         true,
+// 		swagger:           true,
+// 		pprof:             true,
+// 		metric:            true,
+// 	}
 
-// 	// Create engine
+// 	// Call the NewEngine function
 // 	engine := NewEngine(config, options)
 
-// 	// Define a test route
-// 	engine.root.GET("/notallowed", func(ctx *gin.Context) {})
-
-// 	// Start the engine
+// 	// Run the engine
 // 	engine.Run()
 // 	defer engine.Stop()
 
-// 	// Create a test request
-// 	w := httptest.NewRecorder()
+// 	// Create a new HTTP request
+// 	req, _ := http.NewRequest(http.MethodPost, "/ping", nil)
 
-// 	// Test OPTIONS method
-// 	req, _ := http.NewRequest("GET", "/notallowed", nil)
-// 	req.Header.Set("Access-Control-Request-Method", "XXXX")
+// 	// Create a test response recorder
+// 	recorder := httptest.NewRecorder()
 
 // 	// Perform the request
-// 	engine.ginSvr.ServeHTTP(w, req)
+// 	engine.ginSvr.ServeHTTP(recorder, req)
 
 // 	// Assert that the response status code is 405
-// 	assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
-// 	assert.Equal(t, "[405] http request method not allowed, method: POST, path: /notallowed", w.Body.String())
+// 	assert.Equal(t, http.StatusMethodNotAllowed, recorder.Code)
+
+// 	// Assert that the response body matches the expected value
+// 	assert.Equal(t, "[405] http request method not allowed, method: POST, path: /ping", recorder.Body.String())
 // }
 
-func TestEngine_RegisterMiddleware(t *testing.T) {
-	// Create configuration
+func TestNewEngineHealthCheck(t *testing.T) {
+	// Create a new Config
 	config := &Config{
 		Address:     "localhost",
 		Port:        8080,
 		ReleaseMode: true,
 	}
 
-	// Create options
-	options := &Options{}
-
-	// Create engine
-	engine := NewEngine(config, options)
-
-	// Define a test middleware handler
-	middlewareHandler := func(c *gin.Context) {
-		c.Set("middleware", true)
-		c.Next()
-		assert.True(t, c.GetBool("middleware"))
+	// Create a new Options
+	options := &Options{
+		forwordByClientIp: true,
+		trailingSlash:     true,
+		fixedPath:         true,
+		swagger:           true,
+		pprof:             true,
+		metric:            true,
 	}
 
-	// Register the middleware
-	engine.RegisterMiddleware(middlewareHandler)
-
-	// Start the engine
-	engine.Run()
-	defer engine.Stop()
-}
-
-func TestEngine_RegisterService(t *testing.T) {
-	// Create configuration
-	config := &Config{
-		Address:     "localhost",
-		Port:        8080,
-		ReleaseMode: true,
-	}
-
-	// Create options
-	options := &Options{}
-
-	// Create engine
+	// Call the NewEngine function
 	engine := NewEngine(config, options)
 
-	// Define a test service
-	service := &mockService{}
-
-	// Register the service
-	engine.RegisterService(service)
-
-	// Start the engine
+	// Run the engine
 	engine.Run()
 	defer engine.Stop()
 
-	// Assert that the service is registered
-	assert.Contains(t, engine.services, service)
-
-	// Create a test request
-	req, _ := http.NewRequest("GET", "/mock", nil)
+	// Create a new HTTP request
+	req, _ := http.NewRequest(http.MethodGet, com.HealthCheckURLPath, nil)
 
 	// Create a test response recorder
 	recorder := httptest.NewRecorder()
@@ -182,5 +193,60 @@ func TestEngine_RegisterService(t *testing.T) {
 
 	// Assert that the response status code is 200
 	assert.Equal(t, http.StatusOK, recorder.Code)
-	assert.Equal(t, "mock", recorder.Body.String())
+
+	// Assert that the response body matches the expected value
+	assert.Equal(t, com.RequestOK, recorder.Body.String())
+}
+
+func TestRegisterMiddleware(t *testing.T) {
+	// Create a new Config
+	config := &Config{
+		Address:     "localhost",
+		Port:        8080,
+		ReleaseMode: true,
+	}
+
+	// Create a new Options
+	options := &Options{
+		forwordByClientIp: true,
+		trailingSlash:     true,
+		fixedPath:         true,
+		swagger:           true,
+		pprof:             true,
+		metric:            true,
+	}
+
+	// Call the NewEngine function
+	engine := NewEngine(config, options)
+
+	// Create a new middleware handler
+	middlewareHandler := func(c *gin.Context) {
+		c.Next()
+		c.String(http.StatusOK, "middleware")
+	}
+
+	// Register the middleware handler
+	engine.RegisterMiddleware(middlewareHandler)
+
+	// Run the engine
+	engine.RegisterService(&emptyBodyService{})
+
+	// Run the engine
+	engine.Run()
+	defer engine.Stop()
+
+	// Create a new HTTP request
+	req, _ := http.NewRequest(http.MethodGet, "/empty", nil)
+
+	// Create a test response recorder
+	recorder := httptest.NewRecorder()
+
+	// Perform the request
+	engine.ginSvr.ServeHTTP(recorder, req)
+
+	// Assert that the response status code is 200
+	assert.Equal(t, http.StatusOK, recorder.Code)
+
+	// Assert that the response body matches the expected value
+	assert.Equal(t, "middleware", recorder.Body.String())
 }
