@@ -116,46 +116,46 @@ func TestNewEngineNoRoute(t *testing.T) {
 	assert.Equal(t, "[404] http request route mismatch, method: GET, path: /not-found", recorder.Body.String())
 }
 
-// func TestNewEngineNoMethod(t *testing.T) {
-// 	// Create a new Config
-// 	config := &Config{
-// 		Address: "localhost",
-// 		Port:    8080,
-// 		// ReleaseMode: true,
-// 	}
+func TestNewEngineNoMethod(t *testing.T) {
+	// Create a new Config
+	config := &Config{
+		Address:     "localhost",
+		Port:        8080,
+		ReleaseMode: true,
+	}
 
-// 	// Create a new Options
-// 	options := &Options{
-// 		forwordByClientIp: true,
-// 		trailingSlash:     true,
-// 		fixedPath:         true,
-// 		swagger:           true,
-// 		pprof:             true,
-// 		metric:            true,
-// 	}
+	// Create a new Options
+	options := &Options{
+		forwordByClientIp: true,
+		trailingSlash:     true,
+		fixedPath:         true,
+		swagger:           true,
+		pprof:             true,
+		metric:            true,
+	}
 
-// 	// Call the NewEngine function
-// 	engine := NewEngine(config, options)
+	// Call the NewEngine function
+	engine := NewEngine(config, options)
 
-// 	// Run the engine
-// 	engine.Run()
-// 	defer engine.Stop()
+	// Run the engine
+	engine.Run()
+	defer engine.Stop()
 
-// 	// Create a new HTTP request
-// 	req, _ := http.NewRequest(http.MethodPost, "/ping", nil)
+	// Create a new HTTP request
+	req, _ := http.NewRequest(http.MethodPost, "/ping", nil)
 
-// 	// Create a test response recorder
-// 	recorder := httptest.NewRecorder()
+	// Create a test response recorder
+	recorder := httptest.NewRecorder()
 
-// 	// Perform the request
-// 	engine.ginSvr.ServeHTTP(recorder, req)
+	// Perform the request
+	engine.ginSvr.ServeHTTP(recorder, req)
 
-// 	// Assert that the response status code is 405
-// 	assert.Equal(t, http.StatusMethodNotAllowed, recorder.Code)
+	// Assert that the response status code is 405
+	assert.Equal(t, http.StatusMethodNotAllowed, recorder.Code)
 
-// 	// Assert that the response body matches the expected value
-// 	assert.Equal(t, "[405] http request method not allowed, method: POST, path: /ping", recorder.Body.String())
-// }
+	// Assert that the response body matches the expected value
+	assert.Equal(t, "[405] http request method not allowed, method: POST, path: /ping", recorder.Body.String())
+}
 
 func TestNewEngineHealthCheck(t *testing.T) {
 	// Create a new Config
