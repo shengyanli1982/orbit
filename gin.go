@@ -207,6 +207,7 @@ func (e *Engine) IsRunning() bool {
 	return e.running
 }
 
+// setRuningStatus sets the running status of the Orbit engine.
 func (e *Engine) setRuningStatus(status bool) {
 	e.lock.RLock()
 	defer e.lock.RUnlock()

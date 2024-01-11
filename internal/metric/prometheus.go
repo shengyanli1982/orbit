@@ -123,9 +123,9 @@ func (m *ServerMetrics) HandlerFunc(logger *zap.SugaredLogger) gin.HandlerFunc {
 			status := strconv.Itoa(context.Writer.Status())
 
 			// Record metrics
-			m.IncRequestCount(context.Request.Method, context.Request.URL.Path, status)
-			m.ObserveRequestLatency(context.Request.Method, context.Request.URL.Path, status, latency)
-			m.SetRequestLatency(context.Request.Method, context.Request.URL.Path, status, latency)
+			m.IncRequestCount(context.Request.Method, context.Request.URL.Path, status)                // 记录请求计数器 (Record request counter)
+			m.ObserveRequestLatency(context.Request.Method, context.Request.URL.Path, status, latency) // 记录请求延迟直方图 (Record request latency histogram)
+			m.SetRequestLatency(context.Request.Method, context.Request.URL.Path, status, latency)     // 记录请求延迟仪表盘 (Record request latency gauge)
 		}
 	}
 }
