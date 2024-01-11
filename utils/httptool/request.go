@@ -99,6 +99,11 @@ func GenerateRequestPath(context *gin.Context) string {
 
 // GenerateRequestBody reads the HTTP request body from the Gin context and stores it in a Buffer Pool object
 func GenerateRequestBody(context *gin.Context) ([]byte, error) {
+	// Check if the request body is nil
+	if context.Request.Body == nil {
+		return conver.StringToBytes("request body is nil"), nil
+	}
+
 	// Check if there is already a related Buffer Pool object, if not, create a new instance
 	var buf *bytes.Buffer
 	if obj, ok := context.Get(com.RequestBodyBufferKey); ok {
