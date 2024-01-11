@@ -86,10 +86,13 @@ func NewEngine(config *Config, options *Options) *Engine {
 	engine.ginSvr.RedirectTrailingSlash = options.trailingSlash
 	engine.ginSvr.RedirectFixedPath = options.fixedPath
 
-	// Add custom 404/405 output
+	// Add custom 405 output
+	engine.ginSvr.HandleMethodNotAllowed = true
 	engine.ginSvr.NoRoute(func(context *gin.Context) {
 		context.String(http.StatusNotFound, "[404] http request route mismatch, method: "+context.Request.Method+", path: "+context.Request.URL.Path)
 	})
+
+	// Add custom 404 output
 	engine.ginSvr.NoMethod(func(context *gin.Context) {
 		context.String(http.StatusMethodNotAllowed, "[405] http request method not allowed, method: "+context.Request.Method+", path: "+context.Request.URL.Path)
 	})
