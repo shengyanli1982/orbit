@@ -32,16 +32,16 @@ type Config struct {
 // NewConfig creates a new Config instance with default values.
 func NewConfig() *Config {
 	return &Config{
-		Address:               defaultHttpListenAddress,
-		Port:                  defaultHttpListenPort,
-		ReleaseMode:           false,
-		HttpReadTimeout:       defaultIdleTimeout,
-		HttpWriteTimeout:      defaultIdleTimeout,
-		HttpReadHeaderTimeout: defaultIdleTimeout,
-		logger:                com.DefaultSugeredLogger,
-		accessLogEventFunc:    ilog.DefaultAccessEventFunc,
-		recoveryLogEventFunc:  ilog.DefaultRecoveryEventFunc,
-		prometheusRegistry:    prometheus.DefaultRegisterer.(*prometheus.Registry),
+		Address:               defaultHttpListenAddress,                            // Default address to listen on
+		Port:                  defaultHttpListenPort,                               // Default port to listen on
+		ReleaseMode:           false,                                               // Default release mode flag
+		HttpReadTimeout:       defaultIdleTimeout,                                  // Default HTTP read timeout
+		HttpWriteTimeout:      defaultIdleTimeout,                                  // Default HTTP write timeout
+		HttpReadHeaderTimeout: defaultIdleTimeout,                                  // Default HTTP read header timeout
+		logger:                com.DefaultSugeredLogger,                            // Default logger instance
+		accessLogEventFunc:    ilog.DefaultAccessEventFunc,                         // Default access log event function
+		recoveryLogEventFunc:  ilog.DefaultRecoveryEventFunc,                       // Default recovery log event function
+		prometheusRegistry:    prometheus.DefaultRegisterer.(*prometheus.Registry), // Default Prometheus registry
 	}
 }
 
