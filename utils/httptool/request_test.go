@@ -21,14 +21,17 @@ func TestGenerateRequestBody(t *testing.T) {
 	request := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBuffer(requestBody))
 	context.Request = request
 
-	// Call the GenerateRequestBody function
-	body, err := GenerateRequestBody(context)
+	// Repeat read the request body 100 times
+	for i := 0; i < 100; i++ {
+		// Call the GenerateRequestBody function
+		body, err := GenerateRequestBody(context)
 
-	// Assert that there is no error
-	assert.NoError(t, err)
+		// Assert that there is no error
+		assert.NoError(t, err)
 
-	// Assert that the returned body matches the original request body
-	assert.Equal(t, requestBody, body)
+		// Assert that the returned body matches the original request body
+		assert.Equal(t, requestBody, body)
+	}
 
 	// Assert that the request body has been replaced with the buffer
 	bufferedBody, _ := io.ReadAll(context.Request.Body)
@@ -81,7 +84,7 @@ func TestParseRequestBodyYAML(t *testing.T) {
 	assert.Equal(t, map[interface{}]interface{}{"test": "body"}, value)
 }
 
-func TestParseRequestBody_EmptyBody(t *testing.T) {
+func TestParseRequestBodyEmptyBody(t *testing.T) {
 	// Create a new Gin context
 	gin.SetMode(gin.TestMode)
 	context, _ := gin.CreateTestContext(httptest.NewRecorder())

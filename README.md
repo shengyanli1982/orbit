@@ -24,6 +24,8 @@ Why not use `gin` directly? Because `gin` is too simple, if you want to start a 
 -   Support custom middleware
 -   Support custom router group
 -   Support custom define access log format and fields
+-   Support custom define recovery log format and fields
+-   Support repeat read request/response body, and cache request/response body bytes.
 
 # Installation
 
@@ -550,4 +552,231 @@ orbit_http_request_latency_seconds_histogram_bucket{method="GET",path="/demo",st
 orbit_http_request_latency_seconds_histogram_bucket{method="GET",path="/demo",status="200",le="+Inf"} 3
 orbit_http_request_latency_seconds_histogram_sum{method="GET",path="/demo",status="200"} 0
 orbit_http_request_latency_seconds_histogram_count{method="GET",path="/demo",status="200"} 3
+```
+
+## 9. Repeat Read Request/Response Body
+
+`orbit` support repeat read request/response body, default behavior is enable, no need to do anything. Here is a example to use `demo` service to repeat read request/response body.
+
+### 9.1 Repeat Read Request Body
+
+`httptool.GenerateRequestBody` method can help you to get request body bytes and cache it. The next time you read it, you can get the cached bytes.
+
+> [!IMPORTANT]
+> Request body is a `io.ReadCloser`, it is a stream, so you can only read it once. If you want to read it again, do not directly read it, you can use `orbit` to cache it.
+
+**Example**
+
+```go
+package main
+
+import (
+	"bytes"
+	"fmt"
+	"io"
+	"net/http"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/shengyanli1982/orbit"
+	"github.com/shengyanli1982/orbit/utils/httptool"
+)
+
+type service struct{}
+
+func (s *service) RegisterGroup(g *gin.RouterGroup) {
+	// /demo
+	g.POST("/demo", func(c *gin.Context) {
+		// Repeat the read request body content 20 times.
+		for i := 0; i < 20; i++ {
+			if body, err := httptool.GenerateRequestBody(c); err != nil {
+				c.String(http.StatusInternalServerError, err.Error())
+			} else {
+				c.String(http.StatusOK, fmt.Sprintf(">> %d, %s\n", i, string(body)))
+			}
+		}
+	})
+}
+
+func main() {
+	// Create a new orbit configuration.
+	config := orbit.NewConfig()
+
+	// Create a new orbit feature options.
+	opts := orbit.NewOptions()
+
+	// Create a new orbit engine.
+	engine := orbit.NewEngine(config, opts)
+
+	// Register a custom router group.
+	engine.RegisterService(&service{})
+
+	// Start the engine.
+	engine.Run()
+
+	// Simulate a request.
+	resp, _ := http.Post("http://localhost:8080/demo", "text/plain", io.NopCloser(bytes.NewBuffer([]byte("demo"))))
+	defer resp.Body.Close()
+
+	// Print the response body.
+	buf := new(bytes.Buffer)
+	_, _ = buf.ReadFrom(resp.Body)
+	fmt.Println(buf.String())
+
+	// Wait for 30 seconds.
+	time.Sleep(30 * time.Second)
+
+	// Stop the engine.
+	engine.Stop()
+}
+```
+
+**Result**
+
+```bash
+$ go run demo.go
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] GET    /ping                     --> github.com/shengyanli1982/orbit.healthcheckService.func1 (1 handlers)
+[GIN-debug] POST   /demo                     --> main.(*service).RegisterGroup.func1 (5 handlers)
+{"level":"INFO","time":"2024-01-13T10:27:37.531+0800","logger":"default","caller":"orbit/gin.go:165","message":"http server is ready","address":"127.0.0.1:8080"}
+{"level":"INFO","time":"2024-01-13T10:27:37.534+0800","logger":"default","caller":"log/default.go:10","message":"http server access log","id":"","ip":"127.0.0.1","endpoint":"127.0.0.1:58618","path":"/demo","method":"POST","code":200,"status":"OK","latency":"50.508µs","agent":"Go-http-client/1.1","query":"","reqContentType":"text/plain","reqBody":""}
+
+>> 0, demo
+>> 1, demo
+>> 2, demo
+>> 3, demo
+>> 4, demo
+>> 5, demo
+>> 6, demo
+>> 7, demo
+>> 8, demo
+>> 9, demo
+>> 10, demo
+>> 11, demo
+>> 12, demo
+>> 13, demo
+>> 14, demo
+>> 15, demo
+>> 16, demo
+>> 17, demo
+>> 18, demo
+>> 19, demo
+
+{"level":"INFO","time":"2024-01-13T10:28:07.537+0800","logger":"default","caller":"orbit/gin.go:190","message":"http server is shutdown","address":"127.0.0.1:8080"}
+```
+
+### 9.2 Repeat Read Response Body
+
+`httptool.GenerateResponseBody` method can help you to get response body bytes from cache. Remember, you must call `httptool.GenerateResponseBody` after you real write response body, like `c.String(http.StatusOK, "demo")`.
+
+> [!NOTE]
+> Response body aways write to `io.Writer`, so you can not read it directly. If you want to read it, you can use `orbit` to cache it.
+>
+> Many times `httptool.GenerateResponseBody` is used to custom middleware, you can use it to get response body bytes and do something.
+
+**Example**
+
+```go
+package main
+
+import (
+	"fmt"
+	"net/http"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/shengyanli1982/orbit"
+	"github.com/shengyanli1982/orbit/utils/httptool"
+)
+
+func customMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Next()
+
+		// Get the response body buffer from the context
+		for i := 0; i < 20; i++ {
+			body, _ := httptool.GenerateResponseBody(c)
+			fmt.Printf("# %d, %s\n", i, string(body))
+		}
+	}
+}
+
+type service struct{}
+
+func (s *service) RegisterGroup(g *gin.RouterGroup) {
+	g.GET("/demo", func(c *gin.Context) {
+		c.String(http.StatusOK, "demo")
+	})
+}
+
+func main() {
+	// Create a new orbit configuration.
+	config := orbit.NewConfig()
+
+	// Create a new orbit feature options.
+	opts := orbit.NewOptions().EnableMetric()
+
+	// Create a new orbit engine.
+	engine := orbit.NewEngine(config, opts)
+
+	// Register a custom middleware.
+	engine.RegisterMiddleware(customMiddleware())
+
+	// Register a custom router group.
+	engine.RegisterService(&service{})
+
+	// Start the engine.
+	engine.Run()
+
+	// Simulate a request.
+	resp, _ := http.Get("http://localhost:8080/demo")
+	defer resp.Body.Close()
+
+	// Wait for 30 seconds.
+	time.Sleep(30 * time.Second)
+
+	// Stop the engine.
+	engine.Stop()
+}
+```
+
+**Result**
+
+```bash
+$ go run demo.go
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] GET    /ping                     --> github.com/shengyanli1982/orbit.healthcheckService.func1 (1 handlers)
+[GIN-debug] GET    /metrics                  --> github.com/shengyanli1982/orbit/utils/wrapper.WrapHandlerToGin.func1 (2 handlers)
+[GIN-debug] GET    /demo                     --> main.(*service).RegisterGroup.func1 (7 handlers)
+{"level":"INFO","time":"2024-01-13T10:32:25.191+0800","logger":"default","caller":"orbit/gin.go:165","message":"http server is ready","address":"127.0.0.1:8080"}
+{"level":"INFO","time":"2024-01-13T10:32:25.194+0800","logger":"default","caller":"log/default.go:10","message":"http server access log","id":"","ip":"127.0.0.1","endpoint":"127.0.0.1:59139","path":"/demo","method":"GET","code":200,"status":"OK","latency":"20.326µs","agent":"Go-http-client/1.1","query":"","reqContentType":"","reqBody":""}
+
+# 0, demo
+# 1, demo
+# 2, demo
+# 3, demo
+# 4, demo
+# 5, demo
+# 6, demo
+# 7, demo
+# 8, demo
+# 9, demo
+# 10, demo
+# 11, demo
+# 12, demo
+# 13, demo
+# 14, demo
+# 15, demo
+# 16, demo
+# 17, demo
+# 18, demo
+# 19, demo
+
+{"level":"INFO","time":"2024-01-13T10:32:55.195+0800","logger":"default","caller":"orbit/gin.go:190","message":"http server is shutdown","address":"127.0.0.1:8080"}
 ```

@@ -98,6 +98,7 @@ func GenerateRequestPath(context *gin.Context) string {
 }
 
 // GenerateRequestBody reads the HTTP request body from the Gin context and stores it in a Buffer Pool object
+// Please don't directly to read the request body from the Gin context, because the request body can only be read once
 func GenerateRequestBody(context *gin.Context) ([]byte, error) {
 	// Check if the request body is nil
 	if context.Request.Body == nil {
@@ -105,35 +106,35 @@ func GenerateRequestBody(context *gin.Context) ([]byte, error) {
 	}
 
 	// Check if there is already a related Buffer Pool object, if not, create a new instance
-	var buf *bytes.Buffer
-	if obj, ok := context.Get(com.RequestBodyBufferKey); ok {
-		buf = obj.(*bytes.Buffer)
+	var reqBodyBuffer *bytes.Buffer
+	if buffer, ok := context.Get(com.RequestBodyBufferKey); ok {
+		reqBodyBuffer = buffer.(*bytes.Buffer)
 	} else {
-		buf = com.RequestBodyBufferPool.Get()
-		context.Set(com.RequestBodyBufferKey, buf)
+		reqBodyBuffer = com.RequestBodyBufferPool.Get()
+		context.Set(com.RequestBodyBufferKey, reqBodyBuffer)
 	}
 
-	// Reset the Buffer Pool object if it has been used before
-	buf.Reset()
+	// Check if the Buffer Pool object is empty, if so, read the HTTP request body
+	if reqBodyBuffer.Len() <= 0 {
+		// Read the HTTP request body
+		body, err := io.ReadAll(context.Request.Body)
+		if err != nil {
+			return conver.StringToBytes("failed to get request body"), err
+		}
 
-	// Read the HTTP request body
-	body, err := io.ReadAll(context.Request.Body)
-	if err != nil {
-		return conver.StringToBytes("failed to get request body"), err
-	}
-
-	// Write the content to the Buffer Pool object
-	_, err = buf.Write(body)
-	if err != nil {
-		// If an error occurs while writing the content to the Buff Pool, store the original content
-		context.Request.Body = io.NopCloser(bytes.NewBuffer(body))
-	} else {
-		// If the content is written successfully, store the content in the Buffer Pool object
-		context.Request.Body = io.NopCloser(buf)
+		// Write the content to the Buffer Pool object
+		_, err = reqBodyBuffer.Write(body)
+		if err != nil {
+			// If an error occurs while writing the content to the Buff Pool, store the original content
+			context.Request.Body = io.NopCloser(bytes.NewBuffer(body))
+		} else {
+			// If the content is written successfully, store the content in the Buffer Pool object
+			context.Request.Body = io.NopCloser(reqBodyBuffer)
+		}
 	}
 
 	// Return the request body
-	return body, nil
+	return reqBodyBuffer.Bytes(), nil
 }
 
 // ParseRequestBody parses the request body into a variable of the specified type value, emptyRequestBodyContent indicates whether an empty body is allowed
