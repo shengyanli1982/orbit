@@ -23,7 +23,7 @@ func TestNewServerMetrics(t *testing.T) {
 	assert.Equal(t, registry, metrics.registry)
 }
 
-func TestServerMetrics_HandlerFunc(t *testing.T) {
+func TestServerMetricsHandlerFunc(t *testing.T) {
 	registry := prometheus.NewRegistry()
 	metrics := NewServerMetrics(registry)
 	logger := zap.NewExample().Sugar()
