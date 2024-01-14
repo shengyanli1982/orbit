@@ -251,3 +251,13 @@ func (e *Engine) RegisterMiddleware(handler gin.HandlerFunc) {
 		e.handlers = append(e.handlers, handler)
 	}
 }
+
+// GetLogger returns the logger of the Orbit engine.
+func (e *Engine) GetLogger() *zap.SugaredLogger {
+	return e.config.logger
+}
+
+// GetConfig returns the configuration of the Orbit engine.
+func (e *Engine) IsMetricEnabled() bool {
+	return e.opts.metric
+}
