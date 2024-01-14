@@ -12,8 +12,8 @@ import (
 	"github.com/shengyanli1982/orbit/internal/conver"
 )
 
-// ErrContentTypeIsEmpty is the error that indicates the content type is empty.
-var ErrContentTypeIsEmpty = errors.New("content type is empty")
+// ErrorContentTypeIsEmpty is the error that indicates the content type is empty.
+var ErrorContentTypeIsEmpty = errors.New("content type is empty")
 
 // contentTypes is a slice of strings that represents the supported content types for HTTP requests.
 var contentTypes = []string{
@@ -141,7 +141,7 @@ func GenerateRequestBody(context *gin.Context) ([]byte, error) {
 func ParseRequestBody(context *gin.Context, value interface{}, emptyRequestBodyContent bool) error {
 	// Check if ContentType is empty
 	if context.ContentType() == "" {
-		return ErrContentTypeIsEmpty
+		return ErrorContentTypeIsEmpty
 	}
 
 	// Bind the request body to the specified type value
