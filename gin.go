@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus"
 	com "github.com/shengyanli1982/orbit/common"
 	mtc "github.com/shengyanli1982/orbit/internal/metric"
 	mid "github.com/shengyanli1982/orbit/internal/middleware"
@@ -252,12 +253,27 @@ func (e *Engine) RegisterMiddleware(handler gin.HandlerFunc) {
 	}
 }
 
+// GetConfig returns the metric status of the Orbit engine.
+func (e *Engine) IsMetricEnabled() bool {
+	return e.opts.metric
+}
+
+// GetConfig returns the running mode of the Orbit engine.
+func (e *Engine) IsReleaseMode() bool {
+	return e.config.ReleaseMode
+}
+
 // GetLogger returns the logger of the Orbit engine.
 func (e *Engine) GetLogger() *zap.SugaredLogger {
 	return e.config.logger
 }
 
-// GetConfig returns the configuration of the Orbit engine.
-func (e *Engine) IsMetricEnabled() bool {
-	return e.opts.metric
+// GetPrometheusRegistry returns the Prometheus registry of the Orbit engine.
+func (e *Engine) GetPrometheusRegistry() *prometheus.Registry {
+	return e.config.prometheusRegistry
+}
+
+// GetListenEndpoint returns the listen endpoint of the Orbit engine.
+func (e *Engine) GetListenEndpoint() string {
+	return e.endpoint
 }
