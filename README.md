@@ -57,7 +57,7 @@ The `orbit` has some config options, you can set it before start `orbit` instanc
 
 -   `WithSugaredLogger` - use `zap` sugared logger, default is `DefaultSugeredLogger`
 -   `WithLogger` - use `zap` logger, default is `DefaultConsoleLogger`
--   `WithAddress` - http server listen address, default is `127.0.0.0`
+-   `WithAddress` - http server listen address, default is `127.0.0.1`
 -   `WithPort` - http server listen port, default is `8080`
 -   `WithRelease` - http server release mode, default is `false`
 -   `WithHttpReadTimeout` - http server read timeout, default is `15s`

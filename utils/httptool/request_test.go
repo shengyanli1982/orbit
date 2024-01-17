@@ -98,7 +98,7 @@ func TestParseRequestBodyEmptyBody(t *testing.T) {
 	err := ParseRequestBody(context, &value, true)
 
 	// Assert that there is no error
-	assert.Equal(t, err, ErrContentTypeIsEmpty)
+	assert.Equal(t, err, ErrorContentTypeIsEmpty)
 
 	// Assert that the request body has been replaced with the buffer
 	bufferedBody, _ := io.ReadAll(context.Request.Body)
