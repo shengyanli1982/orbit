@@ -1,7 +1,7 @@
 <div align="center">
 	<h1>orbit</h1>
-	<img src="assets/logo.png" alt="logo" width="300px">
-	<h4>A lightweight http web service wrapper framework.</h4>
+	<p>A lightweight http web service wrapper framework.<p>
+	<img src="assets/logo.png" alt="logo" width="360px">
 </div>
 
 # Introduction
