@@ -2,6 +2,7 @@ package conver
 
 import "unsafe"
 
+// BytesToString 将字节切片转换为字符串。
 // BytesToString converts a byte slice to a string.
 func StringToBytes(s string) []byte {
 	x := (*[2]uintptr)(unsafe.Pointer(&s))

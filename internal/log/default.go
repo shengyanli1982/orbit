@@ -5,6 +5,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// DefaultAccessEventFunc 是默认的访问日志事件函数。
 // DefaultAccessEventFunc is the default access log event function.
 func DefaultAccessEventFunc(logger *zap.SugaredLogger, event *log.LogEvent) {
 	logger.Infow(
@@ -24,6 +25,7 @@ func DefaultAccessEventFunc(logger *zap.SugaredLogger, event *log.LogEvent) {
 	)
 }
 
+// DefaultRecoveryEventFunc 是默认的恢复日志事件函数。
 // DefaultRecoveryEventFunc is the default recovery log event function.
 func DefaultRecoveryEventFunc(logger *zap.SugaredLogger, event *log.LogEvent) {
 	logger.Errorw(

@@ -10,11 +10,20 @@ import (
 )
 
 var (
-	defaultHttpListenAddress = "127.0.0.1"   // default http listen address
-	defaultHttpListenPort    = uint16(8080)  // default http listen port
-	defaultIdleTimeout       = uint32(15000) // http idle timeout
+	// defaultHttpListenAddress 是默认的 http 监听地址
+	// defaultHttpListenAddress is the default http listen address
+	defaultHttpListenAddress = "127.0.0.1"
+
+	// defaultHttpListenPort 是默认的 http 监听端口
+	// defaultHttpListenPort is the default http listen port
+	defaultHttpListenPort = uint16(8080)
+
+	// defaultIdleTimeout 是默认的 http 空闲超时时间
+	// defaultIdleTimeout is the default http idle timeout
+	defaultIdleTimeout = uint32(15000)
 )
 
+// Configuration 表示 Orbit 框架的配置。
 // Configuration represents the configuration for the Orbit framework.
 type Config struct {
 	Address               string               `json:"address,omitempty" yaml:"address,omitempty"`                             // Address to listen on
@@ -29,6 +38,7 @@ type Config struct {
 	prometheusRegistry    *prometheus.Registry `json:"-" yaml:"-"`                                                             // Prometheus registry
 }
 
+// NewConfig 创建一个带有默认值 Config 实例。
 // NewConfig creates a new Config instance with default values.
 func NewConfig() *Config {
 	return &Config{
@@ -45,77 +55,90 @@ func NewConfig() *Config {
 	}
 }
 
+// WithSugaredLogger 设置 Config 实例 sugared logger。
 // WithSugaredLogger sets a new sugared logger for the Config instance.
 func (c *Config) WithSugaredLogger(logger *zap.SugaredLogger) *Config {
 	c.logger = logger
 	return c
 }
 
+// WithLogger 设置 Config 实例 logger。
 // WithLogger sets a new logger for the Config instance.
 func (c *Config) WithLogger(logger *zap.Logger) *Config {
 	c.logger = logger.Sugar()
 	return c
 }
 
+// WithAddress 设置 Config 实例监听地址。
 // WithAddress sets a new address for the Config instance.
 func (c *Config) WithAddress(address string) *Config {
 	c.Address = address
 	return c
 }
 
+// WithPort 设置 Config 实例监听端口。
 // WithPort sets a new port for the Config instance.
 func (c *Config) WithPort(port uint16) *Config {
 	c.Port = port
 	return c
 }
 
+// WithRelease 设置 Config 实例为 release 模式。
 // WithRelease sets the Config instance to release mode.
 func (c *Config) WithRelease() *Config {
 	c.ReleaseMode = true
 	return c
 }
 
+// WithHttpReadTimeout 设置 Config 实例 HTTP 读取超时时间。
 // WithHttpReadTimeout sets a new HTTP read timeout for the Config instance.
 func (c *Config) WithHttpReadTimeout(timeout uint32) *Config {
 	c.HttpReadTimeout = timeout
 	return c
 }
 
+// WithHttpWriteTimeout 设置 Config 实例 HTTP 写入超时时间。
 // WithHttpWriteTimeout sets a new HTTP write timeout for the Config instance.
 func (c *Config) WithHttpWriteTimeout(timeout uint32) *Config {
 	c.HttpWriteTimeout = timeout
 	return c
 }
 
+// WithHttpReadHeaderTimeout 设置 Config 实例 HTTP 读取头部超时时间。
 // WithHttpReadHeaderTimeout sets a new HTTP read header timeout for the Config instance.
 func (c *Config) WithHttpReadHeaderTimeout(timeout uint32) *Config {
 	c.HttpReadHeaderTimeout = timeout
 	return c
 }
 
+// WithAccessLogEventFunc 设置 Config 实例访问日志事件函数。
 // WithAccessLogEventFunc sets a new access log event function for the Config instance.
 func (c *Config) WithAccessLogEventFunc(fn com.LogEventFunc) *Config {
 	c.accessLogEventFunc = fn
 	return c
 }
 
+// WithRecoveryLogEventFunc 设置 Config 实例恢复日志事件函数。
 // WithRecoveryLogEventFunc sets a new recovery log event function for the Config instance.
 func (c *Config) WithRecoveryLogEventFunc(fn com.LogEventFunc) *Config {
 	c.recoveryLogEventFunc = fn
 	return c
 }
 
+// WithPrometheusRegistry 设置 Config 实例 Prometheus 注册器。
 // WithPrometheusRegistry sets a new Prometheus registry for the Config instance.
 func (c *Config) WithPrometheusRegistry(registry *prometheus.Registry) *Config {
 	c.prometheusRegistry = registry
 	return c
 }
 
+// WithDefaultPrometheusRegistry 设置 Config 实例默认 Prometheus 注册器。
 // DefaultConfig returns a new Config instance with default values.
 func DefaultConfig() *Config {
 	return NewConfig()
 }
 
+// WithDefaultPrometheusRegistry 设置 Config 实例默认 Prometheus 注册器。
 // isConfigValid checks if the configuration is valid and applies default values if necessary.
 func isConfigValid(conf *Config) *Config {
 	if conf != nil {
@@ -147,7 +170,7 @@ func isConfigValid(conf *Config) *Config {
 			conf.prometheusRegistry = prometheus.DefaultRegisterer.(*prometheus.Registry)
 		}
 	} else {
-		conf = NewConfig()
+		conf = DefaultConfig()
 	}
 
 	return conf
