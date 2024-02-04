@@ -72,4 +72,4 @@ const RequestErrorCode int64 = 10
 const RequestOK = "success"
 
 // LogEventFunc represents a function for logging events.
-type LogEventFunc func(logger *zap.SugaredLogger, event *log.LogEvent)
+type LogEventFunc = func(logger *zap.SugaredLogger, event *log.LogEvent)

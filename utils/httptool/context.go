@@ -10,7 +10,6 @@ import (
 func GetLoggerFromContext(context *gin.Context) *zap.SugaredLogger {
 	if obj, ok := context.Get(com.RequestLoggerKey); ok {
 		return obj.(*zap.SugaredLogger)
-	} else {
-		return com.DefaultSugeredLogger
 	}
+	return com.DefaultSugeredLogger
 }

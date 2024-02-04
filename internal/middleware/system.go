@@ -29,6 +29,7 @@ func Cors() gin.HandlerFunc {
 		// Handle OPTIONS request
 		if context.Request.Method == "OPTIONS" {
 			context.AbortWithStatus(http.StatusNoContent)
+			return
 		}
 
 		// Handle the request

@@ -147,7 +147,7 @@ func isConfigValid(conf *Config) *Config {
 			conf.prometheusRegistry = prometheus.DefaultRegisterer.(*prometheus.Registry)
 		}
 	} else {
-		conf = NewConfig()
+		conf = DefaultConfig()
 	}
 
 	return conf
