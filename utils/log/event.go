@@ -1,5 +1,6 @@
 package log
 
+// LogEvent 表示日志事件。
 // LogEvent represents a log event.
 type LogEvent struct {
 	Message        string `json:"message,omitempty" yaml:"message,omitempty"`               // Message contains the log message.
@@ -19,6 +20,7 @@ type LogEvent struct {
 	ErrorStack     string `json:"errorStack,omitempty" yaml:"errorStack,omitempty"`         // ErrorStack contains the stack trace of the error.
 }
 
+// Reset 重置 LogEvent 字段为它们的零值。
 // Reset resets the LogEvent fields to their zero values.
 func (e *LogEvent) Reset() {
 	e.Message = ""
