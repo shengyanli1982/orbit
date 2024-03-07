@@ -49,6 +49,7 @@ func Cors() gin.HandlerFunc {
 			// 如果请求方法是 "OPTIONS"，则终止请求并返回无内容状态码（204）
 			// If the request method is "OPTIONS", abort the request and return a no content status code (204)
 			context.AbortWithStatus(http.StatusNoContent)
+			return
 		}
 
 		// 调用 context.Next() 转到下一个中间件或路由处理器

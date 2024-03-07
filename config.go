@@ -256,7 +256,7 @@ func isConfigValid(conf *Config) *Config {
 	} else {
 		// 如果 conf 为 nil，创建一个新的 Config 实例。
 		// If conf is nil, create a new Config instance.
-		conf = NewConfig()
+		conf = DefaultConfig()
 	}
 
 	// 返回验证和可能修改过的配置。
