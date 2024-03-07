@@ -1,7 +1,7 @@
 <div align="center">
 	<h1>orbit</h1>
 	<p>A lightweight HTTP web service wrapper framework built on "gin", designed for easy use and rapid development, focusing on core business logic.<p>
-	<img src="assets/logo.png" alt="logo" width="360px">
+	<img src="assets/logo.png" alt="logo" width="400px">
 </div>
 
 # Introduction
