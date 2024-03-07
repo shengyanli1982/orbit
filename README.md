@@ -8,7 +8,7 @@
 
 `orbit` is a lightweight HTTP web service wrapper framework. It is designed to be simple and easy to use, providing a series of convenient features to help you quickly build a web service.
 
-Why is it called `orbit`? Just like a satellite orbiting the Earth, `orbit` revolves around your business logic. It provides a framework that encapsulates the complexities of building a web service, allowing you to focus on your core business logic. With `orbit`, you can easily develop and maintain your web service, just like a satellite smoothly orbiting the Earth.
+Why is it called `orbit`? It provides a framework that encapsulates the complexities of building a web service, allowing you to focus on your core business logic. With `orbit`, you can easily develop and maintain your web service, just like a satellite smoothly orbiting the Earth.
 
 Why not use `gin` directly? While `gin` is a great framework, starting a web service with it requires additional work such as logging and monitoring. `orbit` is built on top of `gin` and offers these features out of the box.
 
