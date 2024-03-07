@@ -1,31 +1,30 @@
 <div align="center">
 	<h1>orbit</h1>
-	<p>A lightweight http web service wrapper framework.<p>
+	<p>A lightweight HTTP web service wrapper framework built on "gin", designed for easy use and rapid development, focusing on core business logic.<p>
 	<img src="assets/logo.png" alt="logo" width="360px">
 </div>
 
 # Introduction
 
-`orbit` is a lightweight http web service wrapper framework. It is designed to be simple and easy to use. It is based on [`gin`](https://github.com/gin-gonic/gin), [`zap`](https://github.com/uber-go/zap) and [`prometheus`](github.com/prometheus/client_golang). It provides a series of convenient features to help you quickly build a web service.
+`orbit` is a lightweight HTTP web service wrapper framework. It is designed to be simple and easy to use, providing a series of convenient features to help you quickly build a web service.
 
-Why is it called `orbit`? Because it is a lightweight framework, it is like a satellite orbiting the earth, and the orbit is your business logic.
+Why is it called `orbit`? Just like a satellite orbiting the Earth, `orbit` revolves around your business logic. It provides a framework that encapsulates the complexities of building a web service, allowing you to focus on your core business logic. With `orbit`, you can easily develop and maintain your web service, just like a satellite smoothly orbiting the Earth.
 
-Why not use `gin` directly? Because `gin` is too simple, if you want to start a web service, you need to do a lot of work, such as logging, monitoring, etc. `orbit` is based on `gin`, and provides a series of convenient features to help you quickly build a web service.
+Why not use `gin` directly? While `gin` is a great framework, starting a web service with it requires additional work such as logging and monitoring. `orbit` is built on top of `gin` and offers these features out of the box.
 
 # Advantages
 
--   Lightweight, easy to use, easy to learn
--   Support `zap` logging, `async` and `sync` logging
--   Support `prometheus` monitoring
--   Support `swagger` api document
--   Support `graceful` shutdown
--   Support `cors` middleware
--   Support auto recover from panic
--   Support custom middleware
--   Support custom router group
--   Support custom define access log format and fields
--   Support custom define recovery log format and fields
--   Support repeat read request/response body, and cache request/response body bytes.
+-   Lightweight and easy to use
+-   Supports `zap` logging with both `async` and `sync` modes
+-   Provides `prometheus` monitoring integration
+-   Includes `swagger` API documentation support
+-   Enables graceful shutdown of the server
+-   Supports `cors` middleware for handling cross-origin requests
+-   Automatically recovers from panics
+-   Allows customization of middleware
+-   Supports custom router groups
+-   Provides flexibility in defining access log format and fields
+-   Offers repeat read of request/response body and caching of body bytes
 
 # Installation
 
@@ -35,71 +34,71 @@ go get github.com/shengyanli1982/orbit
 
 # Quick Start
 
-`orbit` is very easy to use, you can quickly build a web service in a few minutes. usually, you only need to do the following:
+`orbit` is incredibly easy to use, allowing you to quickly build a web service in just a few minutes. The typical steps involved are:
 
-1. Create `orbit` start configuration
-2. Create `orbit` feature options
-3. Create `orbit` instance
+1. Create the `orbit` start configuration.
+2. Define the `orbit` feature options.
+3. Create an instance of `orbit`.
 
-**Default URL PATH**
-
-> [!NOTE]
-> Default url path is system default, you can not change it and it is not in your control.
-
--   `/metrics` - prometheus metrics
--   `/swagger/*any` - swagger api document
--   `/debug/pprof/*any` - pprof debug
--   `/ping` - health check
-
-## 1. Config
-
-The `orbit` has some config options, you can set it before start `orbit` instance.
-
--   `WithSugaredLogger` - use `zap` sugared logger, default is `DefaultSugeredLogger`
--   `WithLogger` - use `zap` logger, default is `DefaultConsoleLogger`
--   `WithAddress` - http server listen address, default is `127.0.0.1`
--   `WithPort` - http server listen port, default is `8080`
--   `WithRelease` - http server release mode, default is `false`
--   `WithHttpReadTimeout` - http server read timeout, default is `15s`
--   `WithHttpWriteTimeout` - http server write timeout, default is `15s`
--   `WithHttpReadHeaderTimeout` - http server read header timeout, default is `15s`
--   `WithAccessLogEventFunc` - http server access log event func, default is `DefaultAccessEventFunc`
--   `WithRecoveryLogEventFunc` - http server recovery log event func, default is `DefaultRecoveryEventFunc`
--   `WithPrometheusRegistry` - http server prometheus registry, default is `prometheus.DefaultRegister`
-
-You can use `NewConfig` to create a default config, and use `WithXXX` to set config options. `DefaultConfig` is alias of `NewConfig()`.
-
-## 2. Feature
-
-Also `orbit` has some feature options, you can set it before start `orbit` instance.
-
--   `EnablePProf` - enable pprof debug, default is `false`
--   `EnableSwagger` - enable swagger api document, default is `false`
--   `EnableMetric` - enable prometheus metrics, default is `false`
--   `EnableRedirectTrailingSlash` - enable redirect trailing slash, default is `false`
--   `EnableRedirectFixedPath` - enable redirect fixed path, default is `false`
--   `EnableForwardedByClientIp` - enable forwarded by client ip, default is `false`
--   `EnableRecordRequestBody` - enable record request body, default is `false`
-
-You can use `NewOptions` to create a null feature, and use `EnableXXX` to set feature options.
-
--   `DebugOptions` use for debug, it is alias of `NewOptions().EnablePProf().EnableSwagger().EnableMetric().EnableRecordRequestBody()`.
--   `ReleaseOptions` use for release, it is alias of `NewOptions().EnableMetric()`.
+**Default URL Paths**
 
 > [!NOTE]
-> Here is a best recommendation, you can use `DebugOptions` for debug, and use `ReleaseOptions` for release.
+> The default URL paths are system-defined and cannot be changed.
 
-## 3. Instance
+-   `/metrics` - Prometheus metrics
+-   `/swagger/*any` - Swagger API documentation
+-   `/debug/pprof/*any` - PProf debug
+-   `/ping` - Health check
 
-After you create `orbit` config and feature options, you can create `orbit` instance.
+## 1. Configuration
+
+`orbit` provides several configuration options that can be set before starting the `orbit` instance.
+
+-   `WithSugaredLogger` - Use `zap` sugared logger (default: `DefaultSugaredLogger`).
+-   `WithLogger` - Use `zap` logger (default: `DefaultConsoleLogger`).
+-   `WithAddress` - HTTP server listen address (default: `127.0.0.1`).
+-   `WithPort` - HTTP server listen port (default: `8080`).
+-   `WithRelease` - HTTP server release mode (default: `false`).
+-   `WithHttpReadTimeout` - HTTP server read timeout (default: `15s`).
+-   `WithHttpWriteTimeout` - HTTP server write timeout (default: `15s`).
+-   `WithHttpReadHeaderTimeout` - HTTP server read header timeout (default: `15s`).
+-   `WithAccessLogEventFunc` - HTTP server access log event function (default: `DefaultAccessEventFunc`).
+-   `WithRecoveryLogEventFunc` - HTTP server recovery log event function (default: `DefaultRecoveryEventFunc`).
+-   `WithPrometheusRegistry` - HTTP server Prometheus registry (default: `prometheus.DefaultRegister`).
+
+You can use `NewConfig` to create a default configuration and `WithXXX` methods to set the configuration options. `DefaultConfig` is an alias for `NewConfig()`.
+
+## 2. Features
+
+`orbit` provides several feature options that can be set before starting the `orbit` instance:
+
+-   `EnablePProf` - enable pprof debug (default: `false`)
+-   `EnableSwagger` - enable swagger API documentation (default: `false`)
+-   `EnableMetric` - enable Prometheus metrics (default: `false`)
+-   `EnableRedirectTrailingSlash` - enable redirect trailing slash (default: `false`)
+-   `EnableRedirectFixedPath` - enable redirect fixed path (default: `false`)
+-   `EnableForwardedByClientIp` - enable forwarded by client IP (default: `false`)
+-   `EnableRecordRequestBody` - enable record request body (default: `false`)
+
+You can use `NewOptions` to create a null feature, and use `EnableXXX` methods to set the feature options.
+
+-   `DebugOptions` is used for debugging and is an alias of `NewOptions().EnablePProf().EnableSwagger().EnableMetric().EnableRecordRequestBody()`.
+-   `ReleaseOptions` is used for release and is an alias of `NewOptions().EnableMetric()`.
+
+> [!NOTE]
+> It is recommended to use `DebugOptions` for debugging and `ReleaseOptions` for release.
+
+## 3. Creating an Instance
+
+Once you have created the `orbit` configuration and feature options, you can create an `orbit` instance.
 
 > [!IMPORTANT]
-> When you `Run` the `orbit` instance, it will not block the current goroutine which mean you can do other things after `Run` the `orbit` instance.
+> When you run the `orbit` instance, it will not block the current goroutine. This means you can continue doing other things after running the `orbit` instance.
 >
-> If you want to block the current goroutine, you can use project [`GS`](https://github.com/shengyanli1982/gs) to provide a `Waitting` to block the current goroutine.
+> If you want to block the current goroutine, you can use the project [`GS`](https://github.com/shengyanli1982/gs) to provide a `Waitting` function to block the current goroutine.
 
 > [!TIP]
-> Here is a way to lazy. You can use `NewHttpService` to wrap `func(*gin.RouterGroup)` to `Service` interface implementation.
+> To simplify the process, you can use `NewHttpService` to wrap the `func(*gin.RouterGroup)` into an implementation of the `Service` interface.
 >
 > ```go
 > NewHttpService(func(g *gin.RouterGroup) {
@@ -121,22 +120,28 @@ import (
 )
 
 func main() {
-	// Create a new orbit configuration.
+	// 创建一个新的 Orbit 配置
+	// Create a new Orbit configuration
 	config := orbit.NewConfig()
 
-	// Create a new orbit feature options.
+	// 创建一个新的 Orbit 功能选项
+	// Create a new Orbit feature options
 	opts := orbit.NewOptions()
 
-	// Create a new orbit engine.
+	// 创建一个新的 Orbit 引擎
+	// Create a new Orbit engine
 	engine := orbit.NewEngine(config, opts)
 
-	// Start the engine.
+	// 启动引擎
+	// Start the engine
 	engine.Run()
 
-	// Wait for 30 seconds.
+	// 等待 30 秒
+	// Wait for 30 seconds
 	time.Sleep(30 * time.Second)
 
-	// Stop the engine.
+	// 停止引擎
+	// Stop the engine
 	engine.Stop()
 }
 ```
@@ -166,9 +171,9 @@ successs
 
 ## 4. Custom Middleware
 
-Because `orbit` is based on `gin`, so you can use `gin` middleware directly. So you can use custom middleware to do some custom things. For example, you can use `cors` middleware to support `cors` request.
+`orbit` is based on `gin`, so you can directly use `gin` middleware. This allows you to implement custom middleware for specific tasks. For example, you can use the `demo` middleware to print `>>>>>>!!! demo` in the console.
 
-Here is a example to use `demo` middleware to print `>>>>>>!!! demo` in the console.
+Here is an example of using custom middleware in `orbit`:
 
 **Example**
 
@@ -183,42 +188,65 @@ import (
 	"github.com/shengyanli1982/orbit"
 )
 
+// customMiddleware 函数定义了一个自定义的中间件
+// The customMiddleware function defines a custom middleware
 func customMiddleware() gin.HandlerFunc {
+	// 返回一个 Gin 的 HandlerFunc
+	// Return a Gin HandlerFunc
 	return func(c *gin.Context) {
+		// 打印一条消息
+		// Print a message
 		fmt.Println(">>>>>>!!! demo")
+
+		// 调用下一个中间件或处理函数
+		// Call the next middleware or handler function
 		c.Next()
 	}
 }
 
+// 定义 service 结构体
+// Define the service struct
 type service struct{}
 
+// RegisterGroup 方法将路由组注册到 service
+// The RegisterGroup method registers a router group to the service
 func (s *service) RegisterGroup(g *gin.RouterGroup) {
+	// 在 "/demo" 路径上注册一个 GET 方法的处理函数
+	// Register a GET method handler function on the "/demo" path
 	g.GET("/demo", func(c *gin.Context) {})
 }
 
 func main() {
-	// Create a new orbit configuration.
+	// 创建一个新的 Orbit 配置
+	// Create a new Orbit configuration
 	config := orbit.NewConfig()
 
-	// Create a new orbit feature options.
+	// 创建一个新的 Orbit 功能选项，并启用 metric
+	// Create a new Orbit feature options and enable metric
 	opts := orbit.NewOptions().EnableMetric()
 
-	// Create a new orbit engine.
+	// 创建一个新的 Orbit 引擎
+	// Create a new Orbit engine
 	engine := orbit.NewEngine(config, opts)
 
-	// Register a custom middleware.
+	// 注册一个自定义的中间件
+	// Register a custom middleware
 	engine.RegisterMiddleware(customMiddleware())
 
-	// Register a custom router group.
+	// 注册一个自定义的路由组
+	// Register a custom router group
 	engine.RegisterService(&service{})
 
-	// Start the engine.
+	// 启动引擎
+	// Start the engine
 	engine.Run()
 
-	// Wait for 30 seconds.
+	// 等待 30 秒
+	// Wait for 30 seconds
 	time.Sleep(30 * time.Second)
 
-	// Stop the engine.
+	// 停止引擎
+	// Stop the engine
 	engine.Stop()
 }
 ```
@@ -241,9 +269,7 @@ $ go run demo.go
 
 ## 5. Custom Router Group
 
-Custom router group is a very useful feature, you can use it to register a custom router group. You can use it to register a custom router group for `demo` service.
-
-**eg:** `/demo` and `/demo/test`
+The custom router group feature in `orbit` allows you to register a custom router group for the `demo` service. For example, you can register routes like `/demo` and `/demo/test`.
 
 **Example**
 
@@ -259,43 +285,61 @@ import (
 	ocom "github.com/shengyanli1982/orbit/common"
 )
 
+// 定义 service 结构体
+// Define the service struct
 type service struct{}
 
+// RegisterGroup 方法将路由组注册到 service
+// The RegisterGroup method registers a router group to the service
 func (s *service) RegisterGroup(g *gin.RouterGroup) {
-	// Register a custom router group.
+	// 注册一个自定义的路由组 "/demo"
+	// Register a custom router group "/demo"
 	g = g.Group("/demo")
 
-	// /demo
+	// 在 "/demo" 路径上注册一个 GET 方法的处理函数
+	// Register a GET method handler function on the "/demo" path
 	g.GET(ocom.EmptyURLPath, func(c *gin.Context) {
+		// 返回 HTTP 状态码 200 和 "demo" 字符串
+		// Return HTTP status code 200 and the string "demo"
 		c.String(http.StatusOK, "demo")
 	})
 
-	// /demo/test
+	// 在 "/demo/test" 路径上注册一个 GET 方法的处理函数
+	// Register a GET method handler function on the "/demo/test" path
 	g.GET("/test", func(c *gin.Context) {
+		// 返回 HTTP 状态码 200 和 "test" 字符串
+		// Return HTTP status code 200 and the string "test"
 		c.String(http.StatusOK, "test")
 	})
 }
 
 func main() {
-	// Create a new orbit configuration.
+	// 创建一个新的 Orbit 配置
+	// Create a new Orbit configuration
 	config := orbit.NewConfig()
 
-	// Create a new orbit feature options.
+	// 创建一个新的 Orbit 功能选项，并启用 metric
+	// Create a new Orbit feature options and enable metric
 	opts := orbit.NewOptions().EnableMetric()
 
-	// Create a new orbit engine.
+	// 创建一个新的 Orbit 引擎
+	// Create a new Orbit engine
 	engine := orbit.NewEngine(config, opts)
 
-	// Register a custom router group.
+	// 注册一个自定义的路由组
+	// Register a custom router group
 	engine.RegisterService(&service{})
 
-	// Start the engine.
+	// 启动引擎
+	// Start the engine
 	engine.Run()
 
-	// Wait for 30 seconds.
+	// 等待 30 秒
+	// Wait for 30 seconds
 	time.Sleep(30 * time.Second)
 
-	// Stop the engine.
+	// 停止引擎
+	// Stop the engine
 	engine.Stop()
 }
 ```
@@ -334,30 +378,74 @@ test
 
 ## 6. Custom Access Log
 
-Http server access log is very important, you can use `orbit` to custom access log format and fields. Here is a example to custom access log format and fields.
+To customize the access log format and fields in `orbit`, you can use the following example:
 
 **Default LogEvent Fields**
 
 ```go
-// LogEvent represents a log event.
+// LogEvent 结构体用于记录日志事件
+// The LogEvent struct is used to log events
 type LogEvent struct {
-	Message        string `json:"message,omitempty" yaml:"message,omitempty"`               // Message contains the log message.
-	ID             string `json:"id,omitempty" yaml:"id,omitempty"`                         // ID contains the unique identifier of the log event.
-	IP             string `json:"ip,omitempty" yaml:"ip,omitempty"`                         // IP contains the IP address of the client.
-	EndPoint       string `json:"endpoint,omitempty" yaml:"endpoint,omitempty"`             // EndPoint contains the endpoint of the request.
-	Path           string `json:"path,omitempty" yaml:"path,omitempty"`                     // Path contains the path of the request.
-	Method         string `json:"method,omitempty" yaml:"method,omitempty"`                 // Method contains the HTTP method of the request.
-	Code           int    `json:"statusCode,omitempty" yaml:"statusCode,omitempty"`         // Code contains the HTTP status code of the response.
-	Status         string `json:"status,omitempty" yaml:"status,omitempty"`                 // Status contains the status message of the response.
-	Latency        string `json:"latency,omitempty" yaml:"latency,omitempty"`               // Latency contains the request latency.
-	Agent          string `json:"agent,omitempty" yaml:"agent,omitempty"`                   // Agent contains the user agent of the client.
-	ReqContentType string `json:"reqContentType,omitempty" yaml:"reqContentType,omitempty"` // ReqContentType contains the content type of the request.
-	ReqQuery       string `json:"query,omitempty" yaml:"query,omitempty"`                   // ReqQuery contains the query parameters of the request.
-	ReqBody        string `json:"reqBody,omitempty" yaml:"reqBody,omitempty"`               // ReqBody contains the request body.
-	Error          any    `json:"error,omitempty" yaml:"error,omitempty"`                   // Error contains the error object.
-	ErrorStack     string `json:"errorStack,omitempty" yaml:"errorStack,omitempty"`         // ErrorStack contains the stack trace of the error.
-}
+	// Message 字段表示日志消息
+	// The Message field represents the log message
+	Message string `json:"message,omitempty" yaml:"message,omitempty"`
 
+	// ID 字段表示事件的唯一标识符
+	// The ID field represents the unique identifier of the event
+	ID string `json:"id,omitempty" yaml:"id,omitempty"`
+
+	// IP 字段表示发起请求的IP地址
+	// The IP field represents the IP address of the request initiator
+	IP string `json:"ip,omitempty" yaml:"ip,omitempty"`
+
+	// EndPoint 字段表示请求的终端点
+	// The EndPoint field represents the endpoint of the request
+	EndPoint string `json:"endpoint,omitempty" yaml:"endpoint,omitempty"`
+
+	// Path 字段表示请求的路径
+	// The Path field represents the path of the request
+	Path string `json:"path,omitempty" yaml:"path,omitempty"`
+
+	// Method 字段表示请求的HTTP方法
+	// The Method field represents the HTTP method of the request
+	Method string `json:"method,omitempty" yaml:"method,omitempty"`
+
+	// Code 字段表示响应的HTTP状态码
+	// The Code field represents the HTTP status code of the response
+	Code int `json:"statusCode,omitempty" yaml:"statusCode,omitempty"`
+
+	// Status 字段表示请求的状态
+	// The Status field represents the status of the request
+	Status string `json:"status,omitempty" yaml:"status,omitempty"`
+
+	// Latency 字段表示请求的延迟时间
+	// The Latency field represents the latency of the request
+	Latency string `json:"latency,omitempty" yaml:"latency,omitempty"`
+
+	// Agent 字段表示发起请求的用户代理
+	// The Agent field represents the user agent of the request initiator
+	Agent string `json:"agent,omitempty" yaml:"agent,omitempty"`
+
+	// ReqContentType 字段表示请求的内容类型
+	// The ReqContentType field represents the content type of the request
+	ReqContentType string `json:"reqContentType,omitempty" yaml:"reqContentType,omitempty"`
+
+	// ReqQuery 字段表示请求的查询参数
+	// The ReqQuery field represents the query parameters of the request
+	ReqQuery string `json:"query,omitempty" yaml:"query,omitempty"`
+
+	// ReqBody 字段表示请求的主体内容
+	// The ReqBody field represents the body of the request
+	ReqBody string `json:"reqBody,omitempty" yaml:"reqBody,omitempty"`
+
+	// Error 字段表示请求中的任何错误
+	// The Error field represents any errors in the request
+	Error any `json:"error,omitempty" yaml:"error,omitempty"`
+
+	// ErrorStack 字段表示错误的堆栈跟踪
+	// The ErrorStack field represents the stack trace of the error
+	ErrorStack string `json:"errorStack,omitempty" yaml:"errorStack,omitempty"`
+}
 ```
 
 **Example**
@@ -375,39 +463,57 @@ import (
 	"go.uber.org/zap"
 )
 
+// 定义 service 结构体
+// Define the service struct
 type service struct{}
 
+// RegisterGroup 方法将路由组注册到 service
+// The RegisterGroup method registers a router group to the service
 func (s *service) RegisterGroup(g *gin.RouterGroup) {
-	// /demo
+	// 在 "/demo" 路径上注册一个 GET 方法的处理函数
+	// Register a GET method handler function on the "/demo" path
 	g.GET("/demo", func(c *gin.Context) {
+		// 返回 HTTP 状态码 200 和 "demo" 字符串
+		// Return HTTP status code 200 and the string "demo"
 		c.String(http.StatusOK, "demo")
 	})
 }
 
+// customAccessLogger 函数定义了一个自定义的访问日志记录器
+// The customAccessLogger function defines a custom access logger
 func customAccessLogger(logger *zap.SugaredLogger, event *log.LogEvent) {
+	// 记录访问日志，包括路径和方法
+	// Log the access, including the path and method
 	logger.Infow("access log", "path", event.Path, "method", event.Method)
 }
 
 func main() {
-	// Create a new orbit configuration.
+	// 创建一个新的 Orbit 配置，并设置访问日志事件函数
+	// Create a new Orbit configuration and set the access log event function
 	config := orbit.NewConfig().WithAccessLogEventFunc(customAccessLogger)
 
-	// Create a new orbit feature options.
+	// 创建一个新的 Orbit 功能选项
+	// Create a new Orbit feature options
 	opts := orbit.NewOptions()
 
-	// Create a new orbit engine.
+	// 创建一个新的 Orbit 引擎
+	// Create a new Orbit engine
 	engine := orbit.NewEngine(config, opts)
 
-	// Register a custom router group.
+	// 注册一个自定义的路由组
+	// Register a custom router group
 	engine.RegisterService(&service{})
 
-	// Start the engine.
+	// 启动引擎
+	// Start the engine
 	engine.Run()
 
-	// Wait for 30 seconds.
+	// 等待 30 秒
+	// Wait for 30 seconds
 	time.Sleep(30 * time.Second)
 
-	// Stop the engine.
+	// 停止引擎
+	// Stop the engine
 	engine.Stop()
 }
 ```
@@ -420,7 +526,7 @@ func main() {
 
 ## 7. Custom Recovery Log
 
-Http server recovery log give you a chance to know what happened when your service panic. You can use `orbit` to custom recovery log format and fields. Here is a example to custom recovery log format and fields.
+Http server recovery log allows you to understand what happened when your service encounters a panic. With `orbit`, you can customize the recovery log format and fields. Here is an example of how to customize the recovery log format and fields:
 
 **Example**
 
@@ -436,42 +542,57 @@ import (
 	"go.uber.org/zap"
 )
 
+// 定义 service 结构体
+// Define the service struct
 type service struct{}
 
+// RegisterGroup 方法将路由组注册到 service
+// The RegisterGroup method registers a router group to the service
 func (s *service) RegisterGroup(g *gin.RouterGroup) {
-	// /demo
+	// 在 "/demo" 路径上注册一个 GET 方法的处理函数，该函数会触发 panic
+	// Register a GET method handler function on the "/demo" path, this function will trigger a panic
 	g.GET("/demo", func(c *gin.Context) {
 		panic("demo")
 	})
 }
 
+// customRecoveryLogger 函数定义了一个自定义的恢复日志记录器
+// The customRecoveryLogger function defines a custom recovery logger
 func customRecoveryLogger(logger *zap.SugaredLogger, event *log.LogEvent) {
+	// 记录恢复日志，包括路径、方法、错误和错误堆栈
+	// Log the recovery, including the path, method, error, and error stack
 	logger.Infow("recovery log", "path", event.Path, "method", event.Method, "error", event.Error, "errorStack", event.ErrorStack)
 }
 
 func main() {
-	// Create a new orbit configuration.
+	// 创建一个新的 Orbit 配置，并设置恢复日志事件函数
+	// Create a new Orbit configuration and set the recovery log event function
 	config := orbit.NewConfig().WithRecoveryLogEventFunc(customRecoveryLogger)
 
-	// Create a new orbit feature options.
+	// 创建一个新的 Orbit 功能选项
+	// Create a new Orbit feature options
 	opts := orbit.NewOptions()
 
-	// Create a new orbit engine.
+	// 创建一个新的 Orbit 引擎
+	// Create a new Orbit engine
 	engine := orbit.NewEngine(config, opts)
 
-	// Register a custom router group.
+	// 注册一个自定义的路由组
+	// Register a custom router group
 	engine.RegisterService(&service{})
 
-	// Start the engine.
+	// 启动引擎
+	// Start the engine
 	engine.Run()
 
-	// Wait for 30 seconds.
+	// 等待 30 秒
+	// Wait for 30 seconds
 	time.Sleep(30 * time.Second)
 
-	// Stop the engine.
+	// 停止引擎
+	// Stop the engine
 	engine.Stop()
 }
-
 ```
 
 **Result**
@@ -482,7 +603,7 @@ func main() {
 
 ## 8. Prometheus Metrics
 
-`orbit` support `prometheus` metrics, you can use `EnableMetric` to enable it. Here is a example to use `demo` service to collect `demo` metrics.
+`orbit` supports `prometheus` metrics. You can enable it using `EnableMetric`. Here is an example of how to collect `demo` metrics using the `demo` service.
 
 > [!TIP]
 > Use curl http://127.0.0.1:8080/metrics to get metrics.
@@ -500,39 +621,51 @@ import (
 	"github.com/shengyanli1982/orbit"
 )
 
+// 定义 service 结构体
+// Define the service struct
 type service struct{}
 
+// RegisterGroup 方法将路由组注册到 service
+// The RegisterGroup method registers a router group to the service
 func (s *service) RegisterGroup(g *gin.RouterGroup) {
-	// /demo
+	// 在 "/demo" 路径上注册一个 GET 方法的处理函数
+	// Register a GET method handler function on the "/demo" path
 	g.GET("/demo", func(c *gin.Context) {
+		// 返回 HTTP 状态码 200 和 "demo" 字符串
+		// Return HTTP status code 200 and the string "demo"
 		c.String(http.StatusOK, "demo")
 	})
-
 }
 
 func main() {
-	// Create a new orbit configuration.
+	// 创建一个新的 Orbit 配置
+	// Create a new Orbit configuration
 	config := orbit.NewConfig()
 
-	// Create a new orbit feature options.
+	// 创建一个新的 Orbit 功能选项，并启用 metric
+	// Create a new Orbit feature options and enable metric
 	opts := orbit.NewOptions().EnableMetric()
 
-	// Create a new orbit engine.
+	// 创建一个新的 Orbit 引擎
+	// Create a new Orbit engine
 	engine := orbit.NewEngine(config, opts)
 
-	// Register a custom router group.
+	// 注册一个自定义的路由组
+	// Register a custom router group
 	engine.RegisterService(&service{})
 
-	// Start the engine.
+	// 启动引擎
+	// Start the engine
 	engine.Run()
 
-	// Wait for 30 seconds.
+	// 等待 30 秒
+	// Wait for 30 seconds
 	time.Sleep(30 * time.Second)
 
-	// Stop the engine.
+	// 停止引擎
+	// Stop the engine
 	engine.Stop()
 }
-
 ```
 
 **Result**
@@ -556,14 +689,14 @@ orbit_http_request_latency_seconds_histogram_count{method="GET",path="/demo",sta
 
 ## 9. Repeat Read Request/Response Body
 
-`orbit` support repeat read request/response body, default behavior is enable, no need to do anything. Here is a example to use `demo` service to repeat read request/response body.
+`orbit` supports repeating the read request/response body. By default, this behavior is enabled and requires no additional configuration. Here is an example of how to use the `demo` service to repeat read the request/response body.
 
 ### 9.1 Repeat Read Request Body
 
-`httptool.GenerateRequestBody` method can help you to get request body bytes and cache it. The next time you read it, you can get the cached bytes.
+You can use the `httptool.GenerateRequestBody` method to obtain the request body bytes and cache them. This allows you to read the cached bytes when needed.
 
 > [!IMPORTANT]
-> Request body is a `io.ReadCloser`, it is a stream, so you can only read it once. If you want to read it again, do not directly read it, you can use `orbit` to cache it.
+> The request body is an `io.ReadCloser`, which is a stream that can only be read once. If you need to read it again, do not read it directly. Instead, use `orbit` to cache it.
 
 **Example**
 
@@ -582,16 +715,28 @@ import (
 	"github.com/shengyanli1982/orbit/utils/httptool"
 )
 
+// 定义 service 结构体
+// Define the service struct
 type service struct{}
 
+// RegisterGroup 方法将路由组注册到 service
+// The RegisterGroup method registers a router group to the service
 func (s *service) RegisterGroup(g *gin.RouterGroup) {
-	// /demo
+	// 在 "/demo" 路径上注册一个 POST 方法的处理函数
+	// Register a POST method handler function on the "/demo" path
 	g.POST("/demo", func(c *gin.Context) {
-		// Repeat the read request body content 20 times.
+		// 重复读取请求体内容 20 次
+		// Repeat the read request body content 20 times
 		for i := 0; i < 20; i++ {
+			// 生成请求体
+			// Generate the request body
 			if body, err := httptool.GenerateRequestBody(c); err != nil {
+				// 如果生成请求体出错，返回 HTTP 状态码 500 和错误信息
+				// If there is an error generating the request body, return HTTP status code 500 and the error message
 				c.String(http.StatusInternalServerError, err.Error())
 			} else {
+				// 如果生成请求体成功，返回 HTTP 状态码 200 和请求体内容
+				// If the request body is successfully generated, return HTTP status code 200 and the request body content
 				c.String(http.StatusOK, fmt.Sprintf(">> %d, %s\n", i, string(body)))
 			}
 		}
@@ -599,34 +744,43 @@ func (s *service) RegisterGroup(g *gin.RouterGroup) {
 }
 
 func main() {
-	// Create a new orbit configuration.
+	// 创建一个新的 Orbit 配置
+	// Create a new Orbit configuration
 	config := orbit.NewConfig()
 
-	// Create a new orbit feature options.
+	// 创建一个新的 Orbit 功能选项
+	// Create a new Orbit feature options
 	opts := orbit.NewOptions()
 
-	// Create a new orbit engine.
+	// 创建一个新的 Orbit 引擎
+	// Create a new Orbit engine
 	engine := orbit.NewEngine(config, opts)
 
-	// Register a custom router group.
+	// 注册一个自定义的路由组
+	// Register a custom router group
 	engine.RegisterService(&service{})
 
-	// Start the engine.
+	// 启动引擎
+	// Start the engine
 	engine.Run()
 
-	// Simulate a request.
-	resp, _ := http.Post("http://localhost:8080/demo", "text/plain", io.NopCloser(bytes.NewBuffer([]byte("demo"))))
+	// 模拟一个请求
+	// Simulate a request
+	resp, _ := http.Post("http://localhost:8080/demo", "text/plain", io.Reader(bytes.NewBuffer([]byte("demo"))))
 	defer resp.Body.Close()
 
-	// Print the response body.
+	// 打印响应体
+	// Print the response body
 	buf := new(bytes.Buffer)
 	_, _ = buf.ReadFrom(resp.Body)
 	fmt.Println(buf.String())
 
-	// Wait for 30 seconds.
+	// 等待 30 秒
+	// Wait for 30 seconds
 	time.Sleep(30 * time.Second)
 
-	// Stop the engine.
+	// 停止引擎
+	// Stop the engine
 	engine.Stop()
 }
 ```
@@ -670,12 +824,12 @@ $ go run demo.go
 
 ### 9.2 Repeat Read Response Body
 
-`httptool.GenerateResponseBody` method can help you to get response body bytes from cache. Remember, you must call `httptool.GenerateResponseBody` after you real write response body, like `c.String(http.StatusOK, "demo")`.
+The `httptool.GenerateResponseBody` method can be used to retrieve the response body bytes from the cache. It is important to note that you should call `httptool.GenerateResponseBody` after writing the actual response body, such as using `c.String(http.StatusOK, "demo")`.
 
 > [!NOTE]
-> Response body aways write to `io.Writer`, so you can not read it directly. If you want to read it, you can use `orbit` to cache it.
+> The response body is always written to an `io.Writer`, so direct reading is not possible. If you need to read it, you can use `orbit` to cache it.
 >
-> Many times `httptool.GenerateResponseBody` is used to custom middleware, you can use it to get response body bytes and do something.
+> `httptool.GenerateResponseBody` is often used in custom middleware to retrieve the response body bytes and perform additional actions.
 
 **Example**
 
@@ -692,53 +846,81 @@ import (
 	"github.com/shengyanli1982/orbit/utils/httptool"
 )
 
+// customMiddleware 函数定义了一个自定义的中间件
+// The customMiddleware function defines a custom middleware
 func customMiddleware() gin.HandlerFunc {
+	// 返回一个 Gin 的 HandlerFunc
+	// Return a Gin HandlerFunc
 	return func(c *gin.Context) {
+		// 调用下一个中间件或处理函数
+		// Call the next middleware or handler function
 		c.Next()
 
+		// 从上下文中获取响应体缓冲区
 		// Get the response body buffer from the context
 		for i := 0; i < 20; i++ {
+			// 生成响应体
+			// Generate the response body
 			body, _ := httptool.GenerateResponseBody(c)
+			// 打印响应体
+			// Print the response body
 			fmt.Printf("# %d, %s\n", i, string(body))
 		}
 	}
 }
 
+// 定义 service 结构体
+// Define the service struct
 type service struct{}
 
+// RegisterGroup 方法将路由组注册到 service
+// The RegisterGroup method registers a router group to the service
 func (s *service) RegisterGroup(g *gin.RouterGroup) {
+	// 在 "/demo" 路径上注册一个 GET 方法的处理函数
+	// Register a GET method handler function on the "/demo" path
 	g.GET("/demo", func(c *gin.Context) {
+		// 返回 HTTP 状态码 200 和 "demo" 字符串
+		// Return HTTP status code 200 and the string "demo"
 		c.String(http.StatusOK, "demo")
 	})
 }
 
 func main() {
-	// Create a new orbit configuration.
+	// 创建一个新的 Orbit 配置
+	// Create a new Orbit configuration
 	config := orbit.NewConfig()
 
-	// Create a new orbit feature options.
+	// 创建一个新的 Orbit 功能选项，并启用 metric
+	// Create a new Orbit feature options and enable metric
 	opts := orbit.NewOptions().EnableMetric()
 
-	// Create a new orbit engine.
+	// 创建一个新的 Orbit 引擎
+	// Create a new Orbit engine
 	engine := orbit.NewEngine(config, opts)
 
-	// Register a custom middleware.
+	// 注册一个自定义的中间件
+	// Register a custom middleware
 	engine.RegisterMiddleware(customMiddleware())
 
-	// Register a custom router group.
+	// 注册一个自定义的路由组
+	// Register a custom router group
 	engine.RegisterService(&service{})
 
-	// Start the engine.
+	// 启动引擎
+	// Start the engine
 	engine.Run()
 
-	// Simulate a request.
+	// 模拟一个请求
+	// Simulate a request
 	resp, _ := http.Get("http://localhost:8080/demo")
 	defer resp.Body.Close()
 
-	// Wait for 30 seconds.
+	// 等待 30 秒
+	// Wait for 30 seconds
 	time.Sleep(30 * time.Second)
 
-	// Stop the engine.
+	// 停止引擎
+	// Stop the engine
 	engine.Stop()
 }
 ```
