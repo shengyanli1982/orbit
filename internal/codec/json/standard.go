@@ -24,7 +24,3 @@ var NewDecoder = json.NewDecoder
 // NewEncoder 是一个创建新的 JSON 编码器的函数。
 // NewEncoder is a function that creates a new JSON encoder.
 var NewEncoder = json.NewEncoder
-
-// RawMessage 是一个原始编码的 JSON 值。
-// RawMessage is a raw encoded JSON value.
-type RawMessage = json.RawMessage
