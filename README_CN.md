@@ -1,104 +1,104 @@
-English | [中文](./README_CN.md)
+[English](./README.md) | 中文
 
 <div align="center">
 	<img src="assets/logo.png" alt="logo" width="500px">
 </div>
 
-# Introduction
+# 介绍
 
-`orbit` is a lightweight HTTP web service wrapper framework. It is designed to be simple and easy to use, providing a series of convenient features to help you quickly build a web service.
+`orbit` 是一个轻量级的 HTTP web 服务封装框架。它被设计成简单易用，提供一系列便利的功能，帮助您快速构建 web 服务。
 
-Why is it called `orbit`? It provides a framework that encapsulates the complexities of building a web service, allowing you to focus on your core business logic. With `orbit`, you can easily develop and maintain your web service, just like a satellite smoothly orbiting the Earth.
+为什么叫做 `orbit`？它提供了一个框架，封装了构建 web 服务的复杂性，让您可以专注于核心业务逻辑。使用 `orbit`，您可以轻松开发和维护您的 web 服务，就像卫星平稳地绕地球运行一样。
 
-Why not use `gin` directly? While `gin` is a great framework, starting a web service with it requires additional work such as logging and monitoring. `orbit` is built on top of `gin` and offers these features out of the box.
+为什么不直接使用 `gin`？虽然 `gin` 是一个很棒的框架，但使用它启动一个 web 服务需要额外的工作，如日志记录和监控。`orbit` 建立在 `gin` 之上，并提供了这些功能。
 
-# Advantages
+# 优势
 
--   Lightweight and easy to use
--   Supports `zap` logging with both `async` and `sync` modes
--   Provides `prometheus` monitoring integration
--   Includes `swagger` API documentation support
--   Enables graceful shutdown of the server
--   Supports `cors` middleware for handling cross-origin requests
--   Automatically recovers from panics
--   Allows customization of middleware
--   Supports custom router groups
--   Provides flexibility in defining access log format and fields
--   Offers repeat read of request/response body and caching of body bytes
+-   轻量级且易于使用
+-   支持 `zap` 日志记录，包括 `async` 和 `sync` 模式
+-   提供 `prometheus` 监控集成
+-   包含 `swagger` API 文档支持
+-   支持服务器的优雅关闭
+-   支持处理跨域请求的 `cors` 中间件
+-   自动从 panic 中恢复
+-   允许自定义中间件
+-   支持自定义路由组
+-   提供灵活性，可定义访问日志格式和字段
+-   支持重复读取请求/响应体和缓存体字节
 
-# Installation
+# 安装
 
 ```bash
 go get github.com/shengyanli1982/orbit
 ```
 
-# Quick Start
+# 快速入门
 
-`orbit` is incredibly easy to use, allowing you to quickly build a web service in just a few minutes. The typical steps involved are:
+`orbit` 非常易于使用，您只需几分钟即可快速构建一个 web 服务。典型的步骤包括：
 
-1. Create the `orbit` start configuration.
-2. Define the `orbit` feature options.
-3. Create an instance of `orbit`.
+1. 创建 `orbit` 的启动配置。
+2. 定义 `orbit` 的功能选项。
+3. 创建 `orbit` 的实例。
 
-**Default URL Paths**
-
-> [!NOTE]
-> The default URL paths are system-defined and cannot be changed.
-
--   `/metrics` - Prometheus metrics
--   `/swagger/*any` - Swagger API documentation
--   `/debug/pprof/*any` - PProf debug
--   `/ping` - Health check
-
-## 1. Configuration
-
-`orbit` provides several configuration options that can be set before starting the `orbit` instance.
-
--   `WithSugaredLogger` - Use `zap` sugared logger (default: `DefaultSugaredLogger`).
--   `WithLogger` - Use `zap` logger (default: `DefaultConsoleLogger`).
--   `WithAddress` - HTTP server listen address (default: `127.0.0.1`).
--   `WithPort` - HTTP server listen port (default: `8080`).
--   `WithRelease` - HTTP server release mode (default: `false`).
--   `WithHttpReadTimeout` - HTTP server read timeout (default: `15s`).
--   `WithHttpWriteTimeout` - HTTP server write timeout (default: `15s`).
--   `WithHttpReadHeaderTimeout` - HTTP server read header timeout (default: `15s`).
--   `WithAccessLogEventFunc` - HTTP server access log event function (default: `DefaultAccessEventFunc`).
--   `WithRecoveryLogEventFunc` - HTTP server recovery log event function (default: `DefaultRecoveryEventFunc`).
--   `WithPrometheusRegistry` - HTTP server Prometheus registry (default: `prometheus.DefaultRegister`).
-
-You can use `NewConfig` to create a default configuration and `WithXXX` methods to set the configuration options. `DefaultConfig` is an alias for `NewConfig()`.
-
-## 2. Features
-
-`orbit` provides several feature options that can be set before starting the `orbit` instance:
-
--   `EnablePProf` - enable pprof debug (default: `false`)
--   `EnableSwagger` - enable swagger API documentation (default: `false`)
--   `EnableMetric` - enable Prometheus metrics (default: `false`)
--   `EnableRedirectTrailingSlash` - enable redirect trailing slash (default: `false`)
--   `EnableRedirectFixedPath` - enable redirect fixed path (default: `false`)
--   `EnableForwardedByClientIp` - enable forwarded by client IP (default: `false`)
--   `EnableRecordRequestBody` - enable record request body (default: `false`)
-
-You can use `NewOptions` to create a null feature, and use `EnableXXX` methods to set the feature options.
-
--   `DebugOptions` is used for debugging and is an alias of `NewOptions().EnablePProf().EnableSwagger().EnableMetric().EnableRecordRequestBody()`.
--   `ReleaseOptions` is used for release and is an alias of `NewOptions().EnableMetric()`.
+**默认的 URL 路径**
 
 > [!NOTE]
-> It is recommended to use `DebugOptions` for debugging and `ReleaseOptions` for release.
+> 默认的 URL 路径是系统定义的，无法更改。
 
-## 3. Creating an Instance
+-   `/metrics` - Prometheus 指标
+-   `/swagger/*any` - Swagger API 文档
+-   `/debug/pprof/*any` - PProf 调试
+-   `/ping` - 健康检查
 
-Once you have created the `orbit` configuration and feature options, you can create an `orbit` instance.
+## 1. 配置
+
+`orbit` 提供了几个配置选项，可以在启动 `orbit` 实例之前进行设置。
+
+-   `WithSugaredLogger` - 使用 `zap` sugared logger（默认值：`DefaultSugaredLogger`）。
+-   `WithLogger` - 使用 `zap` logger（默认值：`DefaultConsoleLogger`）。
+-   `WithAddress` - HTTP 服务器监听地址（默认值：`127.0.0.1`）。
+-   `WithPort` - HTTP 服务器监听端口（默认值：`8080`）。
+-   `WithRelease` - HTTP 服务器发布模式（默认值：`false`）。
+-   `WithHttpReadTimeout` - HTTP 服务器读取超时时间（默认值：`15s`）。
+-   `WithHttpWriteTimeout` - HTTP 服务器写入超时时间（默认值：`15s`）。
+-   `WithHttpReadHeaderTimeout` - HTTP 服务器读取请求头超时时间（默认值：`15s`）。
+-   `WithAccessLogEventFunc` - HTTP 服务器访问日志事件函数（默认值：`DefaultAccessEventFunc`）。
+-   `WithRecoveryLogEventFunc` - HTTP 服务器恢复日志事件函数（默认值：`DefaultRecoveryEventFunc`）。
+-   `WithPrometheusRegistry` - HTTP 服务器 Prometheus 注册器（默认值：`prometheus.DefaultRegister`）。
+
+您可以使用 `NewConfig` 创建默认配置，并使用 `WithXXX` 方法设置配置选项。`DefaultConfig` 是 `NewConfig()` 的别名。
+
+## 2. 功能
+
+`orbit` 提供了几个功能选项，可以在启动 `orbit` 实例之前进行设置：
+
+-   `EnablePProf` - 启用 pprof 调试（默认值：`false`）
+-   `EnableSwagger` - 启用 Swagger API 文档（默认值：`false`）
+-   `EnableMetric` - 启用 Prometheus 指标（默认值：`false`）
+-   `EnableRedirectTrailingSlash` - 启用重定向尾部斜杠（默认值：`false`）
+-   `EnableRedirectFixedPath` - 启用重定向固定路径（默认值：`false`）
+-   `EnableForwardedByClientIp` - 启用通过客户端 IP 转发（默认值：`false`）
+-   `EnableRecordRequestBody` - 启用记录请求体（默认值：`false`）
+
+您可以使用 `NewOptions` 创建一个空功能，并使用 `EnableXXX` 方法设置功能选项。
+
+-   `DebugOptions` 用于调试，是 `NewOptions().EnablePProf().EnableSwagger().EnableMetric().EnableRecordRequestBody()` 的别名。
+-   `ReleaseOptions` 用于发布，是 `NewOptions().EnableMetric()` 的别名。
+
+> [!NOTE]
+> 推荐在调试时使用 `DebugOptions`，在发布时使用 `ReleaseOptions`。
+
+## 3. 创建实例
+
+一旦您创建了 `orbit` 的配置和功能选项，就可以创建一个 `orbit` 实例。
 
 > [!IMPORTANT]
-> When you run the `orbit` instance, it will not block the current goroutine. This means you can continue doing other things after running the `orbit` instance.
+> 运行 `orbit` 实例时，它不会阻塞当前的 goroutine。这意味着在运行 `orbit` 实例后，您可以继续做其他事情。
 >
-> If you want to block the current goroutine, you can use the project [`GS`](https://github.com/shengyanli1982/gs) to provide a `Waitting` function to block the current goroutine.
+> 如果您想阻塞当前的 goroutine，可以使用项目 [`GS`](https://github.com/shengyanli1982/gs) 提供的 `Waitting` 函数来阻塞当前的 goroutine。
 
 > [!TIP]
-> To simplify the process, you can use `NewHttpService` to wrap the `func(*gin.RouterGroup)` into an implementation of the `Service` interface.
+> 为了简化流程，您可以使用 `NewHttpService` 将 `func(*gin.RouterGroup)` 包装成 `Service` 接口的实现。
 >
 > ```go
 > NewHttpService(func(g *gin.RouterGroup) {
@@ -108,7 +108,7 @@ Once you have created the `orbit` configuration and feature options, you can cre
 > })
 > ```
 
-**Example**
+**示例**
 
 ```go
 package main
@@ -146,7 +146,7 @@ func main() {
 }
 ```
 
-**Result**
+**执行结果**
 
 ```bash
 [GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
@@ -157,7 +157,7 @@ func main() {
 {"level":"INFO","time":"2024-01-10T17:00:13.139+0800","logger":"default","caller":"orbit/gin.go:160","message":"http server is ready","address":"127.0.0.1:8080"}
 ```
 
-**Testing**
+**测试**
 
 ```bash
 $ curl -i http://127.0.0.1:8080/ping
@@ -169,13 +169,13 @@ Content-Length: 7
 successs
 ```
 
-## 4. Custom Middleware
+## 4. 自定义中间件
 
-`orbit` is based on `gin`, so you can directly use `gin` middleware. This allows you to implement custom middleware for specific tasks. For example, you can use the `demo` middleware to print `>>>>>>!!! demo` in the console.
+`orbit` 基于 `gin`，因此您可以直接使用 `gin` 的中间件。这使您能够为特定任务实现自定义中间件。例如，您可以使用 `demo` 中间件在控制台打印 `>>>>>>!!! demo`。
 
-Here is an example of using custom middleware in `orbit`:
+以下是在 `orbit` 中使用自定义中间件的示例：
 
-**Example**
+**示例**
 
 ```go
 package main
@@ -251,7 +251,7 @@ func main() {
 }
 ```
 
-**Result**
+**执行结果**
 
 ```bash
 $ go run demo.go
@@ -267,11 +267,11 @@ $ go run demo.go
 {"level":"INFO","time":"2024-01-10T20:03:41.275+0800","logger":"default","caller":"log/default.go:10","message":"http server access log","id":"","ip":"127.0.0.1","endpoint":"127.0.0.1:59787","path":"/demo","method":"GET","code":200,"status":"OK","latency":"780ns","agent":"curl/8.1.2","query":"","reqContentType":"","reqBody":""}
 ```
 
-## 5. Custom Router Group
+## 5. 自定义路由组
 
-The custom router group feature in `orbit` allows you to register a custom router group for the `demo` service. For example, you can register routes like `/demo` and `/demo/test`.
+`orbit` 中的自定义路由组功能允许您为 `demo` 服务注册一个自定义的路由组。例如，您可以注册像 `/demo` 和 `/demo/test` 这样的路由。
 
-**Example**
+**示例**
 
 ```go
 package main
@@ -344,7 +344,7 @@ func main() {
 }
 ```
 
-**Result**
+**执行结果**
 
 ```bash
 $ curl -i http://127.0.0.1:8080/demo
@@ -376,11 +376,11 @@ Content-Length: 4
 test
 ```
 
-## 6. Custom Access Log
+## 6. 自定义访问日志
 
-To customize the access log format and fields in `orbit`, you can use the following example:
+要自定义 `orbit` 中的访问日志格式和字段，您可以使用以下示例：
 
-**Default LogEvent Fields**
+**默认的 LogEvent 字段**
 
 ```go
 // LogEvent 结构体用于记录日志事件
@@ -448,7 +448,7 @@ type LogEvent struct {
 }
 ```
 
-**Example**
+**示例**
 
 ```go
 package main
@@ -518,17 +518,17 @@ func main() {
 }
 ```
 
-**Result**
+**执行结果**
 
 ```bash
 {"level":"INFO","time":"2024-01-10T20:22:01.244+0800","logger":"default","caller":"accesslog/demo.go:24","message":"access log","path":"/demo","method":"GET"}
 ```
 
-## 7. Custom Recovery Log
+## 7. 自定义恢复日志
 
-Http server recovery log allows you to understand what happened when your service encounters a panic. With `orbit`, you can customize the recovery log format and fields. Here is an example of how to customize the recovery log format and fields:
+HTTP 服务器的恢复日志可以帮助您了解当服务遇到 panic 时发生了什么。使用 `orbit`，您可以自定义恢复日志的格式和字段。以下是如何自定义恢复日志格式和字段的示例：
 
-**Example**
+**示例**
 
 ```go
 package main
@@ -595,20 +595,20 @@ func main() {
 }
 ```
 
-**Result**
+**执行结果**
 
 ```bash
 {"level":"INFO","time":"2024-01-10T20:27:10.041+0800","logger":"default","caller":"recoverylog/demo.go:22","message":"recovery log","path":"/demo","method":"GET","error":"demo","errorStack":"goroutine 6 [running]:\nruntime/debug.Stack()\n\t/usr/local/go/src/runtime/debug/stack.go:24 +0x65\ngithub.com/shengyanli1982/orbit/internal/middleware.Recovery.func1.1()\n\t/Volumes/DATA/programs/GolandProjects/orbit/internal/middleware/system.go:145 +0x559\npanic({0x170ec80, 0x191cb70})\n\t/usr/local/go/src/runtime/panic.go:884 +0x213\nmain.(*service).RegisterGroup.func1(0x0?)\n\t/Volumes/DATA/programs/GolandProjects/orbit/example/recoverylog/demo.go:17 +0x27\ngithub.com/gin-gonic/gin.(*Context).Next(...)\n\t/Volumes/CACHE/programs/gopkgs/pkg/mod/github.com/gin-gonic/gin@v1.8.2/context.go:173\ngithub.com/shengyanli1982/orbit/internal/middleware.AccessLogger.func1(0xc0001e6300)\n\t/Volumes/DATA/programs/GolandProjects/orbit/internal/middleware/system.go:59 +0x1a5\ngithub.com/gin-gonic/gin.(*Context).Next(...)\n\t/Volumes/CACHE/programs/gopkgs/pkg/mod/github.com/gin-gonic/gin@v1.8.2/context.go:173\ngithub.com/shengyanli1982/orbit/internal/middleware.Cors.func1(0xc0001e6300)\n\t/Volumes/DATA/programs/GolandProjects/orbit/internal/middleware/system.go:35 +0x139\ngithub.com/gin-gonic/gin.(*Context).Next(...)\n\t/Volumes/CACHE/programs/gopkgs/pkg/mod/github.com/gin-gonic/gin@v1.8.2/context.go:173\ngithub.com/shengyanli1982/orbit/internal/middleware.BodyBuffer.func1(0xc0001e6300)\n\t/Volumes/DATA/programs/GolandProjects/orbit/internal/middleware/buffer.go:18 +0x92\ngithub.com/gin-gonic/gin.(*Context).Next(...)\n\t/Volumes/CACHE/programs/gopkgs/pkg/mod/github.com/gin-gonic/gin@v1.8.2/context.go:173\ngithub.com/shengyanli1982/orbit/internal/middleware.Recovery.func1(0xc0001e6300)\n\t/Volumes/DATA/programs/GolandProjects/orbit/internal/middleware/system.go:166 +0x82\ngithub.com/gin-gonic/gin.(*Context).Next(...)\n\t/Volumes/CACHE/programs/gopkgs/pkg/mod/github.com/gin-gonic/gin@v1.8.2/context.go:173\ngithub.com/gin-gonic/gin.(*Engine).handleHTTPRequest(0xc0000076c0, 0xc0001e6300)\n\t/Volumes/CACHE/programs/gopkgs/pkg/mod/github.com/gin-gonic/gin@v1.8.2/gin.go:616 +0x66b\ngithub.com/gin-gonic/gin.(*Engine).ServeHTTP(0xc0000076c0, {0x1924a30?, 0xc0000c02a0}, 0xc0001e6200)\n\t/Volumes/CACHE/programs/gopkgs/pkg/mod/github.com/gin-gonic/gin@v1.8.2/gin.go:572 +0x1dd\nnet/http.serverHandler.ServeHTTP({0xc00008be30?}, {0x1924a30, 0xc0000c02a0}, 0xc0001e6200)\n\t/usr/local/go/src/net/http/server.go:2936 +0x316\nnet/http.(*conn).serve(0xc0000962d0, {0x19253e0, 0xc00008bd40})\n\t/usr/local/go/src/net/http/server.go:1995 +0x612\ncreated by net/http.(*Server).Serve\n\t/usr/local/go/src/net/http/server.go:3089 +0x5ed\n"}
 ```
 
-## 8. Prometheus Metrics
+## 8. Prometheus 指标
 
-`orbit` supports `prometheus` metrics. You can enable it using `EnableMetric`. Here is an example of how to collect `demo` metrics using the `demo` service.
+`orbit` 支持 `prometheus` 指标。您可以使用 `EnableMetric` 来启用它。以下是使用 `demo` 服务收集 `demo` 指标的示例。
 
 > [!TIP]
-> Use curl http://127.0.0.1:8080/metrics to get metrics.
+> 使用 curl http://127.0.0.1:8080/metrics 获取指标。
 
-**Example**
+**示例**
 
 ```go
 package main
@@ -668,7 +668,7 @@ func main() {
 }
 ```
 
-**Result**
+**执行结果**
 
 ```bash
 # HELP orbit_http_request_latency_seconds HTTP request latencies in seconds.
@@ -687,18 +687,18 @@ orbit_http_request_latency_seconds_histogram_sum{method="GET",path="/demo",statu
 orbit_http_request_latency_seconds_histogram_count{method="GET",path="/demo",status="200"} 3
 ```
 
-## 9. Repeat Read Request/Response Body
+## 9. 重复读取请求/响应体
 
-`orbit` supports repeating the read request/response body. By default, this behavior is enabled and requires no additional configuration. Here is an example of how to use the `demo` service to repeat read the request/response body.
+`orbit` 支持重复读取请求/响应体。默认情况下，此行为已启用，无需额外配置。以下是如何使用 `demo` 服务来重复读取请求/响应体的示例。
 
-### 9.1 Repeat Read Request Body
+### 9.1 重复读取请求体
 
-You can use the `httptool.GenerateRequestBody` method to obtain the request body bytes and cache them. This allows you to read the cached bytes when needed.
+您可以使用 `httptool.GenerateRequestBody` 方法获取请求体的字节并进行缓存。这样，您可以在需要时读取缓存的字节。
 
 > [!IMPORTANT]
-> The request body is an `io.ReadCloser`, which is a stream that can only be read once. If you need to read it again, do not read it directly. Instead, use `orbit` to cache it.
+> 请求体是一个 `io.ReadCloser`，它是一个只能读取一次的流。如果您需要再次读取它，请不要直接读取它，而是使用 `orbit` 进行缓存。
 
-**Example**
+**示例**
 
 ```go
 package main
@@ -785,7 +785,7 @@ func main() {
 }
 ```
 
-**Result**
+**执行结果**
 
 ```bash
 $ go run demo.go
@@ -822,16 +822,16 @@ $ go run demo.go
 {"level":"INFO","time":"2024-01-13T10:28:07.537+0800","logger":"default","caller":"orbit/gin.go:190","message":"http server is shutdown","address":"127.0.0.1:8080"}
 ```
 
-### 9.2 Repeat Read Response Body
+### 9.2 重复读取响应体
 
-The `httptool.GenerateResponseBody` method can be used to retrieve the response body bytes from the cache. It is important to note that you should call `httptool.GenerateResponseBody` after writing the actual response body, such as using `c.String(http.StatusOK, "demo")`.
+`httptool.GenerateResponseBody` 方法可用于从缓存中获取响应体的字节。需要注意的是，在写入实际的响应体之后，如使用 `c.String(http.StatusOK, "demo")`，才能调用 `httptool.GenerateResponseBody`。
 
 > [!NOTE]
-> The response body is always written to an `io.Writer`, so direct reading is not possible. If you need to read it, you can use `orbit` to cache it.
+> 响应体总是被写入到 `io.Writer`，因此无法直接读取。如果需要读取它，可以使用 `orbit` 进行缓存。
 >
-> `httptool.GenerateResponseBody` is often used in custom middleware to retrieve the response body bytes and perform additional actions.
+> `httptool.GenerateResponseBody` 经常在自定义中间件中使用，以获取响应体的字节并执行其他操作。
 
-**Example**
+**示例**
 
 ```go
 package main
@@ -925,7 +925,7 @@ func main() {
 }
 ```
 
-**Result**
+**执行结果**
 
 ```bash
 $ go run demo.go
