@@ -19,7 +19,7 @@ import (
 func pprofService(group *gin.RouterGroup) {
 	// 获取 pprof 索引页面
 	// Get the pprof index page
-	group.GET(com.EmptyURLPath, wrap.WrapHandlerFuncToGin(pprof.Index))
+	group.GET(com.RootURLPath, wrap.WrapHandlerFuncToGin(pprof.Index))
 
 	// 获取命令行参数
 	// Get the command line arguments
