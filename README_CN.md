@@ -4,6 +4,10 @@
 	<img src="assets/logo.png" alt="logo" width="500px">
 </div>
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/shengyanli1982/orbit)](https://goreportcard.com/report/github.com/shengyanli1982/orbit)
+[![Build Status](https://github.com/shengyanli1982/orbit/actions/workflows/test.yaml/badge.svg)](https://github.com/shengyanli1982/orbit/actions)
+[![Go Reference](https://pkg.go.dev/badge/github.com/shengyanli1982/orbit.svg)](https://pkg.go.dev/github.com/shengyanli1982/orbit)
+
 # 介绍
 
 `orbit` 是一个轻量级的 HTTP web 服务封装框架。它被设计成简单易用，提供一系列便利的功能，帮助您快速构建 web 服务。
