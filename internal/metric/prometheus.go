@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
 	com "github.com/shengyanli1982/orbit/common"
+	"github.com/shengyanli1982/orbit/utils/middleware"
 	"go.uber.org/zap"
 )
 
@@ -148,16 +149,29 @@ func (m *ServerMetrics) HandlerFunc(logger *zap.SugaredLogger) gin.HandlerFunc {
 				logger.Error(err)
 			}
 		} else {
-			// 如果没有错误，计算响应延迟并记录状态
-			// If there are no errors, calculate the response latency and record the status
-			latency := time.Since(start).Seconds()
-			status := strconv.Itoa(context.Writer.Status())
+			// 如果不是必须要跳过的资源, 计算响应延迟并记录状态
+			// If it is not a resource that must be skipped, calculate the response latency and record the status
+			if !middleware.SkipResources(context) {
+				// 计算响应延迟，单位为秒
+				// Calculate the response latency in seconds
+				latency := time.Since(start).Seconds()
 
-			// 记录度量标准
-			// Record the metrics
-			m.IncRequestCount(context.Request.Method, context.Request.URL.Path, status)                // 记录请求计数器 (Record request counter)
-			m.ObserveRequestLatency(context.Request.Method, context.Request.URL.Path, status, latency) // 记录请求延迟直方图 (Record request latency histogram)
-			m.SetRequestLatency(context.Request.Method, context.Request.URL.Path, status, latency)     // 记录请求延迟仪表盘 (Record request latency gauge)
+				// 获取响应状态码，并转换为字符串
+				// Get the response status code and convert it to a string
+				status := strconv.Itoa(context.Writer.Status())
+
+				// 增加请求计数
+				// Increase the request count
+				m.IncRequestCount(context.Request.Method, context.Request.URL.Path, status)
+
+				// 观察请求延迟
+				// Observe the request latency
+				m.ObserveRequestLatency(context.Request.Method, context.Request.URL.Path, status, latency)
+
+				// 设置请求延迟
+				// Set the request latency
+				m.SetRequestLatency(context.Request.Method, context.Request.URL.Path, status, latency)
+			}
 		}
 	}
 }
