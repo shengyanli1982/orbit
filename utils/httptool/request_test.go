@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -46,7 +47,7 @@ func TestParseRequestBodyJSON(t *testing.T) {
 	// Create a request with a sample body
 	requestBody := []byte(`{"test": "body"}`)
 	request := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBuffer(requestBody))
-	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Content-Type", binding.MIMEJSON)
 	context.Request = request
 
 	// Call the ParseRequestBody function
@@ -67,9 +68,9 @@ func TestParseRequestBodyYAML(t *testing.T) {
 	context, _ := gin.CreateTestContext(httptest.NewRecorder())
 
 	// Create a request with a sample body
-	requestBody := []byte(`test: body`)
+	requestBody := []byte("test: body")
 	request := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBuffer(requestBody))
-	request.Header.Set("Content-Type", "application/x-yaml")
+	request.Header.Set("Content-Type", binding.MIMEYAML)
 	context.Request = request
 
 	// Call the ParseRequestBody function
@@ -104,6 +105,7 @@ func TestParseRequestBodyEmptyBody(t *testing.T) {
 	bufferedBody, _ := io.ReadAll(context.Request.Body)
 	assert.Equal(t, []byte{}, bufferedBody)
 }
+
 func TestGenerateRequestPath(t *testing.T) {
 	// Create a new Gin context
 	gin.SetMode(gin.TestMode)
