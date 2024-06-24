@@ -10,25 +10,27 @@ English | [中文](./README_CN.md)
 
 # Introduction
 
-`orbit` is a lightweight HTTP web service wrapper framework. It is designed to be simple and easy to use, providing a series of convenient features to help you quickly build a web service.
+`orbit` is a lightweight HTTP web service wrapper framework designed for simplicity and ease of use. It provides a suite of convenient features to help you quickly build and maintain a web service.
 
-Why is it called `orbit`? It provides a framework that encapsulates the complexities of building a web service, allowing you to focus on your core business logic. With `orbit`, you can easily develop and maintain your web service, just like a satellite smoothly orbiting the Earth.
+The name `orbit` reflects the framework's goal of encapsulating the complexities of building a web service, allowing you to focus on your core business logic, much like a satellite smoothly orbiting the Earth.
 
-Why not use `gin` directly? While `gin` is a great framework, starting a web service with it requires additional work such as logging and monitoring. `orbit` is built on top of `gin` and offers these features out of the box.
+### Why Not Use `gin` Directly?
+
+While `gin` is an excellent framework, it requires additional setup for logging and monitoring. `orbit` is built on top of `gin`, providing these features out-of-the-box, streamlining the process of starting a web service.
 
 # Advantages
 
--   Lightweight and easy to use
+-   Lightweight and user-friendly
 -   Supports `zap` logging with both `async` and `sync` modes
--   Provides `prometheus` monitoring integration
+-   Integrates `prometheus` for monitoring
 -   Includes `swagger` API documentation support
--   Enables graceful shutdown of the server
--   Supports `cors` middleware for handling cross-origin requests
--   Automatically recovers from panics
--   Allows customization of middleware
--   Supports custom router groups
--   Provides flexibility in defining access log format and fields
--   Offers repeat read of request/response body and caching of body bytes
+-   Graceful server shutdown
+-   `cors` middleware for cross-origin requests
+-   Automatic panic recovery
+-   Customizable middleware
+-   Flexible router groups
+-   Customizable access log format and fields
+-   Supports repeat reading of request/response body and caching
 
 # Installation
 
@@ -38,15 +40,16 @@ go get github.com/shengyanli1982/orbit
 
 # Quick Start
 
-`orbit` is incredibly easy to use, allowing you to quickly build a web service in just a few minutes. The typical steps involved are:
+`orbit` is designed for quick and easy web service development. Follow these simple steps:
 
-1. Create the `orbit` start configuration.
+1. Create the `orbit` configuration.
 2. Define the `orbit` feature options.
-3. Create an instance of `orbit`.
+3. Create an `orbit` instance.
 
 **Default URL Paths**
 
 > [!NOTE]
+>
 > The default URL paths are system-defined and cannot be changed.
 
 -   `/metrics` - Prometheus metrics
@@ -90,6 +93,7 @@ You can use `NewOptions` to create a null feature, and use `EnableXXX` methods t
 -   `ReleaseOptions` is used for release and is an alias of `NewOptions().EnableMetric()`.
 
 > [!NOTE]
+> 
 > It is recommended to use `DebugOptions` for debugging and `ReleaseOptions` for release.
 
 ## 3. Creating an Instance
@@ -97,11 +101,13 @@ You can use `NewOptions` to create a null feature, and use `EnableXXX` methods t
 Once you have created the `orbit` configuration and feature options, you can create an `orbit` instance.
 
 > [!IMPORTANT]
+>
 > When you run the `orbit` instance, it will not block the current goroutine. This means you can continue doing other things after running the `orbit` instance.
 >
 > If you want to block the current goroutine, you can use the project [`GS`](https://github.com/shengyanli1982/gs) to provide a `Waitting` function to block the current goroutine.
 
 > [!TIP]
+>
 > To simplify the process, you can use `NewHttpService` to wrap the `func(*gin.RouterGroup)` into an implementation of the `Service` interface.
 >
 > ```go
@@ -605,11 +611,132 @@ func main() {
 {"level":"INFO","time":"2024-01-10T20:27:10.041+0800","logger":"default","caller":"recoverylog/demo.go:22","message":"recovery log","path":"/demo","method":"GET","error":"demo","errorStack":"goroutine 6 [running]:\nruntime/debug.Stack()\n\t/usr/local/go/src/runtime/debug/stack.go:24 +0x65\ngithub.com/shengyanli1982/orbit/internal/middleware.Recovery.func1.1()\n\t/Volumes/DATA/programs/GolandProjects/orbit/internal/middleware/system.go:145 +0x559\npanic({0x170ec80, 0x191cb70})\n\t/usr/local/go/src/runtime/panic.go:884 +0x213\nmain.(*service).RegisterGroup.func1(0x0?)\n\t/Volumes/DATA/programs/GolandProjects/orbit/example/recoverylog/demo.go:17 +0x27\ngithub.com/gin-gonic/gin.(*Context).Next(...)\n\t/Volumes/CACHE/programs/gopkgs/pkg/mod/github.com/gin-gonic/gin@v1.8.2/context.go:173\ngithub.com/shengyanli1982/orbit/internal/middleware.AccessLogger.func1(0xc0001e6300)\n\t/Volumes/DATA/programs/GolandProjects/orbit/internal/middleware/system.go:59 +0x1a5\ngithub.com/gin-gonic/gin.(*Context).Next(...)\n\t/Volumes/CACHE/programs/gopkgs/pkg/mod/github.com/gin-gonic/gin@v1.8.2/context.go:173\ngithub.com/shengyanli1982/orbit/internal/middleware.Cors.func1(0xc0001e6300)\n\t/Volumes/DATA/programs/GolandProjects/orbit/internal/middleware/system.go:35 +0x139\ngithub.com/gin-gonic/gin.(*Context).Next(...)\n\t/Volumes/CACHE/programs/gopkgs/pkg/mod/github.com/gin-gonic/gin@v1.8.2/context.go:173\ngithub.com/shengyanli1982/orbit/internal/middleware.BodyBuffer.func1(0xc0001e6300)\n\t/Volumes/DATA/programs/GolandProjects/orbit/internal/middleware/buffer.go:18 +0x92\ngithub.com/gin-gonic/gin.(*Context).Next(...)\n\t/Volumes/CACHE/programs/gopkgs/pkg/mod/github.com/gin-gonic/gin@v1.8.2/context.go:173\ngithub.com/shengyanli1982/orbit/internal/middleware.Recovery.func1(0xc0001e6300)\n\t/Volumes/DATA/programs/GolandProjects/orbit/internal/middleware/system.go:166 +0x82\ngithub.com/gin-gonic/gin.(*Context).Next(...)\n\t/Volumes/CACHE/programs/gopkgs/pkg/mod/github.com/gin-gonic/gin@v1.8.2/context.go:173\ngithub.com/gin-gonic/gin.(*Engine).handleHTTPRequest(0xc0000076c0, 0xc0001e6300)\n\t/Volumes/CACHE/programs/gopkgs/pkg/mod/github.com/gin-gonic/gin@v1.8.2/gin.go:616 +0x66b\ngithub.com/gin-gonic/gin.(*Engine).ServeHTTP(0xc0000076c0, {0x1924a30?, 0xc0000c02a0}, 0xc0001e6200)\n\t/Volumes/CACHE/programs/gopkgs/pkg/mod/github.com/gin-gonic/gin@v1.8.2/gin.go:572 +0x1dd\nnet/http.serverHandler.ServeHTTP({0xc00008be30?}, {0x1924a30, 0xc0000c02a0}, 0xc0001e6200)\n\t/usr/local/go/src/net/http/server.go:2936 +0x316\nnet/http.(*conn).serve(0xc0000962d0, {0x19253e0, 0xc00008bd40})\n\t/usr/local/go/src/net/http/server.go:1995 +0x612\ncreated by net/http.(*Server).Serve\n\t/usr/local/go/src/net/http/server.go:3089 +0x5ed\n"}
 ```
 
-## 8. Prometheus Metrics
+## 8. Async Logger
+
+`orbit` leverages the `law` project to provide an `async` logger. Here's an example of how to enable the `async` logger using the `demo` service.
+
+> [!TIP]
+>
+> [`law`](https://github.com/shengyanli1982/law) is a lightweight asynchronous logger for `zap`, `logrus`, `klog`, `zerolog`, and more. It's designed for simplicity and ease of use, offering a range of convenient features to help you quickly set up a logger.
+>
+> You can install `law` using the command `go get github.com/shengyanli1982/law`.
+
+**Example**
+
+```go
+package main
+
+import (
+	"net/http"
+	"os"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/shengyanli1982/law"
+	"github.com/shengyanli1982/orbit"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+)
+
+// 定义 service 结构体
+// Define the service struct
+type service struct{}
+
+// RegisterGroup 方法将路由组注册到 service
+// The RegisterGroup method registers a router group to the service
+func (s *service) RegisterGroup(g *gin.RouterGroup) {
+	// 在 "/demo" 路径上注册一个 GET 方法的处理函数
+	// Register a GET method handler function on the "/demo" path
+	g.GET("/demo", func(c *gin.Context) {
+		// 返回 HTTP 状态码 200 和 "demo" 字符串
+		// Return HTTP status code 200 and the string "demo"
+		c.String(http.StatusOK, "demo")
+	})
+}
+
+func main() {
+	// 使用 os.Stdout 和配置创建一个新的 WriteAsyncer 实例
+	// Create a new WriteAsyncer instance using os.Stdout and the configuration
+	w := law.NewWriteAsyncer(os.Stdout, nil)
+
+	// 使用 defer 语句确保在 main 函数退出时停止 WriteAsyncer
+	// Use a defer statement to ensure that WriteAsyncer is stopped when the main function exits
+	defer w.Stop()
+
+	// 创建一个 zapcore.EncoderConfig 实例，用于配置 zap 的编码器
+	// Create a zapcore.EncoderConfig instance to configure the encoder of zap
+	encoderCfg := zapcore.EncoderConfig{
+		MessageKey:     "msg",                         // 消息的键名
+		LevelKey:       "level",                       // 级别的键名
+		NameKey:        "logger",                      // 记录器名的键名
+		EncodeLevel:    zapcore.LowercaseLevelEncoder, // 级别的编码器
+		EncodeTime:     zapcore.ISO8601TimeEncoder,    // 时间的编码器
+		EncodeDuration: zapcore.StringDurationEncoder, // 持续时间的编码器
+	}
+
+	// 使用 WriteAsyncer 创建一个 zapcore.WriteSyncer 实例
+	// Create a zapcore.WriteSyncer instance using WriteAsyncer
+	zapAsyncWriter := zapcore.AddSync(w)
+
+	// 使用编码器配置和 WriteSyncer 创建一个 zapcore.Core 实例
+	// Create a zapcore.Core instance using the encoder configuration and WriteSyncer
+	zapCore := zapcore.NewCore(zapcore.NewJSONEncoder(encoderCfg), zapAsyncWriter, zapcore.DebugLevel)
+
+	// 使用 Core 创建一个 zap.Logger 实例
+	// Create a zap.Logger instance using Core
+	zapLogger := zap.New(zapCore)
+
+	// 创建一个新的 Orbit 配置，并设置访问日志事件函数
+	// Create a new Orbit configuration and set the access log event function
+	config := orbit.NewConfig().WithLogger(zapLogger)
+
+	// 创建一个新的 Orbit 功能选项
+	// Create a new Orbit feature options
+	opts := orbit.NewOptions()
+
+	// 创建一个新的 Orbit 引擎
+	// Create a new Orbit engine
+	engine := orbit.NewEngine(config, opts)
+
+	// 注册一个自定义的路由组
+	// Register a custom router group
+	engine.RegisterService(&service{})
+
+	// 启动引擎
+	// Start the engine
+	engine.Run()
+
+	// 等待 30 秒
+	// Wait for 30 seconds
+	time.Sleep(30 * time.Second)
+
+	// 停止引擎
+	// Stop the engine
+	engine.Stop()
+}
+```
+
+**Result**
+
+```bash
+$ go run demo.go
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] GET    /ping                     --> github.com/shengyanli1982/orbit.healthcheckService.func1 (1 handlers)
+[GIN-debug] GET    /demo                     --> main.(*service).RegisterGroup.func1 (5 handlers)
+{"level":"info","msg":"http server is ready","address":"127.0.0.1:8080"}
+{"level":"info","msg":"http server access log","id":"","ip":"127.0.0.1","endpoint":"127.0.0.1:50940","path":"/demo","method":"GET","code":200,"status":"OK","latency":"20.445µs","agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36","query":"","reqContentType":"","reqBody":""}
+{"level":"info","msg":"http server is shutdown","address":"127.0.0.1:8080"}
+```
+
+## 9. Prometheus Metrics
 
 `orbit` supports `prometheus` metrics. You can enable it using `EnableMetric`. Here is an example of how to collect `demo` metrics using the `demo` service.
 
 > [!TIP]
+>
 > Use curl http://127.0.0.1:8080/metrics to get metrics.
 
 **Example**
@@ -691,15 +818,16 @@ orbit_http_request_latency_seconds_histogram_sum{method="GET",path="/demo",statu
 orbit_http_request_latency_seconds_histogram_count{method="GET",path="/demo",status="200"} 3
 ```
 
-## 9. Repeat Read Request/Response Body
+## 10. Repeat Read Request/Response Body
 
 `orbit` supports repeating the read request/response body. By default, this behavior is enabled and requires no additional configuration. Here is an example of how to use the `demo` service to repeat read the request/response body.
 
-### 9.1 Repeat Read Request Body
+### 10.1 Repeat Read Request Body
 
 You can use the `httptool.GenerateRequestBody` method to obtain the request body bytes and cache them. This allows you to read the cached bytes when needed.
 
 > [!IMPORTANT]
+>
 > The request body is an `io.ReadCloser`, which is a stream that can only be read once. If you need to read it again, do not read it directly. Instead, use `orbit` to cache it.
 
 **Example**
@@ -826,11 +954,12 @@ $ go run demo.go
 {"level":"INFO","time":"2024-01-13T10:28:07.537+0800","logger":"default","caller":"orbit/gin.go:190","message":"http server is shutdown","address":"127.0.0.1:8080"}
 ```
 
-### 9.2 Repeat Read Response Body
+### 10.2 Repeat Read Response Body
 
 The `httptool.GenerateResponseBody` method can be used to retrieve the response body bytes from the cache. It is important to note that you should call `httptool.GenerateResponseBody` after writing the actual response body, such as using `c.String(http.StatusOK, "demo")`.
 
 > [!NOTE]
+> 
 > The response body is always written to an `io.Writer`, so direct reading is not possible. If you need to read it, you can use `orbit` to cache it.
 >
 > `httptool.GenerateResponseBody` is often used in custom middleware to retrieve the response body bytes and perform additional actions.
@@ -965,4 +1094,89 @@ $ go run demo.go
 # 19, demo
 
 {"level":"INFO","time":"2024-01-13T10:32:55.195+0800","logger":"default","caller":"orbit/gin.go:190","message":"http server is shutdown","address":"127.0.0.1:8080"}
+```
+
+## 11. Graceful Shutdown
+
+The `orbit` engine is equipped with a graceful shutdown feature. The `engine.Stop` method can be utilized to halt the engine, but it doesn't immediately stop it. For a more graceful shutdown, you can employ the [`GS`](https://github.com/shengyanli1982/gs) project.
+
+> [!TIP]
+>
+> [`GS`](https://github.com/shengyanli1982/gs) is a lightweight library for Go that facilitates graceful shutdowns. It is designed for simplicity and ease of use, offering a range of handy features to help you implement a graceful shutdown swiftly.
+>
+> You can install `GS` using the command `go get github.com/shengyanli1982/gs`.
+
+**Example**
+
+```go
+package main
+
+import (
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+	"github.com/shengyanli1982/gs"
+	"github.com/shengyanli1982/orbit"
+)
+
+// 定义 service 结构体
+// Define the service struct
+type service struct{}
+
+// RegisterGroup 方法将路由组注册到 service
+// The RegisterGroup method registers a router group to the service
+func (s *service) RegisterGroup(g *gin.RouterGroup) {
+	// 在 "/demo" 路径上注册一个 GET 方法的处理函数
+	// Register a GET method handler function on the "/demo" path
+	g.GET("/demo", func(c *gin.Context) {
+		// 返回 HTTP 状态码 200 和 "demo" 字符串
+		// Return HTTP status code 200 and the string "demo"
+		c.String(http.StatusOK, "demo")
+	})
+}
+
+func main() {
+	// 创建一个新的 TerminateSignal 实例
+	// Create a new TerminateSignal instance
+	sig := gs.NewTerminateSignal()
+
+	// 创建一个新的 Orbit 功能选项
+	// Create a new Orbit feature options
+	opts := orbit.NewOptions()
+
+	// 创建一个新的 Orbit 引擎
+	// Create a new Orbit engine
+	engine := orbit.NewEngine(nil, opts)
+
+	// 注册一个自定义的路由组
+	// Register a custom router group
+	engine.RegisterService(&service{})
+
+	// 启动引擎
+	// Start the engine
+	engine.Run()
+
+	// 注册需要在终止信号发生时执行的处理函数
+	// Register the handle functions to be executed when the termination signal occurs
+	sig.RegisterCancelHandles(engine.Stop)
+
+	// 等待所有的异步关闭信号
+	// Wait for all asynchronous shutdown signals
+	gs.WaitForAsync(sig)
+}
+```
+
+**Result**
+
+```bash
+$ go run demo.go
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] GET    /ping                     --> github.com/shengyanli1982/orbit.healthcheckService.func1 (1 handlers)
+[GIN-debug] GET    /demo                     --> main.(*service).RegisterGroup.func1 (5 handlers)
+{"level":"INFO","time":"2024-06-24T17:27:04.646+0800","logger":"default","caller":"orbit/gin.go:334","message":"http server is ready","address":"127.0.0.1:8080"}
+{"level":"INFO","time":"2024-06-24T17:27:06.068+0800","logger":"default","caller":"log/default.go:11","message":"http server access log","id":"","ip":"127.0.0.1","endpoint":"127.0.0.1:51540","path":"/demo","method":"GET","code":200,"status":"OK","latency":"25.344µs","agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36","query":"","reqContentType":"","reqBody":""}
+{"level":"INFO","time":"2024-06-24T17:27:12.196+0800","logger":"default","caller":"orbit/gin.go:373","message":"http server is shutdown","address":"127.0.0.1:8080"}
 ```

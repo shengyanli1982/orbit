@@ -81,7 +81,7 @@ func TestParseRequestBodyYAML(t *testing.T) {
 	assert.NotNil(t, value)
 
 	// Assert that the returned body matches the original request body
-	assert.Equal(t, map[interface{}]interface{}{"test": "body"}, value)
+	assert.Equal(t, map[string]interface{}{"test": "body"}, value)
 }
 
 func TestParseRequestBodyEmptyBody(t *testing.T) {
