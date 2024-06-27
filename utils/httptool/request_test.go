@@ -85,6 +85,26 @@ func TestParseRequestBodyYAML(t *testing.T) {
 	assert.Equal(t, map[string]interface{}{"test": "body"}, value)
 }
 
+func TestParseRequestBodyInvalidContentType(t *testing.T) {
+	// Create a new Gin context
+	gin.SetMode(gin.TestMode)
+	context, _ := gin.CreateTestContext(httptest.NewRecorder())
+
+	// Create a request with a sample body
+	requestBody := []byte("test body")
+	request := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBuffer(requestBody))
+	request.Header.Set("Content-Type", "invalid")
+	context.Request = request
+
+	// Call the ParseRequestBody function
+	var value interface{}
+	err := ParseRequestBody(context, &value, false)
+
+	// Assert that there is no error
+	assert.NoError(t, err)
+	assert.Nil(t, value)
+}
+
 func TestParseRequestBodyEmptyBody(t *testing.T) {
 	// Create a new Gin context
 	gin.SetMode(gin.TestMode)
