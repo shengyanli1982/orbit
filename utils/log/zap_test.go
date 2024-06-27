@@ -11,7 +11,7 @@ import (
 
 func TestGetZapLogger(t *testing.T) {
 	// Create a new buffer
-	buff := bytes.NewBuffer(make([]byte, 1024))
+	buff := bytes.NewBuffer(make([]byte, 0, 1024))
 
 	// Create a new logger
 	logger := NewLogger(zapcore.AddSync(buff))
@@ -28,7 +28,7 @@ func TestGetZapLogger(t *testing.T) {
 
 func TestGetZapSugaredLogger(t *testing.T) {
 	// Create a new buffer
-	buff := bytes.NewBuffer(make([]byte, 1024))
+	buff := bytes.NewBuffer(make([]byte, 0, 1024))
 
 	// Create a new logger
 	logger := NewLogger(zapcore.AddSync(buff))
@@ -44,7 +44,7 @@ func TestGetZapSugaredLogger(t *testing.T) {
 
 func TestGetStdLogger(t *testing.T) {
 	// Create a new buffer
-	buff := bytes.NewBuffer(make([]byte, 1024))
+	buff := bytes.NewBuffer(make([]byte, 0, 1024))
 
 	// Create a new logger
 	logger := NewLogger(zapcore.AddSync(buff))
