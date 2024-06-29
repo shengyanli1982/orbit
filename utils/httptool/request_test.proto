@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+option go_package = "./;httptool";
+
+package httptool;
+
+message testProtoBufStruct {
+    string test = 1;
+}

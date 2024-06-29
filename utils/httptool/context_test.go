@@ -19,7 +19,10 @@ func TestGetLoggerFromContext(t *testing.T) {
 	result := GetLoggerFromContext(context)
 	assert.Equal(t, logger, result)
 
+	// Create another mock gin.Context
+	context = &gin.Context{}
+
 	// Test when RequestLoggerKey does not exist in the context
 	result = GetLoggerFromContext(context)
-	assert.Equal(t, logger, result)
+	assert.Equal(t, com.DefaultSugeredLogger, result)
 }
