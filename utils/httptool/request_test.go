@@ -3,7 +3,6 @@ package httptool
 import (
 	"bytes"
 	"encoding/xml"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -12,7 +11,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/stretchr/testify/assert"
-	"google.golang.org/protobuf/proto"
 )
 
 func TestGenerateRequestBody(t *testing.T) {
@@ -141,14 +139,6 @@ func TestParseRequestBodyForm(t *testing.T) {
 
 	// Assert that the returned body matches the original request body
 	assert.Equal(t, testFormStruct{Test: "body"}, value)
-}
-
-func TestProtoBufXXX(t *testing.T) {
-	test := TestProtoBufStruct{Test: "test"}
-
-	protoBuf, _ := proto.Marshal(&test)
-
-	fmt.Println(protoBuf)
 }
 
 func TestParseRequestBodyProtoBuf(t *testing.T) {
