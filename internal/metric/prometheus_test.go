@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-logr/zapr"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
@@ -26,11 +27,11 @@ func TestNewServerMetrics(t *testing.T) {
 func TestServerMetricsHandlerFunc(t *testing.T) {
 	registry := prometheus.NewRegistry()
 	metrics := NewServerMetrics(registry)
-	logger := zap.NewExample().Sugar()
+	logger := zapr.NewLogger(zap.NewExample())
 
 	// Create a test router
 	router := gin.New()
-	router.Use(metrics.HandlerFunc(logger))
+	router.Use(metrics.HandlerFunc(&logger))
 
 	// Define a test route
 	router.GET("/test", func(c *gin.Context) {

@@ -4,9 +4,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-logr/logr"
 	"github.com/shengyanli1982/orbit"
 	"github.com/shengyanli1982/orbit/utils/log"
-	"go.uber.org/zap"
 )
 
 // 定义 service 结构体
@@ -25,10 +25,10 @@ func (s *service) RegisterGroup(g *gin.RouterGroup) {
 
 // customRecoveryLogger 函数定义了一个自定义的恢复日志记录器
 // The customRecoveryLogger function defines a custom recovery logger
-func customRecoveryLogger(logger *zap.SugaredLogger, event *log.LogEvent) {
+func customRecoveryLogger(logger *logr.Logger, event *log.LogEvent) {
 	// 记录恢复日志，包括路径、方法、错误和错误堆栈
 	// Log the recovery, including the path, method, error, and error stack
-	logger.Infow("recovery log", "path", event.Path, "method", event.Method, "error", event.Error, "errorStack", event.ErrorStack)
+	logger.Info("recovery log", "path", event.Path, "method", event.Method, "error", event.Error, "errorStack", event.ErrorStack)
 }
 
 func main() {

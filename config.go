@@ -3,10 +3,10 @@ package orbit
 import (
 	"strings"
 
+	"github.com/go-logr/logr"
 	"github.com/prometheus/client_golang/prometheus"
 	com "github.com/shengyanli1982/orbit/common"
-	ilog "github.com/shengyanli1982/orbit/internal/log"
-	"go.uber.org/zap"
+	"github.com/shengyanli1982/orbit/utils/log"
 )
 
 var (
@@ -52,7 +52,7 @@ type Config struct {
 
 	// logger 是日志实例。
 	// logger is the logger instance.
-	logger *zap.SugaredLogger `json:"-" yaml:"-"`
+	logger *logr.Logger `json:"-" yaml:"-"`
 
 	// accessLogEventFunc 是访问日志事件函数。
 	// accessLogEventFunc is the access log event function.
@@ -97,15 +97,15 @@ func NewConfig() *Config {
 
 		// logger 是默认的日志实例。
 		// logger is the default logger instance.
-		logger: com.DefaultSugeredLogger,
+		logger: &com.DefaultLogrLogger,
 
 		// accessLogEventFunc 是默认的访问日志事件函数。
 		// accessLogEventFunc is the default access log event function.
-		accessLogEventFunc: ilog.DefaultAccessEventFunc,
+		accessLogEventFunc: log.DefaultAccessEventFunc,
 
 		// recoveryLogEventFunc 是默认的恢复日志事件函数。
 		// recoveryLogEventFunc is the default recovery log event function.
-		recoveryLogEventFunc: ilog.DefaultRecoveryEventFunc,
+		recoveryLogEventFunc: log.DefaultRecoveryEventFunc,
 
 		// prometheusRegistry 是默认的 Prometheus 注册表。
 		// prometheusRegistry is the default Prometheus registry.
@@ -113,17 +113,8 @@ func NewConfig() *Config {
 	}
 }
 
-// WithSugaredLogger 为 Config 实例设置一个新的 sugared logger。
-// WithSugaredLogger sets a new sugared logger for the Config instance.
-func (c *Config) WithSugaredLogger(logger *zap.SugaredLogger) *Config {
+func (c *Config) WithLogger(logger *logr.Logger) *Config {
 	c.logger = logger
-	return c
-}
-
-// WithLogger 为 Config 实例设置一个新的 logger。
-// WithLogger sets a new logger for the Config instance.
-func (c *Config) WithLogger(logger *zap.Logger) *Config {
-	c.logger = logger.Sugar()
 	return c
 }
 
@@ -230,22 +221,22 @@ func isConfigValid(conf *Config) *Config {
 			conf.HttpReadHeaderTimeout = defaultIdleTimeout
 		}
 
-		// 如果 logger 为 nil，设置为默认的 SugaredLogger。
-		// If logger is nil, set it to the default SugaredLogger.
+		// 如果 logger 为 nil，设置为默认的 DefaultLogrLogger
+		// If logger is nil, set it to the default DefaultLogrLogger.
 		if conf.logger == nil {
-			conf.logger = com.DefaultSugeredLogger
+			conf.logger = &com.DefaultLogrLogger
 		}
 
 		// 如果 accessLogEventFunc 为 nil，设置为默认的访问日志事件函数。
 		// If accessLogEventFunc is nil, set it to the default access log event function.
 		if conf.accessLogEventFunc == nil {
-			conf.accessLogEventFunc = ilog.DefaultAccessEventFunc
+			conf.accessLogEventFunc = log.DefaultAccessEventFunc
 		}
 
 		// 如果 recoveryLogEventFunc 为 nil，设置为默认的恢复日志事件函数。
 		// If recoveryLogEventFunc is nil, set it to the default recovery log event function.
 		if conf.recoveryLogEventFunc == nil {
-			conf.recoveryLogEventFunc = ilog.DefaultRecoveryEventFunc
+			conf.recoveryLogEventFunc = log.DefaultRecoveryEventFunc
 		}
 
 		// 如果 prometheusRegistry 为 nil，设置为默认的 Prometheus 注册表。

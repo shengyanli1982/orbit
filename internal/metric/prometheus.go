@@ -5,10 +5,10 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-logr/logr"
 	"github.com/prometheus/client_golang/prometheus"
 	com "github.com/shengyanli1982/orbit/common"
 	"github.com/shengyanli1982/orbit/utils/middleware"
-	"go.uber.org/zap"
 )
 
 // metricLabels 包含了度量标准的标签。
@@ -130,48 +130,44 @@ func (m *ServerMetrics) Reset() {
 
 // HandlerFunc 返回一个 Gin 中间件处理函数。
 // HandlerFunc returns a Gin middleware handler function.
-func (m *ServerMetrics) HandlerFunc(logger *zap.SugaredLogger) gin.HandlerFunc {
+func (m *ServerMetrics) HandlerFunc(logger *logr.Logger) gin.HandlerFunc {
 	return func(context *gin.Context) {
-		// 记录开始时间
-		// Record the start time
-		start := time.Now()
+		// 提前判断是否需要跳过，避免不必要的时间记录
+		if middleware.SkipResources(context) {
+			context.Next()
+			return
+		}
 
-		// 转到下一个中间件
-		// Go to the next middleware
+		// 记录开始时间
+		start := time.Now()
+		
+		// 提前获取常用值，避免重复获取
+		method := context.Request.Method
+		path := context.Request.URL.Path
+
+		// 执行后续中间件
 		context.Next()
 
-		// 处理响应
-		// Handle the response
-		if len(context.Errors) > 0 {
-			// 如果有错误，记录错误
-			// If there are errors, log the errors
-			for _, err := range context.Errors {
-				logger.Error(err)
+		// 处理错误情况
+		if errors := context.Errors; len(errors) > 0 {
+			for _, err := range errors {
+				logger.Error(err, "Error occurred")
 			}
-		} else {
-			// 如果不是必须要跳过的资源, 计算响应延迟并记录状态
-			// If it is not a resource that must be skipped, calculate the response latency and record the status
-			if !middleware.SkipResources(context) {
-				// 计算响应延迟，单位为秒
-				// Calculate the response latency in seconds
-				latency := time.Since(start).Seconds()
-
-				// 获取响应状态码，并转换为字符串
-				// Get the response status code and convert it to a string
-				status := strconv.Itoa(context.Writer.Status())
-
-				// 增加请求计数
-				// Increase the request count
-				m.IncRequestCount(context.Request.Method, context.Request.URL.Path, status)
-
-				// 观察请求延迟
-				// Observe the request latency
-				m.ObserveRequestLatency(context.Request.Method, context.Request.URL.Path, status, latency)
-
-				// 设置请求延迟
-				// Set the request latency
-				m.SetRequestLatency(context.Request.Method, context.Request.URL.Path, status, latency)
-			}
+			return
 		}
+
+		// 计算指标
+		status := strconv.Itoa(context.Writer.Status())
+		latency := time.Since(start).Seconds()
+
+		// 批量更新指标，减少函数调用
+		m.updateMetrics(method, path, status, latency)
 	}
+}
+
+// updateMetrics 集中更新所有指标，提高代码复用性
+func (m *ServerMetrics) updateMetrics(method, path, status string, latency float64) {
+	m.IncRequestCount(method, path, status)
+	m.ObserveRequestLatency(method, path, status, latency)
+	m.SetRequestLatency(method, path, status, latency)
 }

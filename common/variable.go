@@ -19,8 +19,12 @@ var LogEventPool = bp.NewLogEventPool()
 
 // DefaultConsoleLogger 是默认的控制台日志记录器。
 // DefaultConsoleLogger is the default console logger.
-var DefaultConsoleLogger = log.NewLogger(nil)
+var DefaultConsoleLogger = log.NewZapLogger(nil)
 
 // DefaultSugeredLogger 是默认的带糖的日志记录器。
 // DefaultSugeredLogger is the default sugared logger.
 var DefaultSugeredLogger = DefaultConsoleLogger.GetZapSugaredLogger().Named(log.DefaultLoggerName)
+
+// DefaultLogrLogger 是默认的 klog 日志记录器。
+// DefaultLogrLogger is the default klog logger.
+var DefaultLogrLogger = DefaultConsoleLogger.GetLogrLogger().WithName(log.DefaultLoggerName)

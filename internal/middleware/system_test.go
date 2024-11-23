@@ -1,15 +1,19 @@
 package middleware
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	ilog "github.com/shengyanli1982/orbit/internal/log"
+	"github.com/go-logr/logr"
+	"github.com/go-logr/zapr"
 	"github.com/shengyanli1982/orbit/utils/log"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 func TestCors(t *testing.T) {
@@ -51,7 +55,7 @@ func TestCors(t *testing.T) {
 
 func TestRecovery(t *testing.T) {
 	// Create a test Gin router
-	logger := zap.NewExample().Sugar()
+	logger := zapr.NewLogger(zap.NewExample())
 
 	// Create a new Gin router
 	router := gin.New()
@@ -62,7 +66,7 @@ func TestRecovery(t *testing.T) {
 	}
 
 	// Add the Recovery middleware to the router
-	router.Use(Recovery(logger, ilog.DefaultRecoveryEventFunc))
+	router.Use(Recovery(&logger, log.DefaultRecoveryEventFunc))
 
 	// Add the test handler to the router
 	router.GET("/test", handler)
@@ -91,15 +95,20 @@ func TestAccessLogger(t *testing.T) {
 	}
 
 	// Create a test logger
-	logger := zap.NewExample().Sugar()
+	buff := bytes.NewBuffer(make([]byte, 0, 1024))
+	logger := zapr.NewLogger(zap.New(zapcore.NewCore(zapcore.NewJSONEncoder(
+		zap.NewProductionEncoderConfig()),
+		zapcore.NewMultiWriteSyncer(zapcore.AddSync(buff), zapcore.AddSync(os.Stdout)),
+		zapcore.DebugLevel,
+	)))
 
 	// Create a test log event function
-	logEventFunc := func(logger *zap.SugaredLogger, event *log.LogEvent) {
-		logger.Info(event)
+	logEventFunc := func(logger *logr.Logger, event *log.LogEvent) {
+		logger.Info(event.Message)
 	}
 
 	// Add the AccessLogger middleware to the router
-	router.Use(AccessLogger(logger, logEventFunc, true))
+	router.Use(AccessLogger(&logger, logEventFunc, true))
 
 	// Add the test handler to the router
 	router.GET("/test", handler)
@@ -116,4 +125,7 @@ func TestAccessLogger(t *testing.T) {
 	// Assert that the response status code is 200
 	assert.Equal(t, http.StatusOK, recorder.Code)
 	assert.Equal(t, "{\"message\":\"OK\"}", recorder.Body.String())
+
+	// Assert that the log buffer contains the expected message
+	assert.Contains(t, buff.String(), "http server access log", "buffer should contain the message")
 }

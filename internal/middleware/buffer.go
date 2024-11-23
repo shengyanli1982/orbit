@@ -12,49 +12,41 @@ import (
 // BodyBuffer is a middleware that buffers the request and response bodies.
 func BodyBuffer() gin.HandlerFunc {
 	return func(context *gin.Context) {
-		// 从请求主体缓冲池中获取一个缓冲区，并将其设置到当前上下文中
-		// Get a buffer from the request body buffer pool and set it to the current context
+		// 获取缓冲区
 		reqBodyBuffer := com.RequestBodyBufferPool.Get()
-		context.Set(com.RequestBodyBufferKey, reqBodyBuffer)
-
-		// 从响应主体缓冲池中获取一个缓冲区，并将其设置到当前上下文中
-		// Get a buffer from the response body buffer pool and set it to the current context
 		respBodyBuffer := com.ResponseBodyBufferPool.Get()
+
+		// 设置缓冲区到上下文
+		context.Set(com.RequestBodyBufferKey, reqBodyBuffer)
 		context.Set(com.ResponseBodyBufferKey, respBodyBuffer)
 
-		// 创建一个新的缓冲响应写入器，用于写入响应主体
-		// Create a new buffer response writer for writing the response body
+		// 创建并设置缓冲响应写入器
 		bufferedWriter := ihttptool.NewResponseBodyWriter(context.Writer, respBodyBuffer)
-
-		// 替换原有的响应写入器为新的缓冲响应写入器
-		// Replace the original response writer with the new buffer response writer
+		originalWriter := context.Writer
 		context.Writer = bufferedWriter
 
 		// 执行下一个中间件
-		// Execute the next middleware
 		context.Next()
 
-		// 恢复原有的响应写入器
-		// Restore the original response writer
-		context.Writer = bufferedWriter.GetResponseWriter()
-
-		// 重置缓冲响应写入器
-		// Reset the buffer response writer
+		// 恢复原始写入器并重置缓冲写入器
+		context.Writer = originalWriter
 		bufferedWriter.Reset()
 
-		// 如果在当前上下文中找到请求主体缓冲区，则将其放回到请求主体缓冲池中，并在当前上下文中删除它
-		// If the request body buffer is found in the current context, put it back to the request body buffer pool and delete it from the current context
-		if buffer, ok := context.Get(com.RequestBodyBufferKey); ok {
-			requestBuffer := buffer.(*bytes.Buffer)
-			com.RequestBodyBufferPool.Put(requestBuffer)
+		// 清理并返回请求缓冲区
+		if reqBuffer, ok := context.Get(com.RequestBodyBufferKey); ok {
+			if buf, ok := reqBuffer.(*bytes.Buffer); ok {
+				buf.Reset()
+				com.RequestBodyBufferPool.Put(buf)
+			}
 			context.Set(com.RequestBodyBufferKey, nil)
 		}
 
-		// 如果在当前上下文中找到响应主体缓冲区，则将其放回到响应主体缓冲池中，并在当前上下文中删除它
-		// If the response body buffer is found in the current context, put it back to the response body buffer pool and delete it from the current context
-		if buffer, ok := context.Get(com.ResponseBodyBufferKey); ok {
-			responseBuffer := buffer.(*bytes.Buffer)
-			com.ResponseBodyBufferPool.Put(responseBuffer)
+		// 清理并返回响应缓冲区
+		if respBuffer, ok := context.Get(com.ResponseBodyBufferKey); ok {
+			if buf, ok := respBuffer.(*bytes.Buffer); ok {
+				buf.Reset()
+				com.ResponseBodyBufferPool.Put(buf)
+			}
 			context.Set(com.ResponseBodyBufferKey, nil)
 		}
 	}

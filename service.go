@@ -5,13 +5,14 @@ import (
 	"net/http/pprof"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-logr/logr"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	com "github.com/shengyanli1982/orbit/common"
+	"github.com/shengyanli1982/orbit/internal/metric"
 	wrap "github.com/shengyanli1982/orbit/utils/wrapper"
 	swag "github.com/swaggo/files"
 	gs "github.com/swaggo/gin-swagger"
-	"go.uber.org/zap"
 )
 
 // pprofService 函数将 pprof 处理器注册到给定的路由组。
@@ -68,10 +69,10 @@ func pprofService(group *gin.RouterGroup) {
 
 // metricService 函数将 prometheus 指标处理器注册到给定的路由组。
 // The metricService function registers the prometheus metrics handlers to the given router group.
-func metricService(group *gin.RouterGroup, registry *prometheus.Registry, logger *zap.SugaredLogger) {
+func metricService(group *gin.RouterGroup, registry *prometheus.Registry, logger *logr.Logger) {
 	group.GET(com.EmptyURLPath, wrap.WrapHandlerToGin(promhttp.InstrumentMetricHandler(
 		registry, promhttp.HandlerFor(registry, promhttp.HandlerOpts{
-			ErrorLog: zap.NewStdLog(logger.Desugar()),
+			ErrorLog: metric.NewErrorLog(logger),
 		}),
 	)))
 }

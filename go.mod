@@ -14,6 +14,7 @@ require (
 	github.com/swaggo/gin-swagger v1.6.0
 	go.uber.org/zap v1.27.0
 	google.golang.org/protobuf v1.34.2
+	k8s.io/klog/v2 v2.130.1
 )
 
 require (

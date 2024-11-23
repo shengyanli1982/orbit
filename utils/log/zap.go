@@ -89,17 +89,17 @@ var LogEncodingConfig = zapcore.EncoderConfig{
 	NewReflectedEncoder: UseJSONReflectedEncoder,
 }
 
-// Logger 结构体包装了 zap.Logger
-// The Logger struct wraps zap.Logger
-type Logger struct {
+// ZapLogger 结构体包装了 zap.ZapLogger
+// The ZapLogger struct wraps zap.ZapLogger
+type ZapLogger struct {
 	// l 是内部 zap.Logger 的引用
 	// l is a reference to the internal zap.Logger
 	l *zap.Logger
 }
 
-// NewLogger 创建一个新的 Logger
-// NewLogger creates a new Logger
-func NewLogger(ws zapcore.WriteSyncer, opts ...zap.Option) *Logger {
+// NewZapLogger 创建一个新的 Logger
+// NewZapLogger creates a new Logger
+func NewZapLogger(ws zapcore.WriteSyncer, opts ...zap.Option) *ZapLogger {
 	// 如果 ws 为空，则默认使用 os.Stdout
 	// If ws is nil, use os.Stdout by default
 	if ws == nil {
@@ -122,29 +122,29 @@ func NewLogger(ws zapcore.WriteSyncer, opts ...zap.Option) *Logger {
 
 	// 返回一个新的 Logger，其中包含了一个 zap.Logger
 	// Return a new Logger that contains a zap.Logger
-	return &Logger{l: zap.New(core, zap.AddCaller()).WithOptions(opts...)}
+	return &ZapLogger{l: zap.New(core, zap.AddCaller()).WithOptions(opts...)}
 }
 
 // GetZapLogger 返回 zap.Logger
 // GetZapLogger returns the zap.Logger
-func (l *Logger) GetZapLogger() *zap.Logger {
+func (l *ZapLogger) GetZapLogger() *zap.Logger {
 	return l.l
 }
 
 // GetZapSugaredLogger 返回 zap.SugaredLogger
 // GetZapSugaredLogger returns the zap.SugaredLogger
-func (l *Logger) GetZapSugaredLogger() *zap.SugaredLogger {
+func (l *ZapLogger) GetZapSugaredLogger() *zap.SugaredLogger {
 	return l.l.Sugar()
 }
 
 // GetStdLogger 返回标准库的 logger
 // GetStdLogger returns the standard library logger
-func (l *Logger) GetStdLogger() *log.Logger {
+func (l *ZapLogger) GetStdLogger() *log.Logger {
 	return zap.NewStdLog(l.l)
 }
 
 // GetLogrLogger 返回 logr.Logger
 // GetLogrLogger returns the logr.Logger
-func (l *Logger) GetLogrLogger() logr.Logger {
+func (l *ZapLogger) GetLogrLogger() logr.Logger {
 	return zapr.NewLogger(l.l)
 }
