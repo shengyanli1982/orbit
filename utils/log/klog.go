@@ -4,6 +4,7 @@ import (
 	"flag"
 	"io"
 	"log"
+	"os"
 	"sync"
 
 	"github.com/go-logr/logr"
@@ -22,18 +23,18 @@ func initKlogFlags() {
 		// 创建一个新的标志集，用于 klog 配置
 		// Create a new flag set for klog configuration
 		fs := flag.NewFlagSet("klog", flag.PanicOnError)
-		
+
 		// 初始化 klog 标志
 		// Initialize klog flags
 		klog.InitFlags(fs)
-		
+
 		// 设置 klog 的输出选项
 		// Set klog output options
-		_ = fs.Set("one_output", "true")      // 启用单一输出 (Enable single output)
-		_ = fs.Set("logtostderr", "false")    // 禁用标准错误输出 (Disable logging to stderr)
+		_ = fs.Set("one_output", "true")       // 启用单一输出 (Enable single output)
+		_ = fs.Set("logtostderr", "false")     // 禁用标准错误输出 (Disable logging to stderr)
 		_ = fs.Set("alsologtostderr", "false") // 禁用同时输出到标准错误 (Disable also logging to stderr)
 		_ = fs.Set("stderrthreshold", "FATAL") // 设置标准错误阈值为 FATAL (Set stderr threshold to FATAL)
-		
+
 		// 解析标志，不传入任何参数
 		// Parse flags without any arguments
 		_ = fs.Parse(nil)
@@ -43,8 +44,8 @@ func initKlogFlags() {
 // LogrLogger 结构体包装了 logr.Logger 和标准日志记录器。
 // The LogrLogger struct wraps logr.Logger and standard logger.
 type LogrLogger struct {
-	l  logr.Logger  // logr 日志记录器 (logr logger)
-	sl *log.Logger  // 标准日志记录器 (standard logger)
+	l  logr.Logger // logr 日志记录器 (logr logger)
+	sl *log.Logger // 标准日志记录器 (standard logger)
 }
 
 // NewLogrLogger 函数创建并返回一个新的 LogrLogger 实例。
@@ -54,17 +55,19 @@ func NewLogrLogger(w io.Writer) *LogrLogger {
 	// Initialize klog flags
 	initKlogFlags()
 
-	// 如果提供了写入器，则配置 klog 输出
-	// Configure klog output if writer is provided
-	if w != nil {
-		klog.SetOutput(w)    // 设置输出写入器 (Set output writer)
-		klog.ClearLogger()   // 清除现有的日志记录器 (Clear existing logger)
+	// 如果没有提供写入器，则使用标准输出
+	// If no writer is provided, use standard output
+	if w == nil {
+		w = os.Stdout
 	}
+
+	klog.SetOutput(w)  // 设置输出写入器 (Set output writer)
+	klog.ClearLogger() // 清除现有的日志记录器 (Clear existing logger)
 
 	// 创建新的 klog 记录器
 	// Create new klog logger
 	l := klog.NewKlogr()
-	
+
 	// 返回包装了 logr 和标准日志记录器的实例
 	// Return instance wrapping both logr and standard logger
 	return &LogrLogger{
