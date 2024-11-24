@@ -57,7 +57,7 @@ type LogEvent struct {
 
 	// Error 字段表示请求中的任何错误
 	// The Error field represents any errors in the request
-	Error any `json:"error,omitempty" yaml:"error,omitempty"`
+	Error error `json:"error,omitempty" yaml:"error,omitempty"`
 
 	// ErrorStack 字段表示错误的堆栈跟踪
 	// The ErrorStack field represents the stack trace of the error

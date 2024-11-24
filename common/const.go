@@ -2,8 +2,8 @@ package common
 
 import (
 	"github.com/gin-gonic/gin/binding"
+	"github.com/go-logr/logr"
 	"github.com/shengyanli1982/orbit/utils/log"
-	"go.uber.org/zap"
 )
 
 // OrbitName 是 "orbit" 的常量定义。
@@ -97,4 +97,4 @@ const RequestOK = "success"
 
 // LogEventFunc 表示一个用于记录事件的函数。
 // LogEventFunc represents a function for logging events.
-type LogEventFunc func(logger *zap.SugaredLogger, event *log.LogEvent)
+type LogEventFunc func(logger *logr.Logger, event *log.LogEvent)

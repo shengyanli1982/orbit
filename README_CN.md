@@ -10,27 +10,27 @@
 
 # 简介
 
-`orbit` 是一个轻量级的 HTTP web 服务包装框架，设计上注重简单易用。它提供了一系列便利的功能，帮助您快速构建和维护 web 服务。
+`orbit` 是一个轻量级的 HTTP Web 服务包装框架，以简单易用为设计理念。它提供了一系列便捷的功能，帮助你快速构建和维护 Web 服务。
 
-`orbit` 的名字反映了该框架的目标，即封装构建 web 服务的复杂性，让您能够专注于核心业务逻辑，就像卫星平稳地环绕地球轨道一样。
+名字 `orbit`（轨道）反映了该框架的目标：就像卫星平稳地绕地球运行一样，它封装了构建 Web 服务的复杂性，让你能专注于核心业务逻辑。
 
 ### 为什么不直接使用 `gin`？
 
-虽然 `gin` 是一个优秀的框架，但它需要额外的设置来进行日志记录和监控。`orbit` 基于 `gin` 构建，提供了开箱即用的这些功能，简化了启动 web 服务的过程。
+虽然 `gin` 是一个出色的框架，但它需要额外的日志和监控设置。`orbit` 是基于 `gin` 构建的，并且开箱即用地提供了这些功能，让启动 Web 服务变得更加流畅。
 
-# 优点
+# 优势
 
--   轻量级和用户友好
--   支持 `zap` 日志记录，包括 `async` 和 `sync` 模式
--   集成 `prometheus` 进行监控
+-   轻量级且用户友好（就像你的贴心小助手）
+-   支持 `zap` 和 `klog` 日志，提供异步和同步两种模式
+-   集成 `prometheus` 监控（让你的服务数据一目了然）
 -   包含 `swagger` API 文档支持
--   优雅的服务器关闭
--   `cors` 中间件支持跨源请求
--   自动恢复 panic
--   可定制的中间件
+-   优雅的服务器关闭机制
+-   支持跨域请求的 `cors` 中间件
+-   自动恢复 panic（不用担心程序崩溃啦）
+-   可自定义中间件
 -   灵活的路由组
--   可定制的访问日志格式和字段
--   支持重复读取请求/响应体和缓存
+-   可自定义访问日志格式和字段
+-   支持重复读取请求/响应体并缓存
 
 # 安装
 
@@ -40,17 +40,19 @@ go get github.com/shengyanli1982/orbit
 
 # 快速开始
 
-`orbit` 旨在快速简便地进行 web 服务开发。只需按照以下简单步骤操作：
+`orbit` 旨在实现快速简单的 Web 服务开发。只需以下简单步骤：
 
-1. 创建 `orbit` 配置。
-2. 定义 `orbit` 功能选项。
-3. 创建一个 `orbit` 实例。
+1. 创建 `orbit` 配置
+2. 定义 `orbit` 功能选项
+3. 创建 `orbit` 实例
 
-**默认的 URL 路径**
+搞定！就是这么简单！
+
+**默认 URL 路径**
 
 > [!NOTE]
 >
-> 默认的 URL 路径是系统定义的，无法更改。
+> 以下默认 URL 路径是系统定义的，不能更改（就像你改不了太阳从东边升起一样）。
 
 -   `/metrics` - Prometheus 指标
 -   `/swagger/*any` - Swagger API 文档
@@ -73,42 +75,51 @@ go get github.com/shengyanli1982/orbit
 -   `WithRecoveryLogEventFunc` - HTTP 服务器恢复日志事件函数（默认值：`DefaultRecoveryEventFunc`）。
 -   `WithPrometheusRegistry` - HTTP 服务器 Prometheus 注册器（默认值：`prometheus.DefaultRegister`）。
 
-您可以使用 `NewConfig` 创建默认配置，并使用 `WithXXX` 方法设置配置选项。`DefaultConfig` 是 `NewConfig()` 的别名。
+你可以使用 `NewConfig` 创建默认配置，并使用 `WithXXX` 方法设置配置选项。`DefaultConfig` 是 `NewConfig()` 的别名。
 
-## 2. 功能
+> [!IMPORTANT]
+>
+> 服务器默认关闭超时时间为 10 秒。在关闭过程中，它会：
+>
+> 1. 停止接受新请求（就像餐厅打烊不再接待新客人）
+> 2. 等待正在进行的请求完成（让已经在吃饭的客人吃完）
+> 3. 关闭所有活动连接（收拾餐桌）
+> 4. 注销指标收集器（如果启用）（关灯打烊）
 
-`orbit` 提供了几个功能选项，可以在启动 `orbit` 实例之前进行设置：
+## 2. 功能特性
 
--   `EnablePProf` - 启用 pprof 调试（默认值：`false`）
--   `EnableSwagger` - 启用 Swagger API 文档（默认值：`false`）
--   `EnableMetric` - 启用 Prometheus 指标（默认值：`false`）
--   `EnableRedirectTrailingSlash` - 启用重定向尾部斜杠（默认值：`false`）
--   `EnableRedirectFixedPath` - 启用重定向固定路径（默认值：`false`）
--   `EnableForwardedByClientIp` - 启用通过客户端 IP 转发（默认值：`false`）
--   `EnableRecordRequestBody` - 启用记录请求体（默认值：`false`）
+`orbit` 提供了多个功能选项，可以在启动 `orbit` 实例前设置：
 
-您可以使用 `NewOptions` 创建一个空功能，并使用 `EnableXXX` 方法设置功能选项。
+-   `EnablePProf` - 启用 pprof 调试（默认：`false`）
+-   `EnableSwagger` - 启用 swagger API 文档（默认：`false`）
+-   `EnableMetric` - 启用 Prometheus 指标（默认：`false`）
+-   `EnableRedirectTrailingSlash` - 启用尾部斜杠重定向（默认：`false`）
+-   `EnableRedirectFixedPath` - 启用固定路径重定向（默认：`false`）
+-   `EnableForwardedByClientIp` - 启用客户端 IP 转发（默认：`false`）
+-   `EnableRecordRequestBody` - 启用记录请求体（默认：`false`）
+
+你可以使用 `NewOptions` 创建空功能，并使用 `EnableXXX` 方法设置功能选项。
 
 -   `DebugOptions` 用于调试，是 `NewOptions().EnablePProf().EnableSwagger().EnableMetric().EnableRecordRequestBody()` 的别名。
 -   `ReleaseOptions` 用于发布，是 `NewOptions().EnableMetric()` 的别名。
 
 > [!NOTE]
 >
-> 推荐在调试时使用 `DebugOptions`，在发布时使用 `ReleaseOptions`。
+> 建议调试时使用 `DebugOptions`，发布时使用 `ReleaseOptions`。（就像你不会穿着睡衣去参加正式场合一样！）
 
 ## 3. 创建实例
 
-一旦您创建了 `orbit` 的配置和功能选项，就可以创建一个 `orbit` 实例。
+一旦你创建了 `orbit` 配置和功能选项，就可以创建 `orbit` 实例了。
 
 > [!IMPORTANT]
 >
-> 运行 `orbit` 实例时，它不会阻塞当前的 goroutine。这意味着在运行 `orbit` 实例后，您可以继续做其他事情。
+> 当你运行 `orbit` 实例时，它不会阻塞当前 goroutine。这意味着你可以在运行 `orbit` 实例后继续做其他事情。
 >
-> 如果您想阻塞当前的 goroutine，可以使用项目 [`GS`](https://github.com/shengyanli1982/gs) 提供的 `Waitting` 函数来阻塞当前的 goroutine。
+> 如果你想阻塞当前 goroutine，可以使用 [`GS`](https://github.com/shengyanli1982/gs) 项目提供的 `Waitting` 函数来阻塞当前 goroutine。
 
 > [!TIP]
 >
-> 为了简化流程，您可以使用 `NewHttpService` 将 `func(*gin.RouterGroup)` 包装成 `Service` 接口的实现。
+> 为了简化过程，你可以使用 `NewHttpService` 将 `func(*gin.RouterGroup)` 包装成 `Service` 接口的实现。
 >
 > ```go
 > NewHttpService(func(g *gin.RouterGroup) {
@@ -181,7 +192,7 @@ successs
 
 ## 4. 自定义中间件
 
-`orbit` 基于 `gin`，因此您可以直接使用 `gin` 的中间件。这使您能够为特定任务实现自定义中间件。例如，您可以使用 `demo` 中间件在控制台打印 `>>>>>>!!! demo`。
+`orbit` 基于 `gin`，所以你可以直接使用 `gin` 中间件。这允许你为特定任务实现自定义中间件。例如，你可以使用 `demo` 中间件在控制台打印 `>>>>>>!!! demo`
 
 以下是在 `orbit` 中使用自定义中间件的示例：
 
@@ -279,7 +290,7 @@ $ go run demo.go
 
 ## 5. 自定义路由组
 
-`orbit` 中的自定义路由组功能允许您为 `demo` 服务注册一个自定义的路由组。例如，您可以注册像 `/demo` 和 `/demo/test` 这样的路由。
+`orbit` 的自定义路由组功能允许你为 `demo` 服务注册自定义路由组。例如，你可以注册像 `/demo` 和 `/demo/test` 这样的路由。
 
 **示例**
 
@@ -388,7 +399,7 @@ test
 
 ## 6. 自定义访问日志
 
-要自定义 `orbit` 中的访问日志格式和字段，您可以使用以下示例：
+要在 `orbit` 中自定义访问日志格式和字段，你可以参考以下示例：
 
 **默认的 LogEvent 字段**
 
@@ -457,6 +468,30 @@ type LogEvent struct {
 	ErrorStack string `json:"errorStack,omitempty" yaml:"errorStack,omitempty"`
 }
 ```
+
+### 日志事件结构
+
+每个日志事件包含以下信息：
+
+-   `message` - 日志消息
+-   `id` - 请求 ID
+-   `ip` - 客户端 IP
+-   `endpoint` - 请求端点
+-   `path` - 请求路径
+-   `method` - HTTP 方法
+-   `code` - HTTP 状态码
+-   `status` - HTTP 状态文本
+-   `latency` - 请求延迟
+-   `agent` - 用户代理
+-   `query` - 请求查询参数
+-   `reqContentType` - 请求内容类型
+-   `reqBody` - 请求体（如果启用）
+
+### 日志选项
+
+-   支持 `zap` 和 `klog` 日志的异步和同步模式
+-   兼容标准 Go 日志记录器
+-   通过 `WithAccessLogEventFunc` 支持自定义日志事件处理器
 
 **示例**
 
@@ -536,7 +571,33 @@ func main() {
 
 ## 7. 自定义恢复日志
 
-HTTP 服务器的恢复日志可以帮助您了解当服务遇到 panic 时发生了什么。使用 `orbit`，您可以自定义恢复日志的格式和字段。以下是如何自定义恢复日志格式和字段的示例：
+HTTP 服务器恢复日志让你了解服务遇到 panic 时发生了什么。使用 `orbit`，你可以自定义恢复日志的格式和字段。
+
+### 日志事件结构
+
+每个日志事件包含以下信息：
+
+-   `message` - 日志消息
+-   `id` - 请求 ID
+-   `ip` - 客户端 IP
+-   `endpoint` - 请求端点
+-   `path` - 请求路径
+-   `method` - HTTP 方法
+-   `code` - HTTP 状态码
+-   `status` - HTTP 状态文本
+-   `latency` - 请求延迟
+-   `agent` - 用户代理
+-   `query` - 请求查询参数
+-   `reqContentType` - 请求内容类型
+-   `reqBody` - 请求体（如果启用）
+-   `error` - 错误信息（用于恢复事件）
+-   `errorStack` - 错误堆栈跟踪（用于恢复事件）
+
+### 日志选项
+
+-   支持 `zap` 和 `klog` 日志的异步和同步模式
+-   兼容标准 Go 日志记录器
+-   通过 `WithRecoveryLogEventFunc` 支持自定义日志事件处理器
 
 **示例**
 
@@ -613,7 +674,7 @@ func main() {
 
 ## 8. 异步日志
 
-`orbit` 利用 `law` 项目提供一个 `async` 日志。以下是一个示例，展示如何在 `demo` 服务中启用 `async` 日志。
+`orbit` 利用 `law` 项目提供异步日志功能。以下是如何使用 `demo` 服务启用异步日志的示例。
 
 > [!TIP]
 >
@@ -733,7 +794,7 @@ $ go run demo.go
 
 ## 9. Prometheus 指标
 
-`orbit` 支持 `prometheus` 指标。您可以使用 `EnableMetric` 来启用它。以下是使用 `demo` 服务收集 `demo` 指标的示例。
+`orbit` 支持 `prometheus` 指标。你可以使用 `EnableMetric` 启用它。以下是如何使用 `demo` 服务收集 `demo` 指标的示例。
 
 > [!TIP]
 >
@@ -820,7 +881,7 @@ orbit_http_request_latency_seconds_histogram_count{method="GET",path="/demo",sta
 
 ## 10. 重复读取请求/响应体
 
-`orbit` 支持重复读取请求/响应体。默认情况下，此行为已启用，无需额外配置。以下是如何使用 `demo` 服务来重复读取请求/响应体的示例。
+`orbit` 支持重复读取请求/响应体。默认情况下启用此行为，无需额外配置。
 
 ### 10.1 重复读取请求体
 
@@ -1098,7 +1159,7 @@ $ go run demo.go
 
 ## 11. 优雅关闭
 
-`orbit` 引擎具备优雅关闭的功能。虽然可以使用 `engine.Stop` 方法来停止引擎，但它并不会立即停止。为了更优雅的关闭，你可以使用 [`GS`](https://github.com/shengyanli1982/gs) 项目。
+`orbit` 引擎配备了优雅关闭功能。可以使用 `engine.Stop` 方法停止引擎，但它不会立即停止。为了更优雅地关闭，你可以使用 [`GS`](https://github.com/shengyanli1982/gs) 项目。
 
 > [!TIP]
 >
@@ -1179,4 +1240,175 @@ $ go run demo.go
 {"level":"INFO","time":"2024-06-24T17:27:04.646+0800","logger":"default","caller":"orbit/gin.go:334","message":"http server is ready","address":"127.0.0.1:8080"}
 {"level":"INFO","time":"2024-06-24T17:27:06.068+0800","logger":"default","caller":"log/default.go:11","message":"http server access log","id":"","ip":"127.0.0.1","endpoint":"127.0.0.1:51540","path":"/demo","method":"GET","code":200,"status":"OK","latency":"25.344µs","agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36","query":"","reqContentType":"","reqBody":""}
 {"level":"INFO","time":"2024-06-24T17:27:12.196+0800","logger":"default","caller":"orbit/gin.go:373","message":"http server is shutdown","address":"127.0.0.1:8080"}
+```
+
+## 12. `Zap` 和 `Klog` 日志记录器
+
+`orbit` 同时支持 `zap` 和 `klog` 日志记录器。你可以使用默认的 `zap` 日志记录器，或者通过在 `Config` 结构中设置 `Klog` 字段来切换到 `klog` 日志记录器。
+
+### 12.1 使用 `Zap` 日志记录器
+
+`orbit` 默认使用 `zap` 日志记录器。你可以通过创建一个新的 `zap` 日志记录器并将其设置到配置中来自定义日志行为。
+
+**示例**
+
+```go
+package main
+
+import (
+    "net/http"
+    "time"
+
+    "github.com/gin-gonic/gin"
+    "github.com/shengyanli1982/orbit"
+    "github.com/shengyanli1982/orbit/utils/log"
+    "go.uber.org/zap"
+)
+
+// 定义 service 结构体
+// Define the service struct
+type service struct{}
+
+// RegisterGroup 方法将路由组注册到 service
+// The RegisterGroup method registers a router group to the service
+func (s *service) RegisterGroup(g *gin.RouterGroup) {
+    // 在 "/demo" 路径上注册一个 GET 方法的处理函数
+    // Register a GET method handler function on the "/demo" path
+    g.GET("/demo", func(c *gin.Context) {
+        // 返回 HTTP 状态码 200 和 "demo" 字符串
+        // Return HTTP status code 200 and the string "demo"
+        c.String(http.StatusOK, "demo")
+    })
+}
+
+func main() {
+    // 创建一个新的 Zap 日志记录器
+    // Create a new Zap logger
+    zapLogger := log.NewZapLogger(nil)
+
+    // 创建一个新的 Orbit 配置，并设置 Zap 日志记录器
+    // Create a new Orbit configuration and set the Zap logger
+    config := orbit.NewConfig().WithLogger(zapLogger.GetLogrLogger())
+
+    // 创建一个新的 Orbit 功能选项
+    // Create a new Orbit feature options
+    opts := orbit.NewOptions()
+
+    // 创建一个新的 Orbit 引擎
+    // Create a new Orbit engine
+    engine := orbit.NewEngine(config, opts)
+
+    // 注册一个自定义的路由组
+    // Register a custom router group
+    engine.RegisterService(&service{})
+
+    // 启动引擎
+    // Start the engine
+    engine.Run()
+
+    // 等待 30 秒
+    // Wait for 30 seconds
+    time.Sleep(30 * time.Second)
+
+    // 停止引擎
+    // Stop the engine
+    engine.Stop()
+}
+```
+
+**执行结果**
+
+```bash
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:   export GIN_MODE=release
+ - using code:  gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] GET    /ping                     --> github.com/shengyanli1982/orbit.healthcheckService.func1 (1 handlers)
+[GIN-debug] GET    /demo                     --> main.(*service).RegisterGroup.func1 (5 handlers)
+{"level":"INFO","time":"2024-01-13T11:15:23.191+0800","logger":"default","caller":"orbit/gin.go:165","message":"http server is ready","address":"127.0.0.1:8080"}
+{"level":"INFO","time":"2024-01-13T11:15:25.194+0800","logger":"default","caller":"log/default.go:10","message":"http server access log","id":"","ip":"127.0.0.1","endpoint":"127.0.0.1:59139","path":"/demo","method":"GET","code":200,"status":"OK","latency":"20.326µs","agent":"Go-http-client/1.1","query":"","reqContentType":"","reqBody":""}
+{"level":"INFO","time":"2024-01-13T11:15:53.195+0800","logger":"default","caller":"orbit/gin.go:190","message":"http server is shutdown","address":"127.0.0.1:8080"}
+```
+
+### 12.2 使用 `Klog` 日志记录器
+
+如果你想使用 `klog` 日志记录器，你可以创建一个新的 `klog` 日志记录器并将其设置到配置中。
+
+**示例**
+
+```go
+package main
+
+import (
+    "net/http"
+    "time"
+
+    "github.com/gin-gonic/gin"
+    "github.com/shengyanli1982/orbit"
+    "github.com/shengyanli1982/orbit/utils/log"
+)
+
+// 定义 service 结构体
+// Define the service struct
+type service struct{}
+
+// RegisterGroup 方法将路由组注册到 service
+// The RegisterGroup method registers a router group to the service
+func (s *service) RegisterGroup(g *gin.RouterGroup) {
+    // 在 "/demo" 路径上注册一个 GET 方法的处理函数
+    // Register a GET method handler function on the "/demo" path
+    g.GET("/demo", func(c *gin.Context) {
+        // 返回 HTTP 状态码 200 和 "demo" 字符串
+        // Return HTTP status code 200 and the string "demo"
+        c.String(http.StatusOK, "demo")
+    })
+}
+
+func main() {
+    // 创建一个新的 Klog 日志记录器
+    // Create a new Klog logger
+    klogLogger := log.NewLogrLogger(nil)
+
+    // 创建一个新的 Orbit 配置，并设置 Klog 日志记录器
+    // Create a new Orbit configuration and set the Klog logger
+    config := orbit.NewConfig().WithLogger(klogLogger.GetLogrLogger())
+
+    // 创建一个新的 Orbit 功能选项
+    // Create a new Orbit feature options
+    opts := orbit.NewOptions()
+
+    // 创建一个新的 Orbit 引擎
+    // Create a new Orbit engine
+    engine := orbit.NewEngine(config, opts)
+
+    // 注册一个自定义的路由组
+    // Register a custom router group
+    engine.RegisterService(&service{})
+
+    // 启动引擎
+    // Start the engine
+    engine.Run()
+
+    // 等待 30 秒
+    // Wait for 30 seconds
+    time.Sleep(30 * time.Second)
+
+    // 停止引擎
+    // Stop the engine
+    engine.Stop()
+}
+```
+
+**执行结果**
+
+```bash
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:   export GIN_MODE=release
+ - using code:  gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] GET    /ping                     --> github.com/shengyanli1982/orbit.healthcheckService.func1 (1 handlers)
+[GIN-debug] GET    /demo                     --> main.(*service).RegisterGroup.func1 (5 handlers)
+I0113 11:20:23.191458   12345 gin.go:165] http server is ready {"address": "127.0.0.1:8080"}
+I0113 11:20:25.194523   12345 default.go:10] http server access log {"id": "", "ip": "127.0.0.1", "endpoint": "127.0.0.1:59139", "path": "/demo", "method": "GET", "code": 200, "status": "OK", "latency": "20.326µs", "agent": "Go-http-client/1.1", "query": "", "reqContentType": "", "reqBody": ""}
+I0113 11:20:53.195721   12345 gin.go:190] http server is shutdown {"address": "127.0.0.1:8080"}
 ```

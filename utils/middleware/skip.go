@@ -7,40 +7,31 @@ import (
 	com "github.com/shengyanli1982/orbit/common"
 )
 
-// skipPaths 包含了中间件应该跳过的路径
-// skipPaths contains the paths that should be skipped by the middleware
+// skipPaths 包含了需要跳过中间件处理的 URL 路径。
+// skipPaths contains URL paths that should bypass middleware processing.
 var skipPaths = []string{
-	// Prometheus 指标 URL 路径
-	// Prometheus metric URL path
-	com.PromMetricURLPath,
-
-	// 健康检查 URL 路径
-	// Health check URL path
-	com.HealthCheckURLPath,
-
-	// Swagger UI URL 路径
-	// Swagger UI URL path
-	com.SwaggerURLPath,
-
-	// 性能分析 URL 路径
-	// Profiling URL path
-	com.PprofURLPath,
+	com.PromMetricURLPath,  // Prometheus 指标路径 (Prometheus metrics path)
+	com.HealthCheckURLPath, // 健康检查路径 (Health check path)
+	com.SwaggerURLPath,     // Swagger API 文档路径 (Swagger API documentation path)
+	com.PprofURLPath,       // pprof 性能分析路径 (pprof profiling path)
 }
 
-// SkipResources 检查请求路径是否应该被中间件跳过
-// SkipResources checks if the request path should be skipped by the middleware
+// SkipResources 函数检查当前请求是否应该跳过中间件处理。
+// 如果请求路径以 skipPaths 中的任何路径为前缀，则返回 true。
+// The SkipResources function checks if the current request should bypass middleware processing.
+// Returns true if the request path starts with any path in skipPaths.
 func SkipResources(c *gin.Context) bool {
-	// 遍历 skipPaths
-	// Iterate over skipPaths
+	// 遍历所有需要跳过的路径
+	// Iterate through all paths that should be skipped
 	for i := 0; i < len(skipPaths); i++ {
-		// 如果请求路径以 skipPaths[i] 为前缀，则返回 true
-		// If the request path starts with skipPaths[i], return true
+		// 检查当前请求路径是否以跳过路径为前缀
+		// Check if the current request path starts with the skip path
 		if strings.HasPrefix(c.Request.URL.Path, skipPaths[i]) {
 			return true
 		}
 	}
 
-	// 如果没有匹配的路径，返回 false
-	// If no matching path is found, return false
+	// 返回 false 表示不需要跳过
+	// Return false to indicate that the path should not be skipped
 	return false
 }

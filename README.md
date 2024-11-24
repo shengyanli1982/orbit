@@ -21,7 +21,7 @@ While `gin` is an excellent framework, it requires additional setup for logging 
 # Advantages
 
 -   Lightweight and user-friendly
--   Supports `zap` logging with both `async` and `sync` modes
+-   Supports `zap` and `klog` logging with both `async` and `sync` modes
 -   Integrates `prometheus` for monitoring
 -   Includes `swagger` API documentation support
 -   Graceful server shutdown
@@ -61,8 +61,7 @@ go get github.com/shengyanli1982/orbit
 
 `orbit` provides several configuration options that can be set before starting the `orbit` instance.
 
--   `WithSugaredLogger` - Use `zap` sugared logger (default: `DefaultSugaredLogger`).
--   `WithLogger` - Use `zap` logger (default: `DefaultConsoleLogger`).
+-   `WithLogger` - Use `logr` logger (default: `DefaultConsoleLogger`).
 -   `WithAddress` - HTTP server listen address (default: `127.0.0.1`).
 -   `WithPort` - HTTP server listen port (default: `8080`).
 -   `WithRelease` - HTTP server release mode (default: `false`).
@@ -74,6 +73,15 @@ go get github.com/shengyanli1982/orbit
 -   `WithPrometheusRegistry` - HTTP server Prometheus registry (default: `prometheus.DefaultRegister`).
 
 You can use `NewConfig` to create a default configuration and `WithXXX` methods to set the configuration options. `DefaultConfig` is an alias for `NewConfig()`.
+
+> [!IMPORTANT]
+>
+> The server has a default shutdown timeout of 10 seconds. During shutdown, it will:
+>
+> 1. Stop accepting new requests
+> 2. Wait for ongoing requests to complete
+> 3. Close all active connections
+> 4. Unregister metrics collectors (if enabled)
 
 ## 2. Features
 
@@ -93,7 +101,7 @@ You can use `NewOptions` to create a null feature, and use `EnableXXX` methods t
 -   `ReleaseOptions` is used for release and is an alias of `NewOptions().EnableMetric()`.
 
 > [!NOTE]
-> 
+>
 > It is recommended to use `DebugOptions` for debugging and `ReleaseOptions` for release.
 
 ## 3. Creating an Instance
@@ -458,6 +466,30 @@ type LogEvent struct {
 }
 ```
 
+### Log Event Structure
+
+Each log event contains the following information:
+
+-   `message` - Log message
+-   `id` - Request ID
+-   `ip` - Client IP
+-   `endpoint` - Request endpoint
+-   `path` - Request path
+-   `method` - HTTP method
+-   `code` - HTTP status code
+-   `status` - HTTP status text
+-   `latency` - Request latency
+-   `agent` - User agent
+-   `query` - Request query parameters
+-   `reqContentType` - Request content type
+-   `reqBody` - Request body (if enabled)
+
+### Logging Options
+
+-   `zap` and `klog` logger with both async and sync modes
+-   Standard Go logger compatibility
+-   Custom log event handlers via `WithAccessLogEventFunc`
+
 **Example**
 
 ```go
@@ -536,7 +568,33 @@ func main() {
 
 ## 7. Custom Recovery Log
 
-Http server recovery log allows you to understand what happened when your service encounters a panic. With `orbit`, you can customize the recovery log format and fields. Here is an example of how to customize the recovery log format and fields:
+Http server recovery log allows you to understand what happened when your service encounters a panic. With `orbit`, you can customize the recovery log format and fields. Here is an example of how to customize the recovery log format and fields.
+
+### Log Event Structure
+
+Each log event contains the following information:
+
+-   `message` - Log message
+-   `id` - Request ID
+-   `ip` - Client IP
+-   `endpoint` - Request endpoint
+-   `path` - Request path
+-   `method` - HTTP method
+-   `code` - HTTP status code
+-   `status` - HTTP status text
+-   `latency` - Request latency
+-   `agent` - User agent
+-   `query` - Request query parameters
+-   `reqContentType` - Request content type
+-   `reqBody` - Request body (if enabled)
+-   `error` - Error message (for recovery events)
+-   `errorStack` - Error stack trace (for recovery events)
+
+### Logging Options
+
+-   `zap` and `klog` logger with both async and sync modes
+-   Standard Go logger compatibility
+-   Custom log event handlers via `WithRecoveryLogEventFunc`
 
 **Example**
 
@@ -734,6 +792,18 @@ $ go run demo.go
 ## 9. Prometheus Metrics
 
 `orbit` supports `prometheus` metrics. You can enable it using `EnableMetric`. Here is an example of how to collect `demo` metrics using the `demo` service.
+
+When metrics are enabled (`EnableMetric`), `orbit` automatically collects the following HTTP metrics:
+
+-   `orbit_http_request_count` - Total number of HTTP requests made
+-   `orbit_http_request_latency_seconds_histogram` - HTTP request latencies in seconds (Histogram)
+-   `orbit_http_request_latency_seconds` - HTTP request latencies in seconds (Gauge)
+
+All metrics include the following labels:
+
+-   `method` - HTTP method
+-   `path` - Request path
+-   `status` - HTTP status code
 
 > [!TIP]
 >
@@ -959,7 +1029,7 @@ $ go run demo.go
 The `httptool.GenerateResponseBody` method can be used to retrieve the response body bytes from the cache. It is important to note that you should call `httptool.GenerateResponseBody` after writing the actual response body, such as using `c.String(http.StatusOK, "demo")`.
 
 > [!NOTE]
-> 
+>
 > The response body is always written to an `io.Writer`, so direct reading is not possible. If you need to read it, you can use `orbit` to cache it.
 >
 > `httptool.GenerateResponseBody` is often used in custom middleware to retrieve the response body bytes and perform additional actions.
@@ -989,7 +1059,7 @@ func customMiddleware() gin.HandlerFunc {
 		// Call the next middleware or handler function
 		c.Next()
 
-		// 从上下文中获取响应体缓冲区
+		// 从上下文中获取响应体缓��区
 		// Get the response body buffer from the context
 		for i := 0; i < 20; i++ {
 			// 生成响应体
@@ -1179,4 +1249,175 @@ $ go run demo.go
 {"level":"INFO","time":"2024-06-24T17:27:04.646+0800","logger":"default","caller":"orbit/gin.go:334","message":"http server is ready","address":"127.0.0.1:8080"}
 {"level":"INFO","time":"2024-06-24T17:27:06.068+0800","logger":"default","caller":"log/default.go:11","message":"http server access log","id":"","ip":"127.0.0.1","endpoint":"127.0.0.1:51540","path":"/demo","method":"GET","code":200,"status":"OK","latency":"25.344µs","agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36","query":"","reqContentType":"","reqBody":""}
 {"level":"INFO","time":"2024-06-24T17:27:12.196+0800","logger":"default","caller":"orbit/gin.go:373","message":"http server is shutdown","address":"127.0.0.1:8080"}
+```
+
+## 12. `Zap` and `Klog` Logger
+
+`orbit` supports both `zap` and `klog` loggers. You can use the `zap` logger by default, or switch to the `klog` logger by setting the `Klog` field in the `Config` structure.
+
+### 12.1 Use `Zap` Logger
+
+`orbir` uses the `zap` logger by default. You can customize the logging behavior by creating a new `zap` logger and setting it in the configuration.
+
+**Example**
+
+```go
+package main
+
+import (
+    "net/http"
+    "time"
+
+    "github.com/gin-gonic/gin"
+    "github.com/shengyanli1982/orbit"
+    "github.com/shengyanli1982/orbit/utils/log"
+    "go.uber.org/zap"
+)
+
+// 定义 service 结构体
+// Define the service struct
+type service struct{}
+
+// RegisterGroup 方法将路由组注册到 service
+// The RegisterGroup method registers a router group to the service
+func (s *service) RegisterGroup(g *gin.RouterGroup) {
+    // 在 "/demo" 路径上注册一个 GET 方法的处理函数
+    // Register a GET method handler function on the "/demo" path
+    g.GET("/demo", func(c *gin.Context) {
+        // 返回 HTTP 状态码 200 和 "demo" 字符串
+        // Return HTTP status code 200 and the string "demo"
+        c.String(http.StatusOK, "demo")
+    })
+}
+
+func main() {
+    // 创建一个新的 Zap 日志记录器
+    // Create a new Zap logger
+    zapLogger := log.NewZapLogger(nil)
+
+    // 创建一个新的 Orbit 配置，并设置 Zap 日志记录器
+    // Create a new Orbit configuration and set the Zap logger
+    config := orbit.NewConfig().WithLogger(zapLogger.GetLogrLogger())
+
+    // 创建一个新的 Orbit 功能选项
+    // Create a new Orbit feature options
+    opts := orbit.NewOptions()
+
+    // 创建一个新的 Orbit 引擎
+    // Create a new Orbit engine
+    engine := orbit.NewEngine(config, opts)
+
+    // 注册一个自定义的路由组
+    // Register a custom router group
+    engine.RegisterService(&service{})
+
+    // 启动引擎
+    // Start the engine
+    engine.Run()
+
+    // 等待 30 秒
+    // Wait for 30 seconds
+    time.Sleep(30 * time.Second)
+
+    // 停止引擎
+    // Stop the engine
+    engine.Stop()
+}
+```
+
+**Result**
+
+```bash
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:   export GIN_MODE=release
+ - using code:  gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] GET    /ping                     --> github.com/shengyanli1982/orbit.healthcheckService.func1 (1 handlers)
+[GIN-debug] GET    /demo                     --> main.(*service).RegisterGroup.func1 (5 handlers)
+{"level":"INFO","time":"2024-01-13T11:15:23.191+0800","logger":"default","caller":"orbit/gin.go:165","message":"http server is ready","address":"127.0.0.1:8080"}
+{"level":"INFO","time":"2024-01-13T11:15:25.194+0800","logger":"default","caller":"log/default.go:10","message":"http server access log","id":"","ip":"127.0.0.1","endpoint":"127.0.0.1:59139","path":"/demo","method":"GET","code":200,"status":"OK","latency":"20.326µs","agent":"Go-http-client/1.1","query":"","reqContentType":"","reqBody":""}
+{"level":"INFO","time":"2024-01-13T11:15:53.195+0800","logger":"default","caller":"orbit/gin.go:190","message":"http server is shutdown","address":"127.0.0.1:8080"}
+```
+
+### 12.2 Use `Klog` Logger
+
+If you want to use the `klog` logger, you can create a new `klog` logger and set it to the configuration.
+
+**Example**
+
+```go
+package main
+
+import (
+    "net/http"
+    "time"
+
+    "github.com/gin-gonic/gin"
+    "github.com/shengyanli1982/orbit"
+    "github.com/shengyanli1982/orbit/utils/log"
+)
+
+// 定义 service 结构体
+// Define the service struct
+type service struct{}
+
+// RegisterGroup 方法将路由组注册到 service
+// The RegisterGroup method registers a router group to the service
+func (s *service) RegisterGroup(g *gin.RouterGroup) {
+    // 在 "/demo" 路径上注册一个 GET 方法的处理函数
+    // Register a GET method handler function on the "/demo" path
+    g.GET("/demo", func(c *gin.Context) {
+        // 返回 HTTP 状态码 200 和 "demo" 字符串
+        // Return HTTP status code 200 and the string "demo"
+        c.String(http.StatusOK, "demo")
+    })
+}
+
+func main() {
+    // 创建一个新的 Klog 日志记录器
+    // Create a new Klog logger
+    klogLogger := log.NewLogrLogger(nil)
+
+    // 创建一个新的 Orbit 配置，并设置 Klog 日志记录器
+    // Create a new Orbit configuration and set the Klog logger
+    config := orbit.NewConfig().WithLogger(klogLogger.GetLogrLogger())
+
+    // 创建一个新的 Orbit 功能选项
+    // Create a new Orbit feature options
+    opts := orbit.NewOptions()
+
+    // 创建一个新的 Orbit 引擎
+    // Create a new Orbit engine
+    engine := orbit.NewEngine(config, opts)
+
+    // 注册一个自定义的路由组
+    // Register a custom router group
+    engine.RegisterService(&service{})
+
+    // 启动引擎
+    // Start the engine
+    engine.Run()
+
+    // 等待 30 秒
+    // Wait for 30 seconds
+    time.Sleep(30 * time.Second)
+
+    // 停止引擎
+    // Stop the engine
+    engine.Stop()
+}
+```
+
+**Result**
+
+```bash
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:   export GIN_MODE=release
+ - using code:  gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] GET    /ping                     --> github.com/shengyanli1982/orbit.healthcheckService.func1 (1 handlers)
+[GIN-debug] GET    /demo                     --> main.(*service).RegisterGroup.func1 (5 handlers)
+I0113 11:20:23.191458   12345 gin.go:165] http server is ready {"address": "127.0.0.1:8080"}
+I0113 11:20:25.194523   12345 default.go:10] http server access log {"id": "", "ip": "127.0.0.1", "endpoint": "127.0.0.1:59139", "path": "/demo", "method": "GET", "code": 200, "status": "OK", "latency": "20.326µs", "agent": "Go-http-client/1.1", "query": "", "reqContentType": "", "reqBody": ""}
+I0113 11:20:53.195721   12345 gin.go:190] http server is shutdown {"address": "127.0.0.1:8080"}
 ```

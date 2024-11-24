@@ -5,9 +5,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-logr/logr"
 	"github.com/shengyanli1982/orbit"
 	"github.com/shengyanli1982/orbit/utils/log"
-	"go.uber.org/zap"
 )
 
 // 定义 service 结构体
@@ -28,10 +28,10 @@ func (s *service) RegisterGroup(g *gin.RouterGroup) {
 
 // customAccessLogger 函数定义了一个自定义的访问日志记录器
 // The customAccessLogger function defines a custom access logger
-func customAccessLogger(logger *zap.SugaredLogger, event *log.LogEvent) {
+func customAccessLogger(logger *logr.Logger, event *log.LogEvent) {
 	// 记录访问日志，包括路径和方法
 	// Log the access, including the path and method
-	logger.Infow("access log", "path", event.Path, "method", event.Method)
+	logger.Info("access log", "path", event.Path, "method", event.Method)
 }
 
 func main() {

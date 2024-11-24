@@ -13,138 +13,91 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-// DefaultLoggerName 是默认的日志记录器名称
-// DefaultLoggerName is the default logger name
+// DefaultLoggerName 是默认日志记录器的名称。
+// DefaultLoggerName is the name of the default logger.
 const DefaultLoggerName = "default"
 
-// UseJSONReflectedEncoder 返回一个使用 json 解析器的 zapcore.ReflectedEncoder
-// UseJSONReflectedEncoder returns a zapcore.ReflectedEncoder using json parser
+// UseJSONReflectedEncoder 函数返回一个自定义的 JSON 编码器。
+// The UseJSONReflectedEncoder function returns a custom JSON encoder.
 func UseJSONReflectedEncoder(w io.Writer) zapcore.ReflectedEncoder {
-	// 创建一个新的 json 编码器
-	// Create a new json encoder
 	enc := json.NewEncoder(w)
-
-	// 设置编码器不转义 HTML 字符
-	// Set the encoder not to escape HTML characters
+	// 禁用 HTML 转义，以提高日志可读性
+	// Disable HTML escaping to improve log readability
 	enc.SetEscapeHTML(false)
-
-	// 返回编码器
-	// Return the encoder
 	return enc
 }
 
-// LogEncodingConfig 表示日志编码配置
-// LogEncodingConfig represents the log encoding configuration
+// LogEncodingConfig 定义了日志编码的配置。
+// LogEncodingConfig defines the configuration for log encoding.
 var LogEncodingConfig = zapcore.EncoderConfig{
-	// TimeKey 是时间字段的键名
-	// TimeKey is the key name of the time field
-	TimeKey: "time",
-
-	// LevelKey 是级别字段的键名
-	// LevelKey is the key name of the level field
-	LevelKey: "level",
-
-	// NameKey 是记录器名称字段的键名
-	// NameKey is the key name of the logger name field
-	NameKey: "logger",
-
-	// CallerKey 是调用者信息字段的键名
-	// CallerKey is the key name of the caller information field
-	CallerKey: "caller",
-
-	// FunctionKey 是函数信息字段的键名，这里设置为 OmitKey，表示忽略该字段
-	// FunctionKey is the key name of the function information field, here set to OmitKey, which means to ignore this field
-	FunctionKey: zapcore.OmitKey,
-
-	// MessageKey 是消息字段的键名
-	// MessageKey is the key name of the message field
-	MessageKey: "message",
-
-	// StacktraceKey 是堆栈跟踪字段的键名
-	// StacktraceKey is the key name of the stacktrace field
-	StacktraceKey: "stacktrace",
-
-	// LineEnding 是行结束符，这里使用默认的行结束符
-	// LineEnding is the line ending character, here using the default line ending character
-	LineEnding: zapcore.DefaultLineEnding,
-
-	// EncodeLevel 是级别字段的编码器，这里使用 CapitalLevelEncoder，表示级别字段的值将被转换为大写
-	// EncodeLevel is the encoder for the level field, here using CapitalLevelEncoder, which means the value of the level field will be converted to uppercase
-	EncodeLevel: zapcore.CapitalLevelEncoder,
-
-	// EncodeTime 是时间字段的编码器，这里使用 ISO8601TimeEncoder，表示时间字段的值将被转换为 ISO 8601 格式
-	// EncodeTime is the encoder for the time field, here using ISO8601TimeEncoder, which means the value of the time field will be converted to ISO 8601 format
-	EncodeTime: zapcore.ISO8601TimeEncoder,
-
-	// EncodeDuration 是持续时间字段的编码器，这里使用 StringDurationEncoder，表示持续时间字段的值将被转换为字符串格式
-	// EncodeDuration is the encoder for the duration field, here using StringDurationEncoder, which means the value of the duration field will be converted to string format
-	EncodeDuration: zapcore.StringDurationEncoder,
-
-	// EncodeCaller 是调用者信息字段的编码器，这里使用 ShortCallerEncoder，表示调用者信息字段的值将被转换为短格式
-	// EncodeCaller is the encoder for the caller information field, here using ShortCallerEncoder, which means the value of the caller information field will be converted to short format
-	EncodeCaller: zapcore.ShortCallerEncoder,
-
-	// NewReflectedEncoder 是反射编码器的创建函数，这里使用 UseJSONReflectedEncoder，表示创建一个使用 json 解析器的反射编码器
-	// NewReflectedEncoder is the creation function for the reflected encoder, here using UseJSONReflectedEncoder, which means to create a reflected encoder using a json parser
-	NewReflectedEncoder: UseJSONReflectedEncoder,
+	TimeKey:             "time",                        // 时间字段的键名 (Key name for the time field)
+	LevelKey:            "level",                       // 日志级别的键名 (Key name for the level field)
+	NameKey:             "logger",                      // 日志记录器名称的键名 (Key name for the logger name)
+	CallerKey:           "caller",                      // 调用者信息的键名 (Key name for the caller information)
+	FunctionKey:         zapcore.OmitKey,               // 忽略函数名称 (Omit function name)
+	MessageKey:          "message",                     // 消息内容的键名 (Key name for the message content)
+	StacktraceKey:       "stacktrace",                  // 堆栈跟踪的键名 (Key name for the stack trace)
+	LineEnding:          zapcore.DefaultLineEnding,     // 使用默认的行结束符 (Use default line ending)
+	EncodeLevel:         zapcore.CapitalLevelEncoder,   // 使用大写字母编码日志级别 (Encode log level in capital letters)
+	EncodeTime:          zapcore.ISO8601TimeEncoder,    // 使用 ISO8601 格式编码时间 (Encode time in ISO8601 format)
+	EncodeDuration:      zapcore.StringDurationEncoder, // 将持续时间编码为字符串 (Encode duration as string)
+	EncodeCaller:        zapcore.ShortCallerEncoder,    // 使用短格式编码调用者信息 (Encode caller information in short format)
+	NewReflectedEncoder: UseJSONReflectedEncoder,       // 使用自定义的 JSON 编码器 (Use custom JSON encoder)
 }
 
-// Logger 结构体包装了 zap.Logger
-// The Logger struct wraps zap.Logger
-type Logger struct {
-	// l 是内部 zap.Logger 的引用
-	// l is a reference to the internal zap.Logger
-	l *zap.Logger
+// ZapLogger 结构体封装了多种类型的日志记录器。
+// The ZapLogger struct encapsulates multiple types of loggers.
+type ZapLogger struct {
+	l   *zap.Logger        // Zap 日志记录器 (Zap logger)
+	rl  *logr.Logger       // Logr 接口日志记录器 (Logr interface logger)
+	sl  *log.Logger        // 标准库日志记录器 (Standard library logger)
+	sul *zap.SugaredLogger // Zap 语法糖日志记录器 (Zap sugared logger)
 }
 
-// NewLogger 创建一个新的 Logger
-// NewLogger creates a new Logger
-func NewLogger(ws zapcore.WriteSyncer, opts ...zap.Option) *Logger {
-	// 如果 ws 为空，则默认使用 os.Stdout
-	// If ws is nil, use os.Stdout by default
+// NewZapLogger 函数创建并返回一个新的 ZapLogger 实例。
+// The NewZapLogger function creates and returns a new ZapLogger instance.
+func NewZapLogger(ws zapcore.WriteSyncer, opts ...zap.Option) *ZapLogger {
+	// 如果没有提供 WriteSyncer，则使用标准输出
+	// If no WriteSyncer is provided, use standard output
 	if ws == nil {
 		ws = zapcore.AddSync(os.Stdout)
 	}
 
-	// 创建一个新的 zapcore.Core
-	// Create a new zapcore.Core
+	// 创建核心日志组件
+	// Create core logging component
 	core := zapcore.NewCore(
-		// 使用 LogEncodingConfig 创建一个新的 JSON 编码器
-		// Create a new JSON encoder using LogEncodingConfig
 		zapcore.NewJSONEncoder(LogEncodingConfig),
-		// 使用 ws 作为输出
-		// Use ws as the output
 		ws,
-		// 设置日志级别为 Debug
-		// Set the log level to Debug
 		zap.NewAtomicLevelAt(zap.DebugLevel),
 	)
 
-	// 返回一个新的 Logger，其中包含了一个 zap.Logger
-	// Return a new Logger that contains a zap.Logger
-	return &Logger{l: zap.New(core, zap.AddCaller()).WithOptions(opts...)}
+	// 初始化各种日志记录器
+	// Initialize various loggers
+	l := zap.New(core, zap.AddCaller()).WithOptions(opts...)
+	rl := zapr.NewLogger(l)
+	return &ZapLogger{l: l, rl: &rl, sul: l.Sugar(), sl: zap.NewStdLog(l)}
 }
 
-// GetZapLogger 返回 zap.Logger
-// GetZapLogger returns the zap.Logger
-func (l *Logger) GetZapLogger() *zap.Logger {
+// GetZapLogger 方法返回原始的 Zap 日志记录器。
+// The GetZapLogger method returns the original Zap logger.
+func (l *ZapLogger) GetZapLogger() *zap.Logger {
 	return l.l
 }
 
-// GetZapSugaredLogger 返回 zap.SugaredLogger
-// GetZapSugaredLogger returns the zap.SugaredLogger
-func (l *Logger) GetZapSugaredLogger() *zap.SugaredLogger {
-	return l.l.Sugar()
+// GetZapSugaredLogger 方法返回 Zap 语法糖日志记录器。
+// The GetZapSugaredLogger method returns the Zap sugared logger.
+func (l *ZapLogger) GetZapSugaredLogger() *zap.SugaredLogger {
+	return l.sul
 }
 
-// GetStdLogger 返回标准库的 logger
-// GetStdLogger returns the standard library logger
-func (l *Logger) GetStdLogger() *log.Logger {
-	return zap.NewStdLog(l.l)
+// GetStandardLogger 方法返回标准库日志记录器。
+// The GetStandardLogger method returns the standard library logger.
+func (l *ZapLogger) GetStandardLogger() *log.Logger {
+	return l.sl
 }
 
-// GetLogrLogger 返回 logr.Logger
-// GetLogrLogger returns the logr.Logger
-func (l *Logger) GetLogrLogger() logr.Logger {
-	return zapr.NewLogger(l.l)
+// GetLogrLogger 方法返回 Logr 接口日志记录器。
+// The GetLogrLogger method returns the Logr interface logger.
+func (l *ZapLogger) GetLogrLogger() *logr.Logger {
+	return l.rl
 }

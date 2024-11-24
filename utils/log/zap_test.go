@@ -14,7 +14,7 @@ func TestGetZapLogger(t *testing.T) {
 	buff := bytes.NewBuffer(make([]byte, 0, 1024))
 
 	// Create a new logger
-	logger := NewLogger(zapcore.AddSync(buff))
+	logger := NewZapLogger(zapcore.AddSync(buff))
 	zapLogger := logger.GetZapLogger()
 
 	// Assert that the logger is not nil
@@ -31,7 +31,7 @@ func TestGetZapSugaredLogger(t *testing.T) {
 	buff := bytes.NewBuffer(make([]byte, 0, 1024))
 
 	// Create a new logger
-	logger := NewLogger(zapcore.AddSync(buff))
+	logger := NewZapLogger(zapcore.AddSync(buff))
 	sugaredLogger := logger.GetZapSugaredLogger()
 
 	// Assert that the logger is not nil
@@ -42,13 +42,13 @@ func TestGetZapSugaredLogger(t *testing.T) {
 	assert.Contains(t, buff.String(), "test message", "buffer should contain the message")
 }
 
-func TestGetStdLogger(t *testing.T) {
+func TestGetZapStdLogger(t *testing.T) {
 	// Create a new buffer
 	buff := bytes.NewBuffer(make([]byte, 0, 1024))
 
 	// Create a new logger
-	logger := NewLogger(zapcore.AddSync(buff))
-	stdLogger := logger.GetStdLogger()
+	logger := NewZapLogger(zapcore.AddSync(buff))
+	stdLogger := logger.GetStandardLogger()
 
 	// Assert that the logger is not nil
 	assert.NotNil(t, stdLogger, "stdLogger should not be nil")

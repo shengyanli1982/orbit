@@ -12,8 +12,6 @@ import (
 // It converts the input http.HandlerFunc to a gin.HandlerFunc by serving the HTTP request using the provided handler.
 func WrapHandlerFuncToGin(handler http.HandlerFunc) gin.HandlerFunc {
 	return func(context *gin.Context) {
-		// 使用提供的处理器服务 HTTP 请求
-		// Serve the HTTP request using the provided handler
 		handler.ServeHTTP(context.Writer, context.Request)
 	}
 }
@@ -24,8 +22,6 @@ func WrapHandlerFuncToGin(handler http.HandlerFunc) gin.HandlerFunc {
 // It converts the input http.Handler to a gin.HandlerFunc by serving the HTTP request using the provided handler.
 func WrapHandlerToGin(handler http.Handler) gin.HandlerFunc {
 	return func(context *gin.Context) {
-		// 使用提供的处理器服务 HTTP 请求
-		// Serve the HTTP request using the provided handler
 		handler.ServeHTTP(context.Writer, context.Request)
 	}
 }

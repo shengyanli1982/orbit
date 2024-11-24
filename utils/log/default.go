@@ -1,14 +1,13 @@
 package log
 
 import (
-	"github.com/shengyanli1982/orbit/utils/log"
-	"go.uber.org/zap"
+	"github.com/go-logr/logr"
 )
 
 // DefaultAccessEventFunc 是默认的访问日志事件函数。
 // DefaultAccessEventFunc is the default access log event function.
-func DefaultAccessEventFunc(logger *zap.SugaredLogger, event *log.LogEvent) {
-	logger.Infow(
+func DefaultAccessEventFunc(logger *logr.Logger, event *LogEvent) {
+	logger.Info(
 		event.Message,
 		"id", event.ID,
 		"ip", event.IP,
@@ -27,8 +26,9 @@ func DefaultAccessEventFunc(logger *zap.SugaredLogger, event *log.LogEvent) {
 
 // DefaultRecoveryEventFunc 是默认的恢复日志事件函数。
 // DefaultRecoveryEventFunc is the default recovery log event function.
-func DefaultRecoveryEventFunc(logger *zap.SugaredLogger, event *log.LogEvent) {
-	logger.Errorw(
+func DefaultRecoveryEventFunc(logger *logr.Logger, event *LogEvent) {
+	logger.Error(
+		event.Error,
 		event.Message,
 		"id", event.ID,
 		"ip", event.IP,
@@ -42,7 +42,6 @@ func DefaultRecoveryEventFunc(logger *zap.SugaredLogger, event *log.LogEvent) {
 		"query", event.ReqQuery,
 		"reqContentType", event.ReqContentType,
 		"reqBody", event.ReqBody,
-		"error", event.Error,
 		"errorStack", event.ErrorStack,
 	)
 }

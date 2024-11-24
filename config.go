@@ -3,263 +3,178 @@ package orbit
 import (
 	"strings"
 
+	"github.com/go-logr/logr"
 	"github.com/prometheus/client_golang/prometheus"
 	com "github.com/shengyanli1982/orbit/common"
-	ilog "github.com/shengyanli1982/orbit/internal/log"
-	"go.uber.org/zap"
+	"github.com/shengyanli1982/orbit/utils/log"
 )
 
+// 默认配置值
+// Default configuration values
 var (
-	// defaultHttpListenAddress 是默认的 HTTP 监听地址，设置为 "127.0.0.1"。
-	// defaultHttpListenAddress is the default HTTP listen address, set to "127.0.0.1".
-	defaultHttpListenAddress = "127.0.0.1"
-
-	// defaultHttpListenPort 是默认的 HTTP 监听端口，设置为 8080。
-	// defaultHttpListenPort is the default HTTP listen port, set to 8080.
-	defaultHttpListenPort = uint16(8080)
-
-	// defaultIdleTimeout 是 HTTP 空闲超时时间，设置为 15000 毫秒。
-	// defaultIdleTimeout is the HTTP idle timeout, set to 15000 milliseconds.
-	defaultIdleTimeout = uint32(15000)
+	defaultHttpListenAddress = "127.0.0.1"   // 默认HTTP监听地址 (Default HTTP listen address)
+	defaultHttpListenPort    = uint16(8080)  // 默认HTTP监听端口 (Default HTTP listen port)
+	defaultIdleTimeout       = uint32(15000) // 默认空闲超时时间（毫秒） (Default idle timeout in milliseconds)
 )
 
-// Config 结构体表示 Orbit 框架的配置。
-// The Config struct represents the configuration for the Orbit framework.
+// Config 结构体定义了服务器的配置选项
+// The Config struct defines the server configuration options
 type Config struct {
-	// Address 是监听的地址。
-	// Address is the address to listen on.
-	Address string `json:"address,omitempty" yaml:"address,omitempty"`
-
-	// Port 是监听的端口。
-	// Port is the port to listen on.
-	Port uint16 `json:"port,omitempty" yaml:"port,omitempty"`
-
-	// ReleaseMode 是发布模式标志。
-	// ReleaseMode is the release mode flag.
-	ReleaseMode bool `json:"releaseMode,omitempty" yaml:"releaseMode,omitempty"`
-
-	// HttpReadTimeout 是 HTTP 读取超时时间。
-	// HttpReadTimeout is the HTTP read timeout.
-	HttpReadTimeout uint32 `json:"httpReadTimeout,omitempty" yaml:"httpReadTimeout,omitempty"`
-
-	// HttpWriteTimeout 是 HTTP 写入超时时间。
-	// HttpWriteTimeout is the HTTP write timeout.
-	HttpWriteTimeout uint32 `json:"httpWriteTimeout,omitempty" yaml:"httpWriteTimeout,omitempty"`
-
-	// HttpReadHeaderTimeout 是 HTTP 读取头部超时时间。
-	// HttpReadHeaderTimeout is the HTTP read header timeout.
-	HttpReadHeaderTimeout uint32 `json:"httpReadHeaderTimeout,omitempty" yaml:"httpReadHeaderTimeout,omitempty"`
-
-	// logger 是日志实例。
-	// logger is the logger instance.
-	logger *zap.SugaredLogger `json:"-" yaml:"-"`
-
-	// accessLogEventFunc 是访问日志事件函数。
-	// accessLogEventFunc is the access log event function.
-	accessLogEventFunc com.LogEventFunc `json:"-" yaml:"-"`
-
-	// recoveryLogEventFunc 是恢复日志事件函数。
-	// recoveryLogEventFunc is the recovery log event function.
-	recoveryLogEventFunc com.LogEventFunc `json:"-" yaml:"-"`
-
-	// prometheusRegistry 是 Prometheus 注册表。
-	// prometheusRegistry is the Prometheus registry.
-	prometheusRegistry *prometheus.Registry `json:"-" yaml:"-"`
+	Address               string               `json:"address,omitempty" yaml:"address,omitempty"`                             // HTTP服务器监听地址 (HTTP server listen address)
+	Port                  uint16               `json:"port,omitempty" yaml:"port,omitempty"`                                   // HTTP服务器监听端口 (HTTP server listen port)
+	ReleaseMode           bool                 `json:"releaseMode,omitempty" yaml:"releaseMode,omitempty"`                     // 是否为发布模式 (Whether in release mode)
+	HttpReadTimeout       uint32               `json:"httpReadTimeout,omitempty" yaml:"httpReadTimeout,omitempty"`             // HTTP读取超时时间 (HTTP read timeout)
+	HttpWriteTimeout      uint32               `json:"httpWriteTimeout,omitempty" yaml:"httpWriteTimeout,omitempty"`           // HTTP写入超时时间 (HTTP write timeout)
+	HttpReadHeaderTimeout uint32               `json:"httpReadHeaderTimeout,omitempty" yaml:"httpReadHeaderTimeout,omitempty"` // HTTP读取头部超时时间 (HTTP read header timeout)
+	logger                *logr.Logger         `json:"-" yaml:"-"`                                                             // 日志记录器 (Logger instance)
+	accessLogEventFunc    com.LogEventFunc     `json:"-" yaml:"-"`                                                             // 访问日志事件处理函数 (Access log event handler function)
+	recoveryLogEventFunc  com.LogEventFunc     `json:"-" yaml:"-"`                                                             // 恢复日志事件处理函数 (Recovery log event handler function)
+	prometheusRegistry    *prometheus.Registry `json:"-" yaml:"-"`                                                             // Prometheus注册表 (Prometheus registry)
 }
 
-// NewConfig 创建一个新的 Config 实例，并使用默认值。
-// NewConfig creates a new Config instance with default values.
+// NewConfig 函数创建并返回一个新的默认配置实例
+// The NewConfig function creates and returns a new default configuration instance
 func NewConfig() *Config {
 	return &Config{
-		// Address 是默认的监听地址。
-		// Address is the default address to listen on.
-		Address: defaultHttpListenAddress,
-
-		// Port 是默认的监听端口。
-		// Port is the default port to listen on.
-		Port: defaultHttpListenPort,
-
-		// ReleaseMode 是默认的发布模式标志，设置为 false。
-		// ReleaseMode is the default release mode flag, set to false.
-		ReleaseMode: false,
-
-		// HttpReadTimeout 是默认的 HTTP 读取超时时间。
-		// HttpReadTimeout is the default HTTP read timeout.
-		HttpReadTimeout: defaultIdleTimeout,
-
-		// HttpWriteTimeout 是默认的 HTTP 写入超时时间。
-		// HttpWriteTimeout is the default HTTP write timeout.
-		HttpWriteTimeout: defaultIdleTimeout,
-
-		// HttpReadHeaderTimeout 是默认的 HTTP 读取头部超时时间。
-		// HttpReadHeaderTimeout is the default HTTP read header timeout.
+		Address:               defaultHttpListenAddress,
+		Port:                  defaultHttpListenPort,
+		ReleaseMode:           false,
+		HttpReadTimeout:       defaultIdleTimeout,
+		HttpWriteTimeout:      defaultIdleTimeout,
 		HttpReadHeaderTimeout: defaultIdleTimeout,
-
-		// logger 是默认的日志实例。
-		// logger is the default logger instance.
-		logger: com.DefaultSugeredLogger,
-
-		// accessLogEventFunc 是默认的访问日志事件函数。
-		// accessLogEventFunc is the default access log event function.
-		accessLogEventFunc: ilog.DefaultAccessEventFunc,
-
-		// recoveryLogEventFunc 是默认的恢复日志事件函数。
-		// recoveryLogEventFunc is the default recovery log event function.
-		recoveryLogEventFunc: ilog.DefaultRecoveryEventFunc,
-
-		// prometheusRegistry 是默认的 Prometheus 注册表。
-		// prometheusRegistry is the default Prometheus registry.
-		prometheusRegistry: prometheus.DefaultRegisterer.(*prometheus.Registry),
+		logger:                &com.DefaultLogrLogger,
+		accessLogEventFunc:    log.DefaultAccessEventFunc,
+		recoveryLogEventFunc:  log.DefaultRecoveryEventFunc,
+		prometheusRegistry:    prometheus.DefaultRegisterer.(*prometheus.Registry),
 	}
 }
 
-// WithSugaredLogger 为 Config 实例设置一个新的 sugared logger。
-// WithSugaredLogger sets a new sugared logger for the Config instance.
-func (c *Config) WithSugaredLogger(logger *zap.SugaredLogger) *Config {
+// WithLogger 方法设置日志记录器
+// The WithLogger method sets the logger
+func (c *Config) WithLogger(logger *logr.Logger) *Config {
 	c.logger = logger
 	return c
 }
 
-// WithLogger 为 Config 实例设置一个新的 logger。
-// WithLogger sets a new logger for the Config instance.
-func (c *Config) WithLogger(logger *zap.Logger) *Config {
-	c.logger = logger.Sugar()
-	return c
-}
-
-// WithAddress 为 Config 实例设置一个新的监听地址。
-// WithAddress sets a new address for the Config instance.
+// WithAddress 方法设置HTTP监听地址
+// The WithAddress method sets the HTTP listen address
 func (c *Config) WithAddress(address string) *Config {
 	c.Address = address
 	return c
 }
 
-// WithPort 为 Config 实例设置一个新的监听端口。
-// WithPort sets a new port for the Config instance.
+// WithPort 方法设置HTTP监听端口
+// The WithPort method sets the HTTP listen port
 func (c *Config) WithPort(port uint16) *Config {
 	c.Port = port
 	return c
 }
 
-// WithRelease 将 Config 实例设置为发布模式。
-// WithRelease sets the Config instance to release mode.
+// WithRelease 方法启用发布模式
+// The WithRelease method enables release mode
 func (c *Config) WithRelease() *Config {
 	c.ReleaseMode = true
 	return c
 }
 
-// WithHttpReadTimeout 为 Config 实例设置一个新的 HTTP 读取超时时间。
-// WithHttpReadTimeout sets a new HTTP read timeout for the Config instance.
+// WithHttpReadTimeout 方法设置HTTP读取超时时间
+// The WithHttpReadTimeout method sets the HTTP read timeout
 func (c *Config) WithHttpReadTimeout(timeout uint32) *Config {
 	c.HttpReadTimeout = timeout
 	return c
 }
 
-// WithHttpWriteTimeout 为 Config 实例设置一个新的 HTTP 写入超时时间。
-// WithHttpWriteTimeout sets a new HTTP write timeout for the Config instance.
+// WithHttpWriteTimeout 方法设置HTTP写入超时时间
+// The WithHttpWriteTimeout method sets the HTTP write timeout
 func (c *Config) WithHttpWriteTimeout(timeout uint32) *Config {
 	c.HttpWriteTimeout = timeout
 	return c
 }
 
-// WithHttpReadHeaderTimeout 为 Config 实例设置一个新的 HTTP 读取头部超时时间。
-// WithHttpReadHeaderTimeout sets a new HTTP read header timeout for the Config instance.
+// WithHttpReadHeaderTimeout 方法设置HTTP读取头部超时时间
+// The WithHttpReadHeaderTimeout method sets the HTTP read header timeout
 func (c *Config) WithHttpReadHeaderTimeout(timeout uint32) *Config {
 	c.HttpReadHeaderTimeout = timeout
 	return c
 }
 
-// WithAccessLogEventFunc 为 Config 实例设置一个新的访问日志事件函数。
-// WithAccessLogEventFunc sets a new access log event function for the Config instance.
+// WithAccessLogEventFunc 方法设置访问日志事件处理函数
+// The WithAccessLogEventFunc method sets the access log event handler function
 func (c *Config) WithAccessLogEventFunc(fn com.LogEventFunc) *Config {
 	c.accessLogEventFunc = fn
 	return c
 }
 
-// WithRecoveryLogEventFunc 为 Config 实例设置一个新的恢复日志事件函数。
-// WithRecoveryLogEventFunc sets a new recovery log event function for the Config instance.
+// WithRecoveryLogEventFunc 方法设置恢复日志事件处理函数
+// The WithRecoveryLogEventFunc method sets the recovery log event handler function
 func (c *Config) WithRecoveryLogEventFunc(fn com.LogEventFunc) *Config {
 	c.recoveryLogEventFunc = fn
 	return c
 }
 
-// WithPrometheusRegistry 为 Config 实例设置一个新的 Prometheus 注册表。
-// WithPrometheusRegistry sets a new Prometheus registry for the Config instance.
+// WithPrometheusRegistry 方法设置Prometheus注册表
+// The WithPrometheusRegistry method sets the Prometheus registry
 func (c *Config) WithPrometheusRegistry(registry *prometheus.Registry) *Config {
 	c.prometheusRegistry = registry
 	return c
 }
 
-// DefaultConfig 返回一个带有默认值的新 Config 实例。
-// DefaultConfig returns a new Config instance with default values.
+// DefaultConfig 函数返回默认配置实例
+// The DefaultConfig function returns a default configuration instance
 func DefaultConfig() *Config {
 	return NewConfig()
 }
 
-// isConfigValid 检查配置是否有效，如果需要，应用默认值。
-// isConfigValid checks if the configuration is valid and applies default values if necessary.
+// isConfigValid 函数验证配置的有效性，并设置默认值
+// The isConfigValid function validates the configuration and sets default values
 func isConfigValid(conf *Config) *Config {
 	if conf != nil {
-		// 如果 Address 为空或者只包含空格，设置为默认的 HTTP 监听地址。
-		// If Address is empty or only contains spaces, set it to the default HTTP listen address.
+		// 检查并设置默认地址
+		// Check and set default address
 		if len(strings.TrimSpace(conf.Address)) == 0 {
 			conf.Address = defaultHttpListenAddress
 		}
 
-		// 如果 Port 小于或等于 0，设置为默认的 HTTP 监听端口。
-		// If Port is less than or equal to 0, set it to the default HTTP listen port.
+		// 检查并设置默认端口
+		// Check and set default port
 		if conf.Port <= 0 {
 			conf.Port = defaultHttpListenPort
 		}
 
-		// 如果 HttpReadTimeout 小于或等于 0，设置为默认的空闲超时时间。
-		// If HttpReadTimeout is less than or equal to 0, set it to the default idle timeout.
+		// 检查并设置默认超时时间
+		// Check and set default timeout values
 		if conf.HttpReadTimeout <= 0 {
 			conf.HttpReadTimeout = defaultIdleTimeout
 		}
-
-		// 如果 HttpWriteTimeout 小于或等于 0，设置为默认的空闲超时时间。
-		// If HttpWriteTimeout is less than or equal to 0, set it to the default idle timeout.
 		if conf.HttpWriteTimeout <= 0 {
 			conf.HttpWriteTimeout = defaultIdleTimeout
 		}
-
-		// 如果 HttpReadHeaderTimeout 小于或等于 0，设置为默认的空闲超时时间。
-		// If HttpReadHeaderTimeout is less than or equal to 0, set it to the default idle timeout.
 		if conf.HttpReadHeaderTimeout <= 0 {
 			conf.HttpReadHeaderTimeout = defaultIdleTimeout
 		}
 
-		// 如果 logger 为 nil，设置为默认的 SugaredLogger。
-		// If logger is nil, set it to the default SugaredLogger.
+		// 检查并设置默认日志记录器和事件处理函数
+		// Check and set default logger and event handlers
 		if conf.logger == nil {
-			conf.logger = com.DefaultSugeredLogger
+			conf.logger = &com.DefaultLogrLogger
 		}
-
-		// 如果 accessLogEventFunc 为 nil，设置为默认的访问日志事件函数。
-		// If accessLogEventFunc is nil, set it to the default access log event function.
 		if conf.accessLogEventFunc == nil {
-			conf.accessLogEventFunc = ilog.DefaultAccessEventFunc
+			conf.accessLogEventFunc = log.DefaultAccessEventFunc
 		}
-
-		// 如果 recoveryLogEventFunc 为 nil，设置为默认的恢复日志事件函数。
-		// If recoveryLogEventFunc is nil, set it to the default recovery log event function.
 		if conf.recoveryLogEventFunc == nil {
-			conf.recoveryLogEventFunc = ilog.DefaultRecoveryEventFunc
+			conf.recoveryLogEventFunc = log.DefaultRecoveryEventFunc
 		}
 
-		// 如果 prometheusRegistry 为 nil，设置为默认的 Prometheus 注册表。
-		// If prometheusRegistry is nil, set it to the default Prometheus registry.
+		// 检查并设置默认Prometheus注册表
+		// Check and set default Prometheus registry
 		if conf.prometheusRegistry == nil {
 			conf.prometheusRegistry = prometheus.DefaultRegisterer.(*prometheus.Registry)
 		}
 	} else {
-		// 如果 conf 为 nil，创建一个新的 Config 实例。
-		// If conf is nil, create a new Config instance.
+		// 如果配置为空，则创建默认配置
+		// If configuration is nil, create default configuration
 		conf = DefaultConfig()
 	}
 
-	// 返回验证和可能修改过的配置。
-	// Return the validated and possibly modified configuration.
 	return conf
 }
