@@ -16,79 +16,64 @@ import (
 	"github.com/shengyanli1982/orbit/utils/httptool"
 )
 
-// Cors 是一个中间件，用于向响应中添加 CORS 头。
-// Cors is a middleware that adds CORS headers to the response.
+// Cors 函数返回一个处理跨域请求的 Gin 中间件。
+// The Cors function returns a Gin middleware that handles CORS requests.
 func Cors() gin.HandlerFunc {
 	return func(context *gin.Context) {
-		// 设置响应头 "Access-Control-Allow-Origin" 的值为 "*"，允许所有来源的跨域请求
-		// Set the value of the response header "Access-Control-Allow-Origin" to "*", allowing cross-origin requests from all sources
+		// 设置允许跨域的各种 Header
+		// Set various CORS headers
 		context.Header("Access-Control-Allow-Origin", "*")
-
-		// 设置响应头 "Access-Control-Allow-Methods" 的值为 "POST, GET, OPTIONS, PUT, DELETE, UPDATE"，允许这些 HTTP 方法的跨域请求
-		// Set the value of the response header "Access-Control-Allow-Methods" to "POST, GET, OPTIONS, PUT, DELETE, UPDATE", allowing cross-origin requests with these HTTP methods
 		context.Header("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE, UPDATE")
-
-		// 设置响应头 "Access-Control-Allow-Headers" 的值为 "*"，允许所有 HTTP 请求头的跨域请求
-		// Set the value of the response header "Access-Control-Allow-Headers" to "*", allowing cross-origin requests with any HTTP request headers
 		context.Header("Access-Control-Allow-Headers", "*")
-
-		// 设置响应头 "Access-Control-Expose-Headers" 的值，指定哪些响应头可以在响应中暴露给客户端
-		// Set the value of the response header "Access-Control-Expose-Headers", specifying which response headers can be exposed to the client in the response
 		context.Header("Access-Control-Expose-Headers", "Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Cache-Control, Content-Language, Content-Type")
-
-		// 设置响应头 "Access-Control-Allow-Credentials" 的值为 "true"，允许跨域请求携带凭证信息（如 cookies）
-		// Set the value of the response header "Access-Control-Allow-Credentials" to "true", allowing cross-origin requests to carry credential information (such as cookies)
 		context.Header("Access-Control-Allow-Credentials", "true")
-
-		// 设置响应头 "Access-Control-Max-Age" 的值为 "172800"，指定预检请求的结果可以被缓存多久（单位：秒）
-		// Set the value of the response header "Access-Control-Max-Age" to "172800", specifying how long the result of the preflight request can be cached (in seconds)
 		context.Header("Access-Control-Max-Age", "172800")
 
-		// 检查请求方法是否为 "OPTIONS"
-		// Check if the request method is "OPTIONS"
+		// 处理 OPTIONS 预检请求
+		// Handle OPTIONS preflight requests
 		if context.Request.Method == "OPTIONS" {
-			// 如果请求方法是 "OPTIONS"，则终止请求并返回无内容状态码（204）
-			// If the request method is "OPTIONS", abort the request and return a no content status code (204)
 			context.AbortWithStatus(http.StatusNoContent)
 			return
 		}
 
-		// 调用 context.Next() 转到下一个中间件或路由处理器
-		// Call context.Next() to go to the next middleware or route handler
 		context.Next()
 	}
 }
 
-// AccessLogger 是一个中间件，用于记录 HTTP 访问日志。
-// AccessLogger is a middleware for recording HTTP access logs.
+// AccessLogger 函数返回一个用于记录访问日志的 Gin 中间件。
+// The AccessLogger function returns a Gin middleware that logs access information.
 func AccessLogger(logger *logr.Logger, logEventFunc com.LogEventFunc, record bool) gin.HandlerFunc {
 	return func(context *gin.Context) {
-		// 提前声明变量
 		var (
 			requestBody []byte
-			req        = context.Request
-			header     = req.Header
+			req         = context.Request
+			header      = req.Header
 		)
 
-		// 使用 defer 确保 logger 被清理
+		// 确保请求结束时清理 logger
+		// Ensure logger is cleaned up when request ends
 		defer context.Set(com.RequestLoggerKey, nil)
-		
-		// 设置 logger 到上下文
+
+		// 设置请求上下文中的 logger
+		// Set logger in request context
 		context.Set(com.RequestLoggerKey, logger)
 		start := time.Now()
 
-		// 生成请求信息
+		// 获取请求信息
+		// Get request information
 		path := httptool.GenerateRequestPath(context)
 		requestContentType := httptool.StringFilterFlags(header.Get(com.HttpHeaderContentType))
 
-		// 条件判断合并，减少嵌套
+		// 如果需要记录请求体且内容类型允许
+		// Record request body if needed and content type allows
 		if record && httptool.CanRecordContextBody(header) {
 			requestBody, _ = httptool.GenerateRequestBody(context)
 		}
 
 		context.Next()
 
-		// 错误处理
+		// 处理错误情况
+		// Handle errors if any
 		if errors := context.Errors; len(errors) > 0 {
 			for _, err := range errors {
 				logger.Error(err, "Error occurred")
@@ -96,14 +81,15 @@ func AccessLogger(logger *logr.Logger, logEventFunc com.LogEventFunc, record boo
 			return
 		}
 
-		// 获取事件对象并使用 defer 确保返回池
+		// 从对象池获取日志事件对象
+		// Get log event object from pool
 		event := com.LogEventPool.Get()
 		defer com.LogEventPool.Put(event)
 
-		// 计算延迟
 		latency := time.Since(start)
 
-		// 设置事件属性
+		// 填充日志事件信息
+		// Fill log event information
 		event.Message = "http server access log"
 		event.ID = header.Get(com.HttpHeaderRequestID)
 		event.IP = context.ClientIP()
@@ -118,18 +104,16 @@ func AccessLogger(logger *logr.Logger, logEventFunc com.LogEventFunc, record boo
 		event.ReqQuery = req.URL.RawQuery
 		event.ReqBody = conver.BytesToString(requestBody)
 
-		// 记录日志
 		logEventFunc(logger, event)
 	}
 }
 
-// Recovery 是一个中间件，用于捕获和处理 panic。
-// Recovery is a middleware for capturing and handling panic.
+// Recovery 函数返回一个用于处理 panic 恢复的 Gin 中间件。
+// The Recovery function returns a Gin middleware that recovers from panics.
 func Recovery(logger *logr.Logger, logEventFunc com.LogEventFunc) gin.HandlerFunc {
 	return func(context *gin.Context) {
 		defer func() {
 			if err := recover(); err != nil {
-				// 提前声明变量
 				var (
 					brokenPipe bool
 					errObj     error
@@ -137,7 +121,8 @@ func Recovery(logger *logr.Logger, logEventFunc com.LogEventFunc) gin.HandlerFun
 					path       = context.Request.URL.Path
 				)
 
-				// 优化错误类型断言
+				// 检查是否为断开连接错误
+				// Check if it's a broken pipe error
 				if ne, ok := err.(*net.OpError); ok {
 					if se, ok := ne.Err.(*os.SyscallError); ok {
 						errMsg := strings.ToLower(se.Error())
@@ -146,7 +131,8 @@ func Recovery(logger *logr.Logger, logEventFunc com.LogEventFunc) gin.HandlerFun
 					}
 				}
 
-				// 统一错误处理
+				// 转换错误类型
+				// Convert error type
 				switch e := err.(type) {
 				case error:
 					errObj = e
@@ -154,6 +140,8 @@ func Recovery(logger *logr.Logger, logEventFunc com.LogEventFunc) gin.HandlerFun
 					errObj = fmt.Errorf("%v", e)
 				}
 
+				// 处理断开连接的情况
+				// Handle broken pipe case
 				if brokenPipe {
 					logger.Error(errObj, "broken connection")
 					_ = context.Error(errObj)
@@ -161,11 +149,13 @@ func Recovery(logger *logr.Logger, logEventFunc com.LogEventFunc) gin.HandlerFun
 					return
 				}
 
-				// 生成请求相关信息
+				// 收集请求信息
+				// Collect request information
 				reqPath := httptool.GenerateRequestPath(context)
 				body, _ := httptool.GenerateRequestBody(context)
 
-				// 获取并设置事件信息
+				// 记录错误日志
+				// Log error information
 				event := com.LogEventPool.Get()
 				event.Message = "http server recovery from panic"
 				event.ID = context.GetHeader(com.HttpHeaderRequestID)
@@ -184,14 +174,15 @@ func Recovery(logger *logr.Logger, logEventFunc com.LogEventFunc) gin.HandlerFun
 				event.Error = errObj
 				event.ErrorStack = conver.BytesToString(debug.Stack())
 
-				// 记录日志
 				logEventFunc(logger, event)
 				com.LogEventPool.Put(event)
 
 				// 返回 500 错误
+				// Return 500 error
 				context.AbortWithStatus(http.StatusInternalServerError)
 
-				// 使用 strings.Builder 优化错误消息拼接
+				// 构建错误响应
+				// Build error response
 				var b strings.Builder
 				b.WriteString("[500] http server internal error, method: ")
 				b.WriteString(method)

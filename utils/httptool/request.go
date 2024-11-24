@@ -12,39 +12,40 @@ import (
 	"github.com/shengyanli1982/orbit/internal/conver"
 )
 
+// 定义错误变量。
+// Define error variables.
 var (
-	ErrorContextIsNil       = errors.New("context is nil")
-	ErrorValueIsNil         = errors.New("value is nil")
-	ErrorContentTypeIsEmpty = errors.New("content type is empty")
-	ErrorBindRequestBody    = errors.New("failed to bind request body")
-	ErrorGenerateBody       = errors.New("failed to generate request body")
+	ErrorContextIsNil       = errors.New("context is nil")                  // 上下文为空错误 (Context is nil error)
+	ErrorValueIsNil         = errors.New("value is nil")                    // 值为空错误 (Value is nil error)
+	ErrorContentTypeIsEmpty = errors.New("content type is empty")           // 内容类型为空错误 (Content type is empty error)
+	ErrorBindRequestBody    = errors.New("failed to bind request body")     // 绑定请求体失败错误 (Failed to bind request body error)
+	ErrorGenerateBody       = errors.New("failed to generate request body") // 生成请求体失败错误 (Failed to generate request body error)
 )
 
-// contentTypes 是一个字符串切片，表示 HTTP 请求支持的内容类型。
-// contentTypes is a slice of strings that represents the supported content types for HTTP requests.
+// contentTypes 包含支持的内容类型列表。
+// contentTypes contains a list of supported content types.
 var contentTypes = []string{
-	com.HttpHeaderJSONContentTypeValue,       // JSON 内容类型
-	com.HttpHeaderJavascriptContentTypeValue, // JavaScript 内容类型
-	com.HttpHeaderTextContentTypeValue,       // 文本内容类型
-	com.HttpHeaderXMLContentTypeValue,        // XML 内容类型
-	com.HttpHeaderPXMLContentTypeValue,       // 测试 XML 内容类型
-	com.HttpHeaderYAMLContentTypeValue,       // YAML 内容类型
-	com.HttpHeaderTOMLContentTypeValue,       // TOML 内容类型
+	com.HttpHeaderJSONContentTypeValue,       // JSON内容类型 (JSON content type)
+	com.HttpHeaderJavascriptContentTypeValue, // JavaScript内容类型 (JavaScript content type)
+	com.HttpHeaderTextContentTypeValue,       // 文本内容类型 (Text content type)
+	com.HttpHeaderXMLContentTypeValue,        // XML内容类型 (XML content type)
+	com.HttpHeaderPXMLContentTypeValue,       // PXML内容类型 (PXML content type)
+	com.HttpHeaderYAMLContentTypeValue,       // YAML内容类型 (YAML content type)
+	com.HttpHeaderTOMLContentTypeValue,       // TOML内容类型 (TOML content type)
 }
 
-// CalcRequestSize 函数返回请求对象的大小
-// The CalcRequestSize function returns the size of the request object
+// CalcRequestSize 计算HTTP请求的总大小（以字节为单位）。
+// CalcRequestSize calculates the total size of an HTTP request in bytes.
 func CalcRequestSize(request *http.Request) int64 {
 	if request == nil {
 		return 0
 	}
 
-	// 使用 int64 避免大请求时的整数溢出
 	var size int64
 
-	// URL 大小计算
+	// 计算URL各部分的大小
+	// Calculate the size of URL components
 	if url := request.URL; url != nil {
-		// 预计算 URL 各部分
 		size += int64(len(url.Scheme) +
 			len(url.Host) +
 			len(url.Path) +
@@ -52,41 +53,45 @@ func CalcRequestSize(request *http.Request) int64 {
 			len(url.Fragment))
 	}
 
-	// 基本请求信息
+	// 计算请求基本信息的大小
+	// Calculate the size of basic request information
 	size += int64(len(request.Method) +
 		len(request.Proto) +
 		len(request.Host))
 
-	// 优化 Header 大小计算
+	// 计算请求头的大小
+	// Calculate the size of request headers
 	if headers := request.Header; len(headers) > 0 {
 		for name, values := range headers {
 			headerSize := len(name)
-			// 预估每个值的大小并包含分隔符的长度
 			for _, value := range values {
-				headerSize += len(value) + 2 // 2 for ": " or ", "
+				headerSize += len(value) + 2 // 加2是为了包含": "分隔符 (Add 2 for ": " separator)
 			}
 			size += int64(headerSize)
 		}
 	}
 
-	// Content-Length 处理
+	// 添加内容长度
+	// Add content length
 	if cl := request.ContentLength; cl > 0 {
 		size += cl
 	}
 
-	// 处理 Transfer-Encoding
+	// 计算传输编码的大小
+	// Calculate the size of transfer encoding
 	if te := request.TransferEncoding; len(te) > 0 {
 		for _, encoding := range te {
-			size += int64(len(encoding) + 2) // 2 for ", "
+			size += int64(len(encoding) + 2) // 加2是为了包含分隔符 (Add 2 for separator)
 		}
 	}
 
-	// 处理 Trailer
+	// 计算尾部头信息的大小
+	// Calculate the size of trailer headers
 	if trailers := request.Trailer; len(trailers) > 0 {
 		for name, values := range trailers {
 			size += int64(len(name))
 			for _, value := range values {
-				size += int64(len(value) + 2) // 2 for ": " or ", "
+				size += int64(len(value) + 2) // 加2是为了包含": "分隔符 (Add 2 for ": " separator)
 			}
 		}
 	}
@@ -94,106 +99,109 @@ func CalcRequestSize(request *http.Request) int64 {
 	return size
 }
 
-// StringFilterFlags 函数返回给定字符串中的第一个标记
-// The StringFilterFlags function returns the first token in the given string
+// StringFilterFlags 从内容类型字符串中过滤掉标志。
+// StringFilterFlags filters out flags from the content type string.
 func StringFilterFlags(content string) string {
-	// 返回字符串中第一个 ';' 或 ' ' 之前的所有字符。如果都不存在，返回整个字符串。
-	// Return all characters before the first ';' or ' ' in the string. If neither exists, return the entire string.
 	if i := strings.IndexAny(content, "; "); i >= 0 {
 		return content[:i]
 	}
 	return content
 }
 
-// CanRecordContextBody 函数检查 HTTP 请求头是否包含特定内容类型的值
-// The CanRecordContextBody function checks if the HTTP request header contains a value for a specific content type
+// CanRecordContextBody 检查是否可以记录请求体。
+// CanRecordContextBody checks if the request body can be recorded.
 func CanRecordContextBody(header http.Header) bool {
-	// 获取请求头中的内容类型
-	// Get the content type from the request header
 	contentType := StringFilterFlags(header.Get(com.HttpHeaderContentType))
 
-	// 如果请求头为空或内容信息不足以区分类型，直接返回 false
-	// If the request header is empty or the content information is not sufficient to differentiate the type, return false directly
+	// 检查内容类型是否为空或无效
+	// Check if content type is empty or invalid
 	if contentType == "" || strings.IndexByte(contentType, '/') == -1 {
 		return false
 	}
 
-	// 在 definedContentTypes 列表中查找指定的内容类型
-	// Find the specified content type in the definedContentTypes list
+	// 检查是否为支持的内容类型
+	// Check if it's a supported content type
 	for _, ct := range contentTypes {
 		if strings.HasPrefix(contentType, ct) {
 			return true
 		}
 	}
 
-	// 如果内容类型未定义，返回 false
-	// Return false if the content type is not defined
 	return false
 }
 
-// GenerateRequestPath 函数从 Gin 上下文中返回请求路径
-// The GenerateRequestPath function returns the request path from the Gin context
+// GenerateRequestPath 生成请求路径。
+// GenerateRequestPath generates the request path.
 func GenerateRequestPath(context *gin.Context) string {
-	// 如果请求包含查询字符串，返回整个 URL，否则返回路径
-	// If the request contains a query string, return the entire URL, otherwise return the path
 	if len(context.Request.URL.RawQuery) > 0 {
 		return context.Request.URL.RequestURI()
 	}
 	return context.Request.URL.Path
 }
 
-// GenerateRequestBody 函数从 Gin 上下文中读取 HTTP 请求体，并将其存储在 Buffer Pool 对象中
-// 请不要直接从 Gin 上下文中读取请求体，因为请求体只能读取一次
-// The GenerateRequestBody function reads the HTTP request body from the Gin context and stores it in a Buffer Pool object
-// Please don't directly read the request body from the Gin context, because the request body can only be read once
+// GenerateRequestBody 生成请求体。
+// GenerateRequestBody generates the request body.
 func GenerateRequestBody(context *gin.Context) ([]byte, error) {
-	// 快速路径：检查请求体是否为空
+	// 检查请求体是否为空
+	// Check if request body is nil
 	if context.Request.Body == nil {
 		return conver.StringToBytes("request body is nil"), nil
 	}
 
-	// 获取或创建缓冲区
 	var reqBodyBuffer *bytes.Buffer
+	// 尝试从上下文中获取已存在的缓冲区
+	// Try to get existing buffer from context
 	if buffer, exists := context.Get(com.RequestBodyBufferKey); exists {
+		// 如果缓冲区类型正确，直接使用
+		// If buffer type is correct, use it directly
 		if buf, ok := buffer.(*bytes.Buffer); ok {
 			reqBodyBuffer = buf
 		} else {
-			// 类型断言失败，创建新缓冲区
+			// 类型不正确，创建新的缓冲区
+			// If type is incorrect, create new buffer
 			reqBodyBuffer = com.RequestBodyBufferPool.Get()
 			context.Set(com.RequestBodyBufferKey, reqBodyBuffer)
 		}
 	} else {
+		// 上下文中不存在缓冲区，创建新的
+		// Buffer doesn't exist in context, create new one
 		reqBodyBuffer = com.RequestBodyBufferPool.Get()
 		context.Set(com.RequestBodyBufferKey, reqBodyBuffer)
 	}
 
-	// 如果缓冲区已有内容，直接返回
+	// 如果缓冲区已有数据，直接返回
+	// If buffer already has data, return it directly
 	if reqBodyBuffer.Len() > 0 {
 		return reqBodyBuffer.Bytes(), nil
 	}
 
-	// 读取请求体
+	// 读取请求体内容
+	// Read request body content
 	body, err := io.ReadAll(context.Request.Body)
 	if err != nil {
 		return conver.StringToBytes("failed to get request body"), err
 	}
 
-	// 写入缓冲区
+	// 尝试将内容写入缓冲区
+	// Try to write content to buffer
 	if _, err := reqBodyBuffer.Write(body); err != nil {
-		// 写入失败时使用原始数据
+		// 写入失败时，使用原始body数据
+		// If write fails, use original body data
 		context.Request.Body = io.NopCloser(bytes.NewBuffer(body))
 		return body, nil
 	}
 
-	// 写入成功，使用缓冲区数据
+	// 重新设置请求体，使其可以被后续中间件读取
+	// Reset request body so it can be read by subsequent middleware
 	context.Request.Body = io.NopCloser(reqBodyBuffer)
 	return reqBodyBuffer.Bytes(), nil
 }
 
-// ParseRequestBody 函数将请求体解析到指定类型的变量 value 中，emptyRequestBodyContent 表示是否允许请求体为空
-// The ParseRequestBody function parses the request body into a variable of the specified type value, emptyRequestBodyContent indicates whether an empty body is allowed
+// ParseRequestBody 解析请求体。
+// ParseRequestBody parses the request body.
 func ParseRequestBody(context *gin.Context, value interface{}, emptyRequestBodyContent bool) error {
-	// 1. 参数验证
+	// 验证基本参数
+	// Validate basic parameters
 	if context == nil {
 		return ErrorContextIsNil
 	}
@@ -201,29 +209,35 @@ func ParseRequestBody(context *gin.Context, value interface{}, emptyRequestBodyC
 		return ErrorValueIsNil
 	}
 
-	// 2. 检查 Content-Type
+	// 获取并验证内容类型
+	// Get and validate content type
 	contentType := context.ContentType()
 	if contentType == "" {
 		return ErrorContentTypeIsEmpty
 	}
 
-	// 3. 尝试绑定请求体
+	// 尝试绑定请求体到目标结构
+	// Try to bind request body to target structure
 	if err := context.ShouldBind(value); err == nil {
 		return nil
 	}
 
-	// 4. 处理空请求体的情况
+	// 处理空请求体的情况
+	// Handle empty request body case
 	if emptyRequestBodyContent {
+		// 生成请求体
+		// Generate request body
 		body, err := GenerateRequestBody(context)
 		if err != nil {
 			return ErrorGenerateBody
 		}
 
+		// 如果请求体为空，返回成功
+		// If request body is empty, return success
 		if len(body) == 0 {
 			return nil
 		}
 	}
 
-	// 5. 返回绑定错误
 	return ErrorBindRequestBody
 }

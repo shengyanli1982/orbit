@@ -5,28 +5,29 @@ import (
 	"sync"
 )
 
-// DefaultBufferSize 是缓冲区的默认大小。
-// DefaultBufferSize is the default size of the buffer.
+// DefaultBufferSize 是缓冲池的默认大小（2048字节）。
+// DefaultBufferSize is the default size of the buffer pool (2048 bytes).
 const DefaultBufferSize = 2048
 
-// BufferPool 表示一个缓冲区池。
-// BufferPool represents a pool of buffers.
+// BufferPool 是一个用于管理和复用 bytes.Buffer 的对象池。
+// BufferPool is an object pool for managing and reusing bytes.Buffer objects.
 type BufferPool struct {
-	pool sync.Pool // 用于存储缓冲区的同步池 (A sync pool for storing buffers)
+	pool sync.Pool // 内部使用 sync.Pool 实现对象池 (Internal sync.Pool for object pooling)
 }
 
-// NewBufferPool 使用指定的缓冲区大小创建一个新的缓冲区池。
-// 如果 bufferSize 小于或等于 0，则使用默认的缓冲区大小。
-// NewBufferPool creates a new buffer pool with the specified buffer size.
-// If the bufferSize is less than or equal to 0, the default buffer size is used.
+// NewBufferPool 创建一个新的 BufferPool 实例，可以指定缓冲区的初始大小。
+// NewBufferPool creates a new BufferPool instance with specified initial buffer size.
 func NewBufferPool(bufferSize uint32) *BufferPool {
+	// 如果指定的大小小于等于0，使用默认大小
+	// If specified size is less than or equal to 0, use default size
 	if bufferSize <= 0 {
 		bufferSize = DefaultBufferSize
 	}
+
 	return &BufferPool{
 		pool: sync.Pool{
-			// 当池中没有可用对象时，New 函数将创建一个新的缓冲区。
-			// The New function creates a new buffer when there are no available objects in the pool.
+			// 定义创建新缓冲区的函数
+			// Define function to create new buffer
 			New: func() interface{} {
 				return bytes.NewBuffer(make([]byte, 0, bufferSize))
 			},
@@ -34,22 +35,18 @@ func NewBufferPool(bufferSize uint32) *BufferPool {
 	}
 }
 
-// Get 从池中检索一个缓冲区。
-// Get retrieves a buffer from the pool.
+// Get 从池中获取一个 bytes.Buffer 对象。
+// Get retrieves a bytes.Buffer object from the pool.
 func (p *BufferPool) Get() *bytes.Buffer {
-	// 从 pool 中获取一个缓冲区对象，并将其转换为正确的类型。
-	// Get a buffer object from the pool and cast it to the correct type.
 	return p.pool.Get().(*bytes.Buffer)
 }
 
-// Put 将一个缓冲区返回到池中。
-// 如果缓冲区不为空，它会在被放回池中之前被重置。
-// Put returns a buffer to the pool.
-// If the buffer is not nil, it is reset before being put back into the pool.
+// Put 将一个 bytes.Buffer 对象放回池中。
+// Put returns a bytes.Buffer object back to the pool.
 func (p *BufferPool) Put(buffer *bytes.Buffer) {
+	// 确保传入的缓冲区不为空
+	// Ensure the input buffer is not nil
 	if buffer != nil {
-		// 如果缓冲区对象不为空，则重置对象并将其放回到池中。
-		// If the buffer object is not nil, reset the object and put it back into the pool.
 		buffer.Reset()
 		p.pool.Put(buffer)
 	}

@@ -8,39 +8,34 @@ import (
 	com "github.com/shengyanli1982/orbit/common"
 )
 
-var (
-	// ErrorResponseBodyBufferEmpty 是当响应体缓冲区为空时返回的错误。
-	// ErrorResponseBodyBufferEmpty is the error returned when the response body buffer is empty.
-	ErrorResponseBodyBufferEmpty = errors.New("response body buffer is empty")
-	// ErrorRequestBodyBufferNotFound 是当请求体缓冲区未找到时返回的错误。
-	// ErrorRequestBodyBufferNotFound is the error returned when the request body buffer is not found.
-	ErrorRequestBodyBufferNotFound = errors.New("request body buffer not found")
-)
+// ErrorResponseBodyBufferEmpty 表示响应体缓冲区为空的错误。
+// ErrorResponseBodyBufferEmpty indicates that the response body buffer is empty.
+var ErrorResponseBodyBufferEmpty = errors.New("response body buffer is empty")
 
-// GenerateResponseBody 函数从响应体缓冲区生成响应体。
-// The GenerateResponseBody function generates the response body from the response body buffer.
+// ErrorRequestBodyBufferNotFound 表示未找到请求体缓冲区的错误。
+// ErrorRequestBodyBufferNotFound indicates that the request body buffer was not found.
+var ErrorRequestBodyBufferNotFound = errors.New("request body buffer not found")
+
+// GenerateResponseBody 函数从 gin.Context 中生成响应体。
+// The GenerateResponseBody function generates a response body from the gin.Context.
 func GenerateResponseBody(context *gin.Context) ([]byte, error) {
 	// 从上下文中获取响应体缓冲区
 	// Get the response body buffer from the context
 	if buffer, ok := context.Get(com.ResponseBodyBufferKey); ok {
-		// 从缓冲区获取响应体内容
-		// Get the response body content from the buffer
 		respBodyBuffer := buffer.(*bytes.Buffer)
 
-		// 检查响应体缓冲区是否为空
-		// Check if the response body buffer is empty
+		// 检查缓冲区是否为空
+		// Check if the buffer is empty
 		if respBodyBuffer.Len() <= 0 {
-			// 如果响应体缓冲区为空，返回错误
-			// If the response body buffer is empty, return an error
 			return nil, ErrorResponseBodyBufferEmpty
 		}
 
-		// 如果响应体缓冲区不为空，返回响应体内容
-		// If the response body buffer is not empty, return the response body content
+		// 返回缓冲区中的字节数据
+		// Return the bytes from the buffer
 		return respBodyBuffer.Bytes(), nil
 	} else {
-		// 如果响应体缓冲区未找到，返回错误
-		// If the response body buffer is not found, return an error
+		// 如果未找到缓冲区，返回错误
+		// Return error if buffer is not found
 		return nil, ErrorRequestBodyBufferNotFound
 	}
 }
