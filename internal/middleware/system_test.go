@@ -101,7 +101,7 @@ func TestLogrRecovery(t *testing.T) {
 	logger := log.NewLogrLogger(buff).GetLogrLogger()
 
 	// Add the Recovery middleware to the router
-	router.Use(Recovery(&logger, log.DefaultRecoveryEventFunc))
+	router.Use(Recovery(logger, log.DefaultRecoveryEventFunc))
 
 	// Add the test handler to the router
 	router.GET("/test", handler)
@@ -186,7 +186,7 @@ func TestLogrAccessLogger(t *testing.T) {
 	}
 
 	// Add the AccessLogger middleware to the router
-	router.Use(AccessLogger(&logger, logEventFunc, true))
+	router.Use(AccessLogger(logger, logEventFunc, true))
 
 	// Add the test handler to the router
 	router.GET("/test", handler)

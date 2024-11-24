@@ -26,10 +26,10 @@ func NewLogrLogger(w io.Writer) *LogrLogger {
 	}
 }
 
-func (k *LogrLogger) GetLogrLogger() logr.Logger {
-	return k.l
+func (k *LogrLogger) GetLogrLogger() *logr.Logger {
+	return &k.l
 }
 
-func (k *LogrLogger) GetStdLogger() *log.Logger {
-	return ilog.NewStdLoggerFromLogr(&k.l)
+func (k *LogrLogger) GetStandardLogger() *log.Logger {
+	return ilog.NewStandardLoggerFromLogr(&k.l)
 }

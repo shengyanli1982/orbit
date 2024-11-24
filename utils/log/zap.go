@@ -137,9 +137,9 @@ func (l *ZapLogger) GetZapSugaredLogger() *zap.SugaredLogger {
 	return l.l.Sugar()
 }
 
-// GetStdLogger 返回标准库的 logger
-// GetStdLogger returns the standard library logger
-func (l *ZapLogger) GetStdLogger() *log.Logger {
+// GetStandardLogger 返回标准库的 logger
+// GetStandardLogger returns the standard library logger
+func (l *ZapLogger) GetStandardLogger() *log.Logger {
 	return zap.NewStdLog(l.l)
 }
 

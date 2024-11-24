@@ -20,6 +20,6 @@ func (l *LogrAdapter) Write(p []byte) (n int, err error) {
 }
 
 // 创建一个将 logr.Logger 转换为 log.Logger 的函数
-func NewStdLoggerFromLogr(logger *logr.Logger) *log.Logger {
+func NewStandardLoggerFromLogr(logger *logr.Logger) *log.Logger {
 	return log.New(&LogrAdapter{logger: logger}, "", 0) // 标志位设为0因为 logr 通常已经处理了时间戳等信息
 }

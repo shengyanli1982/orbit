@@ -88,16 +88,16 @@ func NewEngine(config *Config, options *Options) *Engine {
 	engine.ctx, engine.cancel = context.WithTimeout(context.Background(), defaultShutdownTimeout)
 
 	// 初始化 Gin 服务器
-	engine.initGinServer(options)
+	engine.initGinEngine(options)
 
 	// 注册基础服务
-	engine.registerBaseServices()
+	engine.registerBuiltinServices()
 
 	return engine
 }
 
 // 将 Gin 服务器初始化逻辑拆分出来
-func (e *Engine) initGinServer(options *Options) {
+func (e *Engine) initGinEngine(options *Options) {
 	e.ginSvr = gin.New()
 	e.root = &e.ginSvr.RouterGroup
 
@@ -130,7 +130,7 @@ func (e *Engine) setupBaseHandlers() {
 }
 
 // 将基础服务注册逻辑拆分出来
-func (e *Engine) registerBaseServices() {
+func (e *Engine) registerBuiltinServices() {
 	// 注册健康检查
 	healthcheckService(e.root.Group(com.HealthCheckURLPath))
 
@@ -157,16 +157,16 @@ func (e *Engine) Run() {
 		return
 	}
 
-	e.registerAllMiddlewares()
+	e.registerUserMiddlewares()
 	e.ginSvr.Use(mid.AccessLogger(e.config.logger, e.config.accessLogEventFunc, e.opts.recReqBody))
-	e.registerAllServices()
+	e.registerUserServices()
 
 	e.httpSvr = e.createHTTPServer()
 	e.wg.Add(1)
 
 	go e.startHTTPServer()
 
-	e.setRuningStatus(true)
+	e.updateRunningState(true)
 	e.once = sync.Once{}
 }
 
@@ -180,7 +180,7 @@ func (e *Engine) createHTTPServer() *http.Server {
 		WriteTimeout:      time.Duration(e.config.HttpWriteTimeout) * time.Millisecond,
 		IdleTimeout:       0,
 		MaxHeaderBytes:    math.MaxUint32,
-		ErrorLog:          ilog.NewStdLoggerFromLogr(e.config.logger),
+		ErrorLog:          ilog.NewStandardLoggerFromLogr(e.config.logger),
 	}
 }
 
@@ -200,7 +200,7 @@ func (e *Engine) startHTTPServer() {
 func (e *Engine) Stop() {
 	e.once.Do(func() {
 		// 更新运行状态
-		e.setRuningStatus(false)
+		e.updateRunningState(false)
 
 		// 关闭 HTTP 服务器
 		e.shutdownHTTPServer()
@@ -238,9 +238,9 @@ func (e *Engine) IsRunning() bool {
 	return e.running
 }
 
-// setRuningStatus 方法设置 Orbit 引擎的运行状态。
-// The setRuningStatus method sets the running status of the Orbit engine.
-func (e *Engine) setRuningStatus(status bool) {
+// updateRunningState 方法设置 Orbit 引擎的运行状态。
+// The updateRunningState method sets the running status of the Orbit engine.
+func (e *Engine) updateRunningState(status bool) {
 	// 获取写锁
 	// Acquire the write lock
 	e.lock.Lock()
@@ -251,9 +251,9 @@ func (e *Engine) setRuningStatus(status bool) {
 	e.running = status
 }
 
-// registerAllServices 方法将所有服务注册到根路由组。
-// The registerAllServices method registers all services to the root router group.
-func (e *Engine) registerAllServices() {
+// registerUserServices 方法将所有服务注册到根路由组。
+// The registerUserServices method registers all services to the root router group.
+func (e *Engine) registerUserServices() {
 	// 获取写锁
 	// Acquire the write lock
 	e.lock.Lock()
@@ -272,9 +272,9 @@ func (e *Engine) registerAllServices() {
 	}
 }
 
-// registerAllMiddlewares 方法将所有中间件注册到引擎。
-// The registerAllMiddlewares method registers all middlewares to the engine.
-func (e *Engine) registerAllMiddlewares() {
+// registerUserMiddlewares 方法将所有中间件注册到引擎。
+// The registerUserMiddlewares method registers all middlewares to the engine.
+func (e *Engine) registerUserMiddlewares() {
 	// 获取写锁
 	// Acquire the write lock
 	e.lock.Lock()

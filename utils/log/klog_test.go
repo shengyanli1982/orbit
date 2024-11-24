@@ -29,7 +29,7 @@ func TestGetLogrStdLogger(t *testing.T) {
 
 	// Create a new logger
 	logger := NewLogrLogger(buff)
-	stdLogger := logger.GetStdLogger()
+	stdLogger := logger.GetStandardLogger()
 
 	// Assert that the logger is not nil
 	assert.NotNil(t, stdLogger, "stdLogger should not be nil")
