@@ -9,6 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	com "github.com/shengyanli1982/orbit/common"
+	"github.com/shengyanli1982/orbit/internal/conver"
 	"github.com/shengyanli1982/orbit/internal/metric"
 	wrap "github.com/shengyanli1982/orbit/utils/wrapper"
 	swag "github.com/swaggo/files"
@@ -52,17 +53,43 @@ func pprofService(group *gin.RouterGroup) {
 // metricService 函数将 prometheus 指标处理器注册到给定的路由组。
 // The metricService function registers the prometheus metrics handlers to the given router group.
 func metricService(group *gin.RouterGroup, registry *prometheus.Registry, logger *logr.Logger) {
-	group.GET(com.EmptyURLPath, wrap.WrapHandlerToGin(promhttp.InstrumentMetricHandler(
-		registry, promhttp.HandlerFor(registry, promhttp.HandlerOpts{
-			ErrorLog: metric.NewErrorLog(logger),
-		}),
-	)))
+	if group == nil || registry == nil {
+		return
+	}
+
+	// 创建处理器选项，设置错误日志记录器
+	// Create handler options with error logger
+	opts := promhttp.HandlerOpts{
+		ErrorLog:      metric.NewErrorLog(logger),
+		ErrorHandling: promhttp.ContinueOnError, // 继续处理后续请求 / Continue processing subsequent requests
+	}
+
+	// 创建指标处理器
+	// Create metrics handler
+	handler := promhttp.InstrumentMetricHandler(
+		registry,
+		promhttp.HandlerFor(registry, opts),
+	)
+
+	// 注册处理器到路由组
+	// Register handler to router group
+	group.GET(com.EmptyURLPath, wrap.WrapHandlerToGin(handler))
 }
 
 // swaggerService 函数将 swagger 处理器注册到给定的路由组。
 // The swaggerService function registers the swagger handlers to the given router group.
 func swaggerService(group *gin.RouterGroup) {
-	group.GET("/*any", gs.WrapHandler(swag.Handler))
+	if group == nil {
+		return
+	}
+
+	// 使用缓存包装的 swagger 处理器
+	// Use cached swagger handler
+	handler := gs.WrapHandler(swag.Handler)
+
+	// 注册处理器到路由组
+	// Register handler to router group
+	group.GET("/*any", handler)
 }
 
 // healthcheckService 函数将健康检查处理器注册到给定的路由组。
@@ -70,9 +97,8 @@ func swaggerService(group *gin.RouterGroup) {
 func healthcheckService(group *gin.RouterGroup) {
 	// 使用预定义的状态码和响应，避免每次请求时创建新的字符串
 	// Use predefined status code and response to avoid creating new strings on each request
-	const response = com.RequestOK
 	group.GET(com.EmptyURLPath, func(c *gin.Context) {
-		c.Data(http.StatusOK, "text/plain; charset=utf-8", []byte(response))
+		c.Data(http.StatusOK, "text/plain; charset=utf-8", conver.StringToBytes(com.RequestOK))
 	})
 }
 
