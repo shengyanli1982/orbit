@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	com "github.com/shengyanli1982/orbit/common"
@@ -34,6 +35,13 @@ var contentTypes = []string{
 	com.HttpHeaderTOMLContentTypeValue,       // TOML内容类型 (TOML content type)
 }
 
+// 使用 sync.Pool 复用缓冲区
+var bufferPool = sync.Pool{
+	New: func() interface{} {
+		return bytes.NewBuffer(make([]byte, 0, 4096)) // 预分配 4KB 缓冲区
+	},
+}
+
 // CalcRequestSize 计算HTTP请求的总大小（以字节为单位）。
 // CalcRequestSize calculates the total size of an HTTP request in bytes.
 func CalcRequestSize(request *http.Request) int64 {
@@ -42,58 +50,28 @@ func CalcRequestSize(request *http.Request) int64 {
 	}
 
 	var size int64
-
-	// 计算URL各部分的大小
-	// Calculate the size of URL components
-	if url := request.URL; url != nil {
-		size += int64(len(url.Scheme) +
-			len(url.Host) +
-			len(url.Path) +
-			len(url.RawQuery) +
-			len(url.Fragment))
+	url := request.URL
+	if url != nil {
+		size += int64(len(url.Scheme) + len(url.Host) + len(url.Path) +
+			len(url.RawQuery) + len(url.Fragment))
 	}
 
-	// 计算请求基本信息的大小
-	// Calculate the size of basic request information
-	size += int64(len(request.Method) +
-		len(request.Proto) +
-		len(request.Host))
+	size += int64(len(request.Method) + len(request.Proto) + len(request.Host))
 
-	// 计算请求头的大小
-	// Calculate the size of request headers
+	// 优化 header 大小计算
 	if headers := request.Header; len(headers) > 0 {
+		var headerSize int
 		for name, values := range headers {
-			headerSize := len(name)
+			headerSize += len(name)
 			for _, value := range values {
-				headerSize += len(value) + 2 // 加2是为了包含": "分隔符 (Add 2 for ": " separator)
+				headerSize += len(value) + 2
 			}
-			size += int64(headerSize)
 		}
+		size += int64(headerSize)
 	}
 
-	// 添加内容长度
-	// Add content length
 	if cl := request.ContentLength; cl > 0 {
 		size += cl
-	}
-
-	// 计算传输编码的大小
-	// Calculate the size of transfer encoding
-	if te := request.TransferEncoding; len(te) > 0 {
-		for _, encoding := range te {
-			size += int64(len(encoding) + 2) // 加2是为了包含分隔符 (Add 2 for separator)
-		}
-	}
-
-	// 计算尾部头信息的大小
-	// Calculate the size of trailer headers
-	if trailers := request.Trailer; len(trailers) > 0 {
-		for name, values := range trailers {
-			size += int64(len(name))
-			for _, value := range values {
-				size += int64(len(value) + 2) // 加2是为了包含": "分隔符 (Add 2 for ": " separator)
-			}
-		}
 	}
 
 	return size
@@ -112,21 +90,16 @@ func StringFilterFlags(content string) string {
 // CanRecordContextBody checks if the request body can be recorded.
 func CanRecordContextBody(header http.Header) bool {
 	contentType := StringFilterFlags(header.Get(com.HttpHeaderContentType))
-
-	// 检查内容类型是否为空或无效
-	// Check if content type is empty or invalid
-	if contentType == "" || strings.IndexByte(contentType, '/') == -1 {
+	if contentType == "" || !strings.Contains(contentType, "/") {
 		return false
 	}
 
-	// 检查是否为支持的内容类型
-	// Check if it's a supported content type
+	// 使用 strings.HasPrefix 进行更快的前缀匹配
 	for _, ct := range contentTypes {
 		if strings.HasPrefix(contentType, ct) {
 			return true
 		}
 	}
-
 	return false
 }
 
@@ -142,57 +115,41 @@ func GenerateRequestPath(context *gin.Context) string {
 // GenerateRequestBody 生成请求体。
 // GenerateRequestBody generates the request body.
 func GenerateRequestBody(context *gin.Context) ([]byte, error) {
-	// 检查请求体是否为空
-	// Check if request body is nil
 	if context.Request.Body == nil {
 		return conver.StringToBytes("request body is nil"), nil
 	}
 
+	// 获取或创建缓冲区
 	var reqBodyBuffer *bytes.Buffer
-	// 尝试从上下文中获取已存在的缓冲区
-	// Try to get existing buffer from context
 	if buffer, exists := context.Get(com.RequestBodyBufferKey); exists {
-		// 如果缓冲区类型正确，直接使用
-		// If buffer type is correct, use it directly
 		if buf, ok := buffer.(*bytes.Buffer); ok {
 			reqBodyBuffer = buf
 		} else {
-			// 类型不正确，创建新的缓冲区
-			// If type is incorrect, create new buffer
-			reqBodyBuffer = com.RequestBodyBufferPool.Get()
+			reqBodyBuffer = bufferPool.Get().(*bytes.Buffer)
 			context.Set(com.RequestBodyBufferKey, reqBodyBuffer)
 		}
 	} else {
-		// 上下文中不存在缓冲区，创建新的
-		// Buffer doesn't exist in context, create new one
-		reqBodyBuffer = com.RequestBodyBufferPool.Get()
+		reqBodyBuffer = bufferPool.Get().(*bytes.Buffer)
 		context.Set(com.RequestBodyBufferKey, reqBodyBuffer)
 	}
 
 	// 如果缓冲区已有数据，直接返回
-	// If buffer already has data, return it directly
 	if reqBodyBuffer.Len() > 0 {
 		return reqBodyBuffer.Bytes(), nil
 	}
 
-	// 读取请求体内容
-	// Read request body content
+	// 读取请求体
 	body, err := io.ReadAll(context.Request.Body)
 	if err != nil {
 		return conver.StringToBytes("failed to get request body"), err
 	}
 
-	// 尝试将内容写入缓冲区
-	// Try to write content to buffer
+	// 写入缓冲区
 	if _, err := reqBodyBuffer.Write(body); err != nil {
-		// 写入失败时，使用原始body数据
-		// If write fails, use original body data
 		context.Request.Body = io.NopCloser(bytes.NewBuffer(body))
 		return body, nil
 	}
 
-	// 重新设置请求体，使其可以被后续中间件读取
-	// Reset request body so it can be read by subsequent middleware
 	context.Request.Body = io.NopCloser(reqBodyBuffer)
 	return reqBodyBuffer.Bytes(), nil
 }
