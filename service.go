@@ -15,56 +15,38 @@ import (
 	gs "github.com/swaggo/gin-swagger"
 )
 
+// 定义所有 pprof 处理器映射，包含基本处理器和命名处理器
+// Define all pprof handler mappings, including basic and named pprofHandlers
+var pprofHandlers = map[string]http.HandlerFunc{
+	"/":             pprof.Index,
+	"/cmdline":      pprof.Cmdline,
+	"/profile":      pprof.Profile,
+	"/symbol":       pprof.Symbol,
+	"/trace":        pprof.Trace,
+	"/allocs":       pprof.Handler("allocs").ServeHTTP,
+	"/block":        pprof.Handler("block").ServeHTTP,
+	"/goroutine":    pprof.Handler("goroutine").ServeHTTP,
+	"/heap":         pprof.Handler("heap").ServeHTTP,
+	"/mutex":        pprof.Handler("mutex").ServeHTTP,
+	"/threadcreate": pprof.Handler("threadcreate").ServeHTTP,
+}
+
 // pprofService 函数将 pprof 处理器注册到给定的路由组。
 // The pprofService function registers the pprof handlers to the given router group.
 func pprofService(group *gin.RouterGroup) {
-	// 获取 pprof 索引页面
-	// Get the pprof index page
-	group.GET(com.RootURLPath, wrap.WrapHandlerFuncToGin(pprof.Index))
+	// 创建一个 pprof 子路由组，避免重复的路径前缀
+	// Create a pprof sub-router group to avoid repeated path prefixes
+	pprofGroup := group.Group("/debug/pprof")
 
-	// 获取命令行参数
-	// Get the command line arguments
-	group.GET("/cmdline", wrap.WrapHandlerFuncToGin(pprof.Cmdline))
+	// 统一注册所有 GET 处理器
+	// Register all GET handlers uniformly
+	for path, handler := range pprofHandlers {
+		pprofGroup.GET(path, wrap.WrapHandlerFuncToGin(handler))
+	}
 
-	// 获取分析 goroutine 堆栈跟踪
-	// Get the profiling goroutine stack traces
-	group.GET("/profile", wrap.WrapHandlerFuncToGin(pprof.Profile))
-
-	// 获取符号表
-	// Get the symbol table
-	group.GET("/symbol", wrap.WrapHandlerFuncToGin(pprof.Symbol))
-
-	// 获取执行跟踪
-	// Get the execution trace
-	group.GET("/trace", wrap.WrapHandlerFuncToGin(pprof.Trace))
-
-	// 获取堆分配
-	// Get the heap allocations
-	group.GET("/allocs", wrap.WrapHandlerFuncToGin(pprof.Handler("allocs").ServeHTTP))
-
-	// 获取 goroutine 阻塞配置文件
-	// Get the goroutine blocking profile
-	group.GET("/block", wrap.WrapHandlerFuncToGin(pprof.Handler("block").ServeHTTP))
-
-	// 获取 goroutine 配置文件
-	// Get the goroutine profile
-	group.GET("/goroutine", wrap.WrapHandlerFuncToGin(pprof.Handler("goroutine").ServeHTTP))
-
-	// 获取堆配置文件
-	// Get the heap profile
-	group.GET("/heap", wrap.WrapHandlerFuncToGin(pprof.Handler("heap").ServeHTTP))
-
-	// 获取互斥锁配置文件
-	// Get the mutex profile
-	group.GET("/mutex", wrap.WrapHandlerFuncToGin(pprof.Handler("mutex").ServeHTTP))
-
-	// 获取线程创建配置文件
-	// Get the thread creation profile
-	group.GET("/threadcreate", wrap.WrapHandlerFuncToGin(pprof.Handler("threadcreate").ServeHTTP))
-
-	// 获取符号表
-	// Get the symbol table
-	group.POST("/pprof/symbol", wrap.WrapHandlerFuncToGin(pprof.Symbol))
+	// 单独注册 POST 处理器
+	// Register POST handler separately
+	pprofGroup.POST("/symbol", wrap.WrapHandlerFuncToGin(pprof.Symbol))
 }
 
 // metricService 函数将 prometheus 指标处理器注册到给定的路由组。
@@ -86,8 +68,11 @@ func swaggerService(group *gin.RouterGroup) {
 // healthcheckService 函数将健康检查处理器注册到给定的路由组。
 // The healthcheckService function registers the healthcheck handlers to the given router group.
 func healthcheckService(group *gin.RouterGroup) {
+	// 使用预定义的状态码和响应，避免每次请求时创建新的字符串
+	// Use predefined status code and response to avoid creating new strings on each request
+	const response = com.RequestOK
 	group.GET(com.EmptyURLPath, func(c *gin.Context) {
-		c.String(http.StatusOK, com.RequestOK)
+		c.Data(http.StatusOK, "text/plain; charset=utf-8", []byte(response))
 	})
 }
 
@@ -100,11 +85,16 @@ type WrapRegisterService struct {
 // RegisterGroup 函数将服务注册到给定的路由组。
 // The RegisterGroup function registers the service to the given router group.
 func (w *WrapRegisterService) RegisterGroup(group *gin.RouterGroup) {
-	w.registerFunc(group)
+	if w != nil && w.registerFunc != nil {
+		w.registerFunc(group)
+	}
 }
 
 // NewHttpService 函数创建一个新的 WrapRegisterService 实例。
 // The NewHttpService function creates a new instance of the WrapRegisterService.
 func NewHttpService(registerFunc func(*gin.RouterGroup)) *WrapRegisterService {
+	if registerFunc == nil {
+		return nil
+	}
 	return &WrapRegisterService{registerFunc: registerFunc}
 }
