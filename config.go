@@ -70,7 +70,7 @@ func (c *Config) WithPort(port uint16) *Config {
 	return c
 }
 
-// WithRelease 方法启用发布模式
+// WithRelease 方法启用发布���式
 // The WithRelease method enables release mode
 func (c *Config) WithRelease() *Config {
 	c.ReleaseMode = true
@@ -128,52 +128,53 @@ func DefaultConfig() *Config {
 // isConfigValid 函数验证配置的有效性，并设置默认值
 // The isConfigValid function validates the configuration and sets default values
 func isConfigValid(conf *Config) *Config {
-	if conf != nil {
-		// 检查并设置默认地址
-		// Check and set default address
-		if len(strings.TrimSpace(conf.Address)) == 0 {
-			conf.Address = defaultHttpListenAddress
-		}
+	// 如果配置为空，返回默认配置
+	// If configuration is nil, return default configuration
+	if conf == nil {
+		return DefaultConfig()
+	}
 
-		// 检查并设置默认端口
-		// Check and set default port
-		if conf.Port <= 0 {
-			conf.Port = defaultHttpListenPort
-		}
+	// 使用默认配置作为基准进行比较和设置
+	// Use default configuration as baseline for comparison and setting
+	defaultConf := DefaultConfig()
 
-		// 检查并设置默认超时时间
-		// Check and set default timeout values
-		if conf.HttpReadTimeout <= 0 {
-			conf.HttpReadTimeout = defaultIdleTimeout
-		}
-		if conf.HttpWriteTimeout <= 0 {
-			conf.HttpWriteTimeout = defaultIdleTimeout
-		}
-		if conf.HttpReadHeaderTimeout <= 0 {
-			conf.HttpReadHeaderTimeout = defaultIdleTimeout
-		}
+	// 验证并设置基本网络配置
+	// Validate and set basic network configuration
+	if strings.TrimSpace(conf.Address) == "" {
+		conf.Address = defaultConf.Address
+	}
+	if conf.Port == 0 {
+		conf.Port = defaultConf.Port
+	}
 
-		// 检查并设置默认日志记录器和事件处理函数
-		// Check and set default logger and event handlers
-		if conf.logger == nil {
-			conf.logger = &com.DefaultLogrLogger
-		}
-		if conf.accessLogEventFunc == nil {
-			conf.accessLogEventFunc = log.DefaultAccessEventFunc
-		}
-		if conf.recoveryLogEventFunc == nil {
-			conf.recoveryLogEventFunc = log.DefaultRecoveryEventFunc
-		}
+	// 验证并设置超时配置
+	// Validate and set timeout configuration
+	if conf.HttpReadTimeout == 0 {
+		conf.HttpReadTimeout = defaultConf.HttpReadTimeout
+	}
+	if conf.HttpWriteTimeout == 0 {
+		conf.HttpWriteTimeout = defaultConf.HttpWriteTimeout
+	}
+	if conf.HttpReadHeaderTimeout == 0 {
+		conf.HttpReadHeaderTimeout = defaultConf.HttpReadHeaderTimeout
+	}
 
-		// 检查并设置默认Prometheus注册表
-		// Check and set default Prometheus registry
-		if conf.prometheusRegistry == nil {
-			conf.prometheusRegistry = prometheus.DefaultRegisterer.(*prometheus.Registry)
-		}
-	} else {
-		// 如果配置为空，则创建默认配置
-		// If configuration is nil, create default configuration
-		conf = DefaultConfig()
+	// 验证并设置日志和事件处理配置
+	// Validate and set logging and event handling configuration
+	if conf.logger == nil {
+		conf.logger = defaultConf.logger
+	}
+	if conf.accessLogEventFunc == nil {
+		conf.accessLogEventFunc = defaultConf.accessLogEventFunc
+	}
+	if conf.recoveryLogEventFunc == nil {
+		conf.recoveryLogEventFunc = defaultConf.recoveryLogEventFunc
+	}
+
+	// 验证并设置监控配置
+	// Validate and set monitoring configuration
+	if conf.prometheusRegistry == nil {
+		conf.prometheusRegistry = defaultConf.prometheusRegistry
 	}
 
 	return conf

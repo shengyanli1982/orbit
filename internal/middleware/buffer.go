@@ -1,8 +1,6 @@
 package middleware
 
 import (
-	"bytes"
-
 	"github.com/gin-gonic/gin"
 	com "github.com/shengyanli1982/orbit/common"
 	ihttptool "github.com/shengyanli1982/orbit/internal/httptool"
@@ -12,18 +10,32 @@ import (
 // BodyBuffer returns a Gin middleware function for handling request and response buffering.
 func BodyBuffer() gin.HandlerFunc {
 	return func(context *gin.Context) {
-		// 从缓冲池中获取请求体缓冲区和响应体缓冲区
-		// Get request and response body buffers from the buffer pool
+		// 从缓冲池中获取缓冲区
+		// Get buffers from the pool
 		reqBodyBuffer := com.RequestBodyBufferPool.Get()
 		respBodyBuffer := com.ResponseBodyBufferPool.Get()
 
-		// 将缓冲区存储在上下文中，以便后续使用
-		// Store buffers in the context for later use
+		// 预先清空缓冲区，确保没有残留数据
+		// Clear buffers to ensure no residual data
+		reqBodyBuffer.Reset()
+		respBodyBuffer.Reset()
+
+		defer func() {
+			// 使用 defer 确保缓冲区一定会被清理和归还到池中
+			// Use defer to ensure buffers are cleaned up and returned to the pool
+			reqBodyBuffer.Reset()
+			respBodyBuffer.Reset()
+			com.RequestBodyBufferPool.Put(reqBodyBuffer)
+			com.ResponseBodyBufferPool.Put(respBodyBuffer)
+		}()
+
+		// 将缓冲区存储在上下文中
+		// Store buffers in the context
 		context.Set(com.RequestBodyBufferKey, reqBodyBuffer)
 		context.Set(com.ResponseBodyBufferKey, respBodyBuffer)
 
-		// 创建一个新的响应体写入器，包装原始的响应写入器
-		// Create a new response body writer that wraps the original writer
+		// 创建并设置响应写入器
+		// Create and set response writer
 		bufferedWriter := ihttptool.NewResponseBodyWriter(context.Writer, respBodyBuffer)
 		originalWriter := context.Writer
 		context.Writer = bufferedWriter
@@ -32,33 +44,14 @@ func BodyBuffer() gin.HandlerFunc {
 		// Execute subsequent middleware and handlers
 		context.Next()
 
-		// 恢复原始的响应写入器并重置缓冲的写入器
-		// Restore the original writer and reset the buffered writer
+		// 恢复原始的响应写入器
+		// Restore the original writer
 		context.Writer = originalWriter
 		bufferedWriter.Reset()
 
-		// 清理请求体缓冲区并将其返回到池中
-		// Clean up request body buffer and return it to the pool
-		if reqBuffer, ok := context.Get(com.RequestBodyBufferKey); ok {
-			if buf, ok := reqBuffer.(*bytes.Buffer); ok {
-				buf.Reset()
-				com.RequestBodyBufferPool.Put(buf)
-			}
-			// 从上下文中移除请求体缓冲区引用
-			// Remove the request body buffer reference from the context
-			context.Set(com.RequestBodyBufferKey, nil)
-		}
-
-		// 清理响应体缓冲区并将其返回到池中
-		// Clean up response body buffer and return it to the pool
-		if respBuffer, ok := context.Get(com.ResponseBodyBufferKey); ok {
-			if buf, ok := respBuffer.(*bytes.Buffer); ok {
-				buf.Reset()
-				com.ResponseBodyBufferPool.Put(buf)
-			}
-			// 从上下文中移除响应体缓冲区引用
-			// Remove the response body buffer reference from the context
-			context.Set(com.ResponseBodyBufferKey, nil)
-		}
+		// 清除上下文中的引用
+		// Clear references from context
+		context.Set(com.RequestBodyBufferKey, nil)
+		context.Set(com.ResponseBodyBufferKey, nil)
 	}
 }

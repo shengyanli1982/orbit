@@ -49,22 +49,21 @@ func CalcRequestSize(request *http.Request) int64 {
 		return 0
 	}
 
-	var size int64
-	url := request.URL
-	if url != nil {
+	size := int64(len(request.Method) + len(request.Proto) + len(request.Host))
+
+	// 计算 URL 大小
+	if url := request.URL; url != nil {
 		size += int64(len(url.Scheme) + len(url.Host) + len(url.Path) +
 			len(url.RawQuery) + len(url.Fragment))
 	}
 
-	size += int64(len(request.Method) + len(request.Proto) + len(request.Host))
-
 	// 优化 header 大小计算
 	if headers := request.Header; len(headers) > 0 {
-		var headerSize int
+		headerSize := 0
 		for name, values := range headers {
 			headerSize += len(name)
 			for _, value := range values {
-				headerSize += len(value) + 2
+				headerSize += len(value) + 2 // 2 for ": " separator
 			}
 		}
 		size += int64(headerSize)
@@ -119,81 +118,82 @@ func GenerateRequestBody(context *gin.Context) ([]byte, error) {
 		return conver.StringToBytes("request body is nil"), nil
 	}
 
-	// 获取或创建缓冲区
+	// 尝试从上下文获取已存在的缓冲区
 	var reqBodyBuffer *bytes.Buffer
 	if buffer, exists := context.Get(com.RequestBodyBufferKey); exists {
 		if buf, ok := buffer.(*bytes.Buffer); ok {
+			if buf.Len() > 0 {
+				return buf.Bytes(), nil
+			}
 			reqBodyBuffer = buf
-		} else {
-			reqBodyBuffer = bufferPool.Get().(*bytes.Buffer)
-			context.Set(com.RequestBodyBufferKey, reqBodyBuffer)
+			reqBodyBuffer.Reset()
 		}
-	} else {
-		reqBodyBuffer = bufferPool.Get().(*bytes.Buffer)
-		context.Set(com.RequestBodyBufferKey, reqBodyBuffer)
 	}
 
-	// 如果缓冲区已有数据，直接返回
-	if reqBodyBuffer.Len() > 0 {
-		return reqBodyBuffer.Bytes(), nil
+	// 如果没有现有缓冲区，从池中获取一个
+	if reqBodyBuffer == nil {
+		reqBodyBuffer = bufferPool.Get().(*bytes.Buffer)
+		reqBodyBuffer.Reset()
+		defer func() {
+			context.Set(com.RequestBodyBufferKey, reqBodyBuffer)
+		}()
 	}
 
 	// 读取请求体
-	body, err := io.ReadAll(context.Request.Body)
+	_, err := io.Copy(reqBodyBuffer, context.Request.Body)
 	if err != nil {
 		return conver.StringToBytes("failed to get request body"), err
 	}
 
-	// 写入缓冲区
-	if _, err := reqBodyBuffer.Write(body); err != nil {
-		context.Request.Body = io.NopCloser(bytes.NewBuffer(body))
-		return body, nil
-	}
+	// 重置请求体以供后续读取
+	bodyData := reqBodyBuffer.Bytes()
+	context.Request.Body = io.NopCloser(bytes.NewReader(bodyData))
 
-	context.Request.Body = io.NopCloser(reqBodyBuffer)
-	return reqBodyBuffer.Bytes(), nil
+	return bodyData, nil
 }
 
 // ParseRequestBody 解析请求体。
 // ParseRequestBody parses the request body.
 func ParseRequestBody(context *gin.Context, value interface{}, emptyRequestBodyContent bool) error {
-	// 验证基本参数
-	// Validate basic parameters
-	if context == nil {
-		return ErrorContextIsNil
-	}
+	// 快速参数验证
 	if value == nil {
 		return ErrorValueIsNil
 	}
 
-	// 获取并验证内容类型
-	// Get and validate content type
-	contentType := context.ContentType()
+	if context == nil {
+		return ErrorContextIsNil
+	}
+
+	// 获取并验证内容类型（使用 Header.Get 直接获取，避免额外的字符串处理）
+	contentType := context.Request.Header.Get(com.HttpHeaderContentType)
 	if contentType == "" {
 		return ErrorContentTypeIsEmpty
 	}
 
-	// 尝试绑定请求体到目标结构
-	// Try to bind request body to target structure
+	// 尝试直接绑定请求体到目标结构
 	if err := context.ShouldBind(value); err == nil {
 		return nil
 	}
 
-	// 处理空请求体的情况
-	// Handle empty request body case
-	if emptyRequestBodyContent {
-		// 生成请求体
-		// Generate request body
-		body, err := GenerateRequestBody(context)
-		if err != nil {
-			return ErrorGenerateBody
-		}
+	// 仅在需要处理空请求体时执行以下逻辑
+	if !emptyRequestBodyContent {
+		return ErrorBindRequestBody
+	}
 
-		// 如果请求体为空，返回成功
-		// If request body is empty, return success
-		if len(body) == 0 {
-			return nil
-		}
+	// 检查请求体是否为空
+	if context.Request.ContentLength == 0 {
+		return nil
+	}
+
+	// 生成请求体（仅在必要时）
+	body, err := GenerateRequestBody(context)
+	if err != nil {
+		return ErrorGenerateBody
+	}
+
+	// 如果请求体为空，返回成功
+	if len(body) == 0 {
+		return nil
 	}
 
 	return ErrorBindRequestBody
