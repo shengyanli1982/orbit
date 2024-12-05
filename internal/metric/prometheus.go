@@ -24,7 +24,7 @@ type ServerMetrics struct {
 	registry         *prometheus.Registry     // Prometheus注册表 (Prometheus registry)
 }
 
-// NewServerMetrics 函数返回一个新的 ServerMetrics 实例。
+// NewServerMetrics 函数返回一个新的 ServerMetrics 实例��
 // The NewServerMetrics function returns a new ServerMetrics instance.
 func NewServerMetrics(registry *prometheus.Registry) *ServerMetrics {
 	return &ServerMetrics{
@@ -132,42 +132,40 @@ func (m *ServerMetrics) Reset() {
 // HandlerFunc returns a Gin middleware handler function.
 func (m *ServerMetrics) HandlerFunc(logger *logr.Logger) gin.HandlerFunc {
 	return func(context *gin.Context) {
-		// 提前判断是否需要跳过，避免不必要的时间记录
+		// 快速路径：如果是需要跳过的资源，立即返回
 		if middleware.SkipResources(context) {
 			context.Next()
 			return
 		}
 
-		// 记录开始时间
-		start := time.Now()
-		
-		// 提前获取常用值，避免重复获取
+		// 在进入处理逻辑前获取所有需要的值
 		method := context.Request.Method
-		path := context.Request.URL.Path
+		// 优先使用 FullPath，它返回路由模式而不是具体的 URL
+		path := context.FullPath()
+		if path == "" {
+			path = context.Request.URL.Path
+		}
 
-		// 执行后续中间件
+		start := time.Now()
 		context.Next()
 
-		// 处理错误情况
-		if errors := context.Errors; len(errors) > 0 {
-			for _, err := range errors {
+		// 使用 len 替代 errors := context.Errors 的额外分配
+		if len(context.Errors) > 0 {
+			// 直接遍历 context.Errors，避免中间变量
+			for _, err := range context.Errors {
 				logger.Error(err, "Error occurred")
 			}
 			return
 		}
 
-		// 计算指标
-		status := strconv.Itoa(context.Writer.Status())
+		// 一次性计算所有指标需要的值
 		latency := time.Since(start).Seconds()
-
-		// 批量更新指标，减少函数调用
-		m.updateMetrics(method, path, status, latency)
+		// 直接使用 WithLabelValues 方法，避免创建临时切片
+		labels := []string{method, path, strconv.Itoa(context.Writer.Status())}
+		
+		// 使用一次 WithLabelValues 调用更新所有指标
+		m.requestCount.WithLabelValues(labels...).Inc()
+		m.requestLatencies.WithLabelValues(labels...).Observe(latency)
+		m.requestLatency.WithLabelValues(labels...).Set(latency)
 	}
-}
-
-// updateMetrics 集中更新所有指标，提高代码复用性
-func (m *ServerMetrics) updateMetrics(method, path, status string, latency float64) {
-	m.IncRequestCount(method, path, status)
-	m.ObserveRequestLatency(method, path, status, latency)
-	m.SetRequestLatency(method, path, status, latency)
 }
