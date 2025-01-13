@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMultiSizeBufferPool(t *testing.T) {
@@ -199,5 +200,142 @@ func BenchmarkGetSizeClassIndex(b *testing.B) {
 			size := sizes[r.Intn(len(sizes))]
 			_ = pool.getSizeClassIndex(size)
 		}
+	})
+}
+
+func TestMultiSizeBufferPool_EdgeCases(t *testing.T) {
+	pool := NewMultiSizeBufferPool()
+	require := require.New(t)
+
+	tests := []struct {
+		name     string
+		size     uint32
+		expected uint32
+	}{
+		{"Zero Size", 0, SizeClass2KiB},                 // 测试 0 大小
+		{"1 Byte", 1, SizeClass2KiB},                    // 测试最小值
+		{"2047 Bytes", 2047, SizeClass2KiB},             // 测试 2KiB-1
+		{"2048 Bytes", 2048, SizeClass2KiB},             // 测试 2KiB
+		{"2049 Bytes", 2049, SizeClass8KiB},             // 测试 2KiB+1
+		{"Just Below 8KiB", 8191, SizeClass8KiB},        // 测试 8KiB-1
+		{"Exact 8KiB", 8192, SizeClass8KiB},             // 测试 8KiB
+		{"Just Above 8KiB", 8193, SizeClass32KiB},       // 测试 8KiB+1
+		{"Just Below 512KiB", 524287, SizeClass512KiB},  // 测试 512KiB-1
+		{"Exact 512KiB", 524288, SizeClass512KiB},       // 测试 512KiB
+		{"Just Above 512KiB", 524289, SizeClass1MiB},    // 测试 512KiB+1
+		{"Just Below 1MiB", 1048575, SizeClass1MiB},     // 测试 1MiB-1
+		{"Exact 1MiB", 1048576, SizeClass1MiB},          // 测试 1MiB
+		{"Above 1MiB", 1048577, SizeClass1MiB},          // 测试超过 1MiB
+		{"Way Above 1MiB", 2 * 1048576, SizeClass1MiB},  // 测试远超 1MiB
+		{"Max uint32/2", ^uint32(0) / 2, SizeClass1MiB}, // 测试 uint32 最大值的一半
+		{"Max uint32", ^uint32(0), SizeClass1MiB},       // 测试 uint32 最大值
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// 测试 Get
+			buf := pool.Get(tt.size)
+			require.NotNil(buf, "Buffer should not be nil")
+			require.GreaterOrEqual(buf.Cap(), int(tt.expected),
+				"Buffer capacity should be greater than or equal to expected size")
+
+			// 测试写入对应大小的数据
+			data := make([]byte, tt.size)
+			n, err := buf.Write(data)
+			require.NoError(err, "Write should not error")
+			require.Equal(int(tt.size), n, "Should write all bytes")
+
+			// 测试 Put
+			pool.Put(buf)
+		})
+	}
+
+	// 测试 nil buffer
+	t.Run("Nil Buffer", func(t *testing.T) {
+		pool.Put(nil) // 不应该 panic
+	})
+
+	// 测试并发安全性
+	t.Run("Concurrent Access", func(t *testing.T) {
+		const goroutines = 100
+		var wg sync.WaitGroup
+		wg.Add(goroutines)
+
+		for i := 0; i < goroutines; i++ {
+			go func(i int) {
+				defer wg.Done()
+				size := uint32(i % 1048577) // 0 到 1MiB+1 范围内的值
+				buf := pool.Get(size)
+				require.NotNil(buf)
+				pool.Put(buf)
+			}(i)
+		}
+
+		wg.Wait()
+	})
+
+	// 测试重复获取和归还
+	t.Run("Repeated Get and Put", func(t *testing.T) {
+		for i := 0; i < 1000; i++ {
+			size := uint32(i % 1048577)
+			buf := pool.Get(size)
+			require.NotNil(buf)
+
+			// 写入一些数据
+			data := []byte("test data")
+			_, err := buf.Write(data)
+			require.NoError(err)
+
+			// 确保数据正确
+			require.Equal("test data", buf.String())
+
+			// 归还并确保被重置
+			pool.Put(buf)
+		}
+	})
+}
+
+// 测试在高负载下的行为
+func TestMultiSizeBufferPool_HighLoad(t *testing.T) {
+	pool := NewMultiSizeBufferPool()
+	require := require.New(t)
+
+	// 模拟高负载场景
+	t.Run("High Load Test", func(t *testing.T) {
+		const (
+			goroutines = 50
+			iterations = 1000
+		)
+
+		var wg sync.WaitGroup
+		wg.Add(goroutines)
+
+		for g := 0; g < goroutines; g++ {
+			go func() {
+				defer wg.Done()
+
+				buffers := make([]*bytes.Buffer, 0, iterations/10)
+				for i := 0; i < iterations; i++ {
+					// 随机大小请求
+					size := uint32(rand.Intn(1048577)) // 0 到 1MiB
+					buf := pool.Get(size)
+					require.NotNil(buf)
+
+					// 随机决定是立即归还还是稍后归还
+					if rand.Float32() < 0.9 { // 90% 立即归还
+						pool.Put(buf)
+					} else { // 10% 稍后归还
+						buffers = append(buffers, buf)
+					}
+				}
+
+				// 归还所有剩余的 buffer
+				for _, buf := range buffers {
+					pool.Put(buf)
+				}
+			}()
+		}
+
+		wg.Wait()
 	})
 }
