@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"sync"
 
 	"github.com/gin-gonic/gin"
 	com "github.com/shengyanli1982/orbit/common"
@@ -33,13 +32,6 @@ var contentTypes = []string{
 	com.HttpHeaderPXMLContentTypeValue,       // PXML内容类型 (PXML content type)
 	com.HttpHeaderYAMLContentTypeValue,       // YAML内容类型 (YAML content type)
 	com.HttpHeaderTOMLContentTypeValue,       // TOML内容类型 (TOML content type)
-}
-
-// 使用 sync.Pool 复用缓冲区
-var bufferPool = sync.Pool{
-	New: func() interface{} {
-		return bytes.NewBuffer(make([]byte, 0, 4096)) // 预分配 4KB 缓冲区
-	},
 }
 
 // CalcRequestSize 计算HTTP请求的总大小（以字节为单位）。
@@ -132,7 +124,7 @@ func GenerateRequestBody(context *gin.Context) ([]byte, error) {
 
 	// 如果没有现有缓冲区，从池中获取一个
 	if reqBodyBuffer == nil {
-		reqBodyBuffer = bufferPool.Get().(*bytes.Buffer)
+		reqBodyBuffer = com.RequestBodyBufferPool.Get()
 		reqBodyBuffer.Reset()
 		defer func() {
 			context.Set(com.RequestBodyBufferKey, reqBodyBuffer)
