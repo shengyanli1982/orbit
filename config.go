@@ -14,6 +14,7 @@ var (
 	defaultHttpListenAddress = com.DefaultHttpListenAddress     // 默认HTTP监听地址
 	defaultHttpListenPort    = com.DefaultHttpListenPort        // 默认HTTP监听端口
 	defaultIdleTimeout       = com.DefaultHttpIdleTimeoutMillis // 默认空闲超时时间（毫秒）
+	defaultMaxHeaderBytes    = com.DefaultMaxHeaderBytes        // 默认最大头部字节数
 )
 
 // Config 结构体定义了服务器的配置选项
@@ -42,7 +43,7 @@ func NewConfig() *Config {
 		HttpWriteTimeout:      defaultIdleTimeout,
 		HttpReadHeaderTimeout: defaultIdleTimeout,
 		HttpIdleTimeout:       defaultIdleTimeout,
-		MaxHeaderBytes:        defaultIdleTimeout,
+		MaxHeaderBytes:        uint32(defaultMaxHeaderBytes),
 		logger:                &com.DefaultLogrLogger,
 		accessLogEventFunc:    log.DefaultAccessEventFunc,
 		recoveryLogEventFunc:  log.DefaultRecoveryEventFunc,

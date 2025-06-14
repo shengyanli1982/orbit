@@ -71,6 +71,8 @@ go get github.com/shengyanli1982/orbit
 -   `WithHttpReadTimeout` - HTTP 服务器读取超时时间（默认值：`15s`）。
 -   `WithHttpWriteTimeout` - HTTP 服务器写入超时时间（默认值：`15s`）。
 -   `WithHttpReadHeaderTimeout` - HTTP 服务器读取请求头超时时间（默认值：`15s`）。
+-   `WithHttpIdleTimeout` - HTTP 服务器空闲超时时间（默认值：`15s`）。
+-   `WithMaxHeaderBytes` - HTTP 服务器最大头部字节数（默认值：`2MB`）。
 -   `WithAccessLogEventFunc` - HTTP 服务器访问日志事件函数（默认值：`DefaultAccessEventFunc`）。
 -   `WithRecoveryLogEventFunc` - HTTP 服务器恢复日志事件函数（默认值：`DefaultRecoveryEventFunc`）。
 -   `WithPrometheusRegistry` - HTTP 服务器 Prometheus 注册器（默认值：`prometheus.DefaultRegister`）。
