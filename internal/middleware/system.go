@@ -44,26 +44,32 @@ func Cors() gin.HandlerFunc {
 // The AccessLogger function returns a Gin middleware that logs access information.
 func AccessLogger(logger *logr.Logger, logEventFunc com.LogEventFunc, record bool) gin.HandlerFunc {
 	return func(context *gin.Context) {
-		var requestBody []byte
+		// 预先获取所有需要的值，避免重复获取
 		req := context.Request
 		header := req.Header
+		clientIP := context.ClientIP()
+		method := req.Method
+		path := httptool.GenerateRequestPath(context)
+		requestContentType := httptool.StringFilterFlags(header.Get(com.HttpHeaderContentType))
+		requestID := header.Get(com.HttpHeaderRequestID)
+		userAgent := req.UserAgent()
+		remoteAddr := req.RemoteAddr
+		rawQuery := req.URL.RawQuery
 
-		// 使用 defer 确保资源清理
-		defer context.Set(com.RequestLoggerKey, nil)
-
+		// 设置请求日志记录器
 		context.Set(com.RequestLoggerKey, logger)
 		start := time.Now()
 
-		// 提前获取常用值，避免重复获取
-		path := httptool.GenerateRequestPath(context)
-		requestContentType := httptool.StringFilterFlags(header.Get(com.HttpHeaderContentType))
-
 		// 只在需要时才记录请求体
+		var requestBody []byte
 		if record && httptool.CanRecordContextBody(header) {
 			requestBody, _ = httptool.GenerateRequestBody(context)
 		}
 
 		context.Next()
+
+		// 使用 defer 确保资源清理
+		defer context.Set(com.RequestLoggerKey, nil)
 
 		// 错误处理优化
 		if errs := context.Errors; len(errs) > 0 {
@@ -77,19 +83,19 @@ func AccessLogger(logger *logr.Logger, logEventFunc com.LogEventFunc, record boo
 		event := com.LogEventPool.Get()
 		defer com.LogEventPool.Put(event)
 
-		// 使用指针方式设置字段，减少值拷贝
+		// 一次性设置所有字段
 		event.Message = "http server access log"
-		event.ID = header.Get(com.HttpHeaderRequestID)
-		event.IP = context.ClientIP()
-		event.EndPoint = req.RemoteAddr
+		event.ID = requestID
+		event.IP = clientIP
+		event.EndPoint = remoteAddr
 		event.Path = path
-		event.Method = req.Method
+		event.Method = method
 		event.Code = context.Writer.Status()
 		event.Status = http.StatusText(event.Code)
 		event.Latency = time.Since(start).String()
-		event.Agent = req.UserAgent()
+		event.Agent = userAgent
 		event.ReqContentType = requestContentType
-		event.ReqQuery = req.URL.RawQuery
+		event.ReqQuery = rawQuery
 		event.ReqBody = conver.BytesToString(requestBody)
 
 		logEventFunc(logger, event)
@@ -102,6 +108,20 @@ func Recovery(logger *logr.Logger, logEventFunc com.LogEventFunc) gin.HandlerFun
 	return func(context *gin.Context) {
 		defer func() {
 			if err := recover(); err != nil {
+				// 预先获取所有需要的值，避免重复获取
+				req := context.Request
+				clientIP := context.ClientIP()
+				method := req.Method
+				path := httptool.GenerateRequestPath(context)
+				requestID := context.GetHeader(com.HttpHeaderRequestID)
+				userAgent := req.UserAgent()
+				remoteAddr := req.RemoteAddr
+				requestContentType := httptool.StringFilterFlags(
+					req.Header.Get(com.HttpHeaderContentType),
+				)
+				rawQuery := req.URL.RawQuery
+				status := context.Writer.Status()
+
 				var brokenPipe bool
 
 				// 使用类型断言优化
@@ -130,21 +150,20 @@ func Recovery(logger *logr.Logger, logEventFunc com.LogEventFunc) gin.HandlerFun
 
 				// 从对象池获取事件对象
 				event := com.LogEventPool.Get()
+				defer com.LogEventPool.Put(event)
 
-				// 使用指针方式设置字段，减少值拷贝
+				// 一次性设置所有字段
 				event.Message = "http server recovery from panic"
-				event.ID = context.GetHeader(com.HttpHeaderRequestID)
-				event.IP = context.ClientIP()
-				event.EndPoint = context.Request.RemoteAddr
-				event.Path = httptool.GenerateRequestPath(context)
-				event.Method = context.Request.Method
-				event.Code = context.Writer.Status()
-				event.Status = http.StatusText(event.Code)
-				event.Agent = context.Request.UserAgent()
-				event.ReqContentType = httptool.StringFilterFlags(
-					context.Request.Header.Get(com.HttpHeaderContentType),
-				)
-				event.ReqQuery = context.Request.URL.RawQuery
+				event.ID = requestID
+				event.IP = clientIP
+				event.EndPoint = remoteAddr
+				event.Path = path
+				event.Method = method
+				event.Code = status
+				event.Status = http.StatusText(status)
+				event.Agent = userAgent
+				event.ReqContentType = requestContentType
+				event.ReqQuery = rawQuery
 
 				// 只在需要时才生成请求体
 				if body, err := httptool.GenerateRequestBody(context); err == nil {
@@ -156,11 +175,15 @@ func Recovery(logger *logr.Logger, logEventFunc com.LogEventFunc) gin.HandlerFun
 
 				logEventFunc(logger, event)
 
-				// 使用预定义的错误信息和 + 运算符优化字符串拼接
+				// 使用 strings.Builder 替代 + 运算符进行字符串拼接
+				var sb strings.Builder
+				sb.WriteString("[500] http server internal error, method: ")
+				sb.WriteString(method)
+				sb.WriteString(", path: ")
+				sb.WriteString(req.URL.Path)
+
 				context.AbortWithStatus(http.StatusInternalServerError)
-				errorMsg := "[500] http server internal error, method: " +
-					context.Request.Method + ", path: " + context.Request.URL.Path
-				context.String(http.StatusInternalServerError, errorMsg)
+				context.String(http.StatusInternalServerError, sb.String())
 			}
 		}()
 

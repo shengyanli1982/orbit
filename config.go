@@ -12,9 +12,9 @@ import (
 // 默认配置值
 // Default configuration values
 var (
-	defaultHttpListenAddress = "127.0.0.1"   // 默认HTTP监听地址 (Default HTTP listen address)
-	defaultHttpListenPort    = uint16(8080)  // 默认HTTP监听端口 (Default HTTP listen port)
-	defaultIdleTimeout       = uint32(15000) // 默认空闲超时时间（毫秒） (Default idle timeout in milliseconds)
+	defaultHttpListenAddress = com.DefaultHttpListenAddress     // 默认HTTP监听地址 (Default HTTP listen address)
+	defaultHttpListenPort    = com.DefaultHttpListenPort        // 默认HTTP监听端口 (Default HTTP listen port)
+	defaultIdleTimeout       = com.DefaultHttpIdleTimeoutMillis // 默认空闲超时时间（毫秒） (Default idle timeout in milliseconds)
 )
 
 // Config 结构体定义了服务器的配置选项
@@ -26,6 +26,8 @@ type Config struct {
 	HttpReadTimeout       uint32               `json:"httpReadTimeout,omitempty" yaml:"httpReadTimeout,omitempty"`             // HTTP读取超时时间 (HTTP read timeout)
 	HttpWriteTimeout      uint32               `json:"httpWriteTimeout,omitempty" yaml:"httpWriteTimeout,omitempty"`           // HTTP写入超时时间 (HTTP write timeout)
 	HttpReadHeaderTimeout uint32               `json:"httpReadHeaderTimeout,omitempty" yaml:"httpReadHeaderTimeout,omitempty"` // HTTP读取头部超时时间 (HTTP read header timeout)
+	HttpIdleTimeout       uint32               `json:"httpIdleTimeout,omitempty" yaml:"httpIdleTimeout,omitempty"`             // HTTP空闲超时时间 (HTTP idle timeout)
+	MaxHeaderBytes        uint32               `json:"maxHeaderBytes,omitempty" yaml:"maxHeaderBytes,omitempty"`               // HTTP最大头部字节数 (HTTP maximum header bytes)
 	logger                *logr.Logger         `json:"-" yaml:"-"`                                                             // 日志记录器 (Logger instance)
 	accessLogEventFunc    com.LogEventFunc     `json:"-" yaml:"-"`                                                             // 访问日志事件处理函数 (Access log event handler function)
 	recoveryLogEventFunc  com.LogEventFunc     `json:"-" yaml:"-"`                                                             // 恢复日志事件处理函数 (Recovery log event handler function)
@@ -42,6 +44,8 @@ func NewConfig() *Config {
 		HttpReadTimeout:       defaultIdleTimeout,
 		HttpWriteTimeout:      defaultIdleTimeout,
 		HttpReadHeaderTimeout: defaultIdleTimeout,
+		HttpIdleTimeout:       defaultIdleTimeout,
+		MaxHeaderBytes:        defaultIdleTimeout,
 		logger:                &com.DefaultLogrLogger,
 		accessLogEventFunc:    log.DefaultAccessEventFunc,
 		recoveryLogEventFunc:  log.DefaultRecoveryEventFunc,
@@ -70,7 +74,7 @@ func (c *Config) WithPort(port uint16) *Config {
 	return c
 }
 
-// WithRelease 方法启用发布���式
+// WithRelease 方法启用发布模式
 // The WithRelease method enables release mode
 func (c *Config) WithRelease() *Config {
 	c.ReleaseMode = true
@@ -95,6 +99,20 @@ func (c *Config) WithHttpWriteTimeout(timeout uint32) *Config {
 // The WithHttpReadHeaderTimeout method sets the HTTP read header timeout
 func (c *Config) WithHttpReadHeaderTimeout(timeout uint32) *Config {
 	c.HttpReadHeaderTimeout = timeout
+	return c
+}
+
+// WithHttpIdleTimeout 方法设置HTTP空闲超时时间
+// The WithHttpIdleTimeout method sets the HTTP idle timeout
+func (c *Config) WithHttpIdleTimeout(timeout uint32) *Config {
+	c.HttpIdleTimeout = timeout
+	return c
+}
+
+// WithMaxHeaderBytes 方法设置HTTP最大头部字节数
+// The WithMaxHeaderBytes method sets the HTTP maximum header bytes
+func (c *Config) WithMaxHeaderBytes(bytes uint32) *Config {
+	c.MaxHeaderBytes = bytes
 	return c
 }
 
@@ -157,6 +175,12 @@ func isConfigValid(conf *Config) *Config {
 	}
 	if conf.HttpReadHeaderTimeout == 0 {
 		conf.HttpReadHeaderTimeout = defaultConf.HttpReadHeaderTimeout
+	}
+	if conf.HttpIdleTimeout == 0 {
+		conf.HttpIdleTimeout = defaultConf.HttpIdleTimeout
+	}
+	if conf.MaxHeaderBytes == 0 {
+		conf.MaxHeaderBytes = defaultConf.MaxHeaderBytes
 	}
 
 	// 验证并设置日志和事件处理配置

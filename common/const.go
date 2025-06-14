@@ -98,3 +98,27 @@ const RequestOK = "success"
 // LogEventFunc 表示一个用于记录事件的函数。
 // LogEventFunc represents a function for logging events.
 type LogEventFunc func(logger *logr.Logger, event *log.LogEvent)
+
+// HTTP 服务器默认配置常量
+// HTTP server default configuration constants
+const (
+	// DefaultShutdownTimeoutSeconds 是服务器关闭的默认超时时间（秒）
+	// DefaultShutdownTimeoutSeconds is the default timeout for server shutdown (in seconds)
+	DefaultShutdownTimeoutSeconds = 10
+
+	// DefaultMaxHeaderBytes 是 HTTP 请求头的默认最大字节数 (1MB)
+	// DefaultMaxHeaderBytes is the default maximum bytes for HTTP request headers (1MB)
+	DefaultMaxHeaderBytes int = 1 << 20
+
+	// DefaultHttpIdleTimeoutMillis 是 HTTP 连接的默认空闲超时时间（毫秒）
+	// DefaultHttpIdleTimeoutMillis is the default idle timeout for HTTP connections (in milliseconds)
+	DefaultHttpIdleTimeoutMillis uint32 = 15000
+
+	// DefaultHttpListenAddress 是默认的 HTTP 监听地址
+	// DefaultHttpListenAddress is the default HTTP listen address
+	DefaultHttpListenAddress = "127.0.0.1"
+
+	// DefaultHttpListenPort 是默认的 HTTP 监听端口
+	// DefaultHttpListenPort is the default HTTP listen port
+	DefaultHttpListenPort uint16 = 8080
+)

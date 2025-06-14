@@ -2,6 +2,7 @@ package metric
 
 import (
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -15,6 +16,14 @@ import (
 // metricLabels contains the labels of the metrics.
 var metricLabels = []string{"method", "path", "status"}
 
+// DefaultMetricsPath 是默认的 Prometheus 指标路径
+// DefaultMetricsPath is the default Prometheus metrics path
+const DefaultMetricsPath = com.PromMetricURLPath
+
+// DefaultMetricsPort 是默认的 Prometheus 指标端口
+// DefaultMetricsPort is the default Prometheus metrics port
+const DefaultMetricsPort = "9090"
+
 // ServerMetrics 结构体包含了请求计数器、请求延迟直方图、请求延迟仪表盘和 Prometheus 注册表。
 // The ServerMetrics struct contains a request counter, request latency histogram, request latency gauge, and Prometheus registry.
 type ServerMetrics struct {
@@ -22,9 +31,10 @@ type ServerMetrics struct {
 	requestLatencies *prometheus.HistogramVec // 请求延迟直方图 (request latency histogram)
 	requestLatency   *prometheus.GaugeVec     // 请求延迟仪表盘 (request latency gauge)
 	registry         *prometheus.Registry     // Prometheus注册表 (Prometheus registry)
+	labelCache       *sync.Map                // 标签缓存 (label cache)
 }
 
-// NewServerMetrics 函数返回一个新的 ServerMetrics 实例��
+// NewServerMetrics 函数返回一个新的 ServerMetrics 实例。
 // The NewServerMetrics function returns a new ServerMetrics instance.
 func NewServerMetrics(registry *prometheus.Registry) *ServerMetrics {
 	return &ServerMetrics{
@@ -65,6 +75,10 @@ func NewServerMetrics(registry *prometheus.Registry) *ServerMetrics {
 		// Prometheus 注册表用于注册和收集度量标准。
 		// The Prometheus registry is used to register and collect metrics.
 		registry: registry,
+
+		// 初始化标签缓存
+		// Initialize label cache
+		labelCache: &sync.Map{},
 	}
 }
 
@@ -126,6 +140,7 @@ func (m *ServerMetrics) Reset() {
 	m.requestCount.Reset()     // 重置请求计数器 (Reset request counter)
 	m.requestLatencies.Reset() // 重置请求延迟直方图 (Reset request latency histogram)
 	m.requestLatency.Reset()   // 重置请求延迟仪表盘 (Reset request latency gauge)
+	m.labelCache = &sync.Map{} // 重置标签缓存 (Reset label cache)
 }
 
 // HandlerFunc 返回一个 Gin 中间件处理函数。
@@ -146,6 +161,9 @@ func (m *ServerMetrics) HandlerFunc(logger *logr.Logger) gin.HandlerFunc {
 			path = context.Request.URL.Path
 		}
 
+		// 生成缓存键
+		cacheKey := method + ":" + path
+
 		start := time.Now()
 		context.Next()
 
@@ -158,11 +176,23 @@ func (m *ServerMetrics) HandlerFunc(logger *logr.Logger) gin.HandlerFunc {
 			return
 		}
 
+		// 获取状态码
+		status := strconv.Itoa(context.Writer.Status())
+
+		// 尝试从缓存获取标签值
+		var labels []string
+		cacheKeyWithStatus := cacheKey + ":" + status
+		if cachedLabels, ok := m.labelCache.Load(cacheKeyWithStatus); ok {
+			labels = cachedLabels.([]string)
+		} else {
+			// 创建新的标签值并缓存
+			labels = []string{method, path, status}
+			m.labelCache.Store(cacheKeyWithStatus, labels)
+		}
+
 		// 一次性计算所有指标需要的值
 		latency := time.Since(start).Seconds()
-		// 直接使用 WithLabelValues 方法，避免创建临时切片
-		labels := []string{method, path, strconv.Itoa(context.Writer.Status())}
-		
+
 		// 使用一次 WithLabelValues 调用更新所有指标
 		m.requestCount.WithLabelValues(labels...).Inc()
 		m.requestLatencies.WithLabelValues(labels...).Observe(latency)

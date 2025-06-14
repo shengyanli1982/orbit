@@ -3,6 +3,7 @@ package pool
 import (
 	"bytes"
 	"sync"
+	"sync/atomic"
 )
 
 // # GC 影响：
@@ -22,6 +23,10 @@ const (
 	// DefaultMaxCapacity 是缓冲区的默认最大容量 (1MB)
 	// DefaultMaxCapacity is the default maximum capacity of buffer (1MB)
 	DefaultMaxCapacity = 1 << 20
+
+	// DefaultPrewarmCount 是预热时每个大小创建的缓冲区数量
+	// DefaultPrewarmCount is the number of buffers to create for each size during prewarming
+	DefaultPrewarmCount = 10
 )
 
 // ceilToPowerOfTwo 将一个数向上取整到最接近的2的幂
@@ -46,6 +51,10 @@ func ceilToPowerOfTwo(n uint32) uint32 {
 type BufferPool struct {
 	pool        sync.Pool // 对象池，用于存储和复用 buffer
 	maxCapacity uint32    // buffer 的最大容量限制
+	initSize    uint32    // buffer 的初始大小
+	stats       sync.Map  // 用于记录不同大小缓冲区的使用情况
+	gets        uint64    // 获取操作计数
+	puts        uint64    // 放回操作计数
 }
 
 // NewBufferPool 创建一个新的 BufferPool 实例
@@ -66,7 +75,7 @@ func NewBufferPool(initSize uint32) *BufferPool {
 		maxCapacity = ceilToPowerOfTwo(initSize * 2)
 	}
 
-	return &BufferPool{
+	bp := &BufferPool{
 		pool: sync.Pool{
 			New: func() interface{} {
 				// 创建一个新的 buffer，初始容量为 initSize
@@ -75,12 +84,52 @@ func NewBufferPool(initSize uint32) *BufferPool {
 			},
 		},
 		maxCapacity: maxCapacity,
+		initSize:    initSize,
+	}
+
+	// 预热缓冲池，创建一些常用大小的缓冲区
+	// Prewarm the buffer pool by creating buffers of commonly used sizes
+	bp.Prewarm()
+
+	return bp
+}
+
+// Prewarm 预热缓冲池，创建一些常用大小的缓冲区
+// Prewarm preheats the buffer pool by creating buffers of commonly used sizes
+func (p *BufferPool) Prewarm() {
+	// 预创建一些不同大小的缓冲区
+	// Pre-create buffers of different sizes
+	sizes := []uint32{
+		p.initSize,     // 初始大小
+		p.initSize * 2, // 2倍初始大小
+		p.initSize * 4, // 4倍初始大小
+		p.initSize * 8, // 8倍初始大小
+	}
+
+	// 确保所有预热大小都不超过最大容量
+	// Ensure all prewarm sizes do not exceed the maximum capacity
+	for i, size := range sizes {
+		if size > p.maxCapacity {
+			sizes = sizes[:i]
+			break
+		}
+	}
+
+	// 为每个大小创建多个缓冲区
+	// Create multiple buffers for each size
+	for _, size := range sizes {
+		for i := 0; i < DefaultPrewarmCount; i++ {
+			buf := bytes.NewBuffer(make([]byte, 0, size))
+			p.pool.Put(buf)
+		}
 	}
 }
 
 // Get 从池中获取一个 bytes.Buffer 对象
 // Get retrieves a bytes.Buffer object from the pool
 func (p *BufferPool) Get() *bytes.Buffer {
+	// 增加获取操作计数
+	atomic.AddUint64(&p.gets, 1)
 	return p.pool.Get().(*bytes.Buffer)
 }
 
@@ -91,6 +140,18 @@ func (p *BufferPool) Put(buf *bytes.Buffer) {
 	// Quick return: if buffer is nil, return directly
 	if buf == nil {
 		return
+	}
+
+	// 增加放回操作计数
+	atomic.AddUint64(&p.puts, 1)
+
+	// 记录当前缓冲区容量的使用情况
+	// Record usage statistics for the current buffer capacity
+	cap := uint32(buf.Cap())
+	if v, ok := p.stats.Load(cap); ok {
+		p.stats.Store(cap, v.(int)+1)
+	} else {
+		p.stats.Store(cap, 1)
 	}
 
 	// 容量检查：如果 buffer 容量超过最大限制，直接丢弃
@@ -109,4 +170,27 @@ func (p *BufferPool) Put(buf *bytes.Buffer) {
 // GetMaxCapacity returns the maximum capacity limit of the pool
 func (p *BufferPool) GetMaxCapacity() uint32 {
 	return p.maxCapacity
+}
+
+// GetInitSize 返回当前池的初始缓冲区大小
+// GetInitSize returns the initial buffer size of the pool
+func (p *BufferPool) GetInitSize() uint32 {
+	return p.initSize
+}
+
+// GetStats 返回缓冲池的使用统计信息
+// GetStats returns usage statistics of the buffer pool
+func (p *BufferPool) GetStats() map[uint32]int {
+	stats := make(map[uint32]int)
+	p.stats.Range(func(key, value interface{}) bool {
+		stats[key.(uint32)] = value.(int)
+		return true
+	})
+	return stats
+}
+
+// GetUsage 返回缓冲池的使用情况
+// GetUsage returns the usage of the buffer pool
+func (p *BufferPool) GetUsage() (gets, puts uint64) {
+	return atomic.LoadUint64(&p.gets), atomic.LoadUint64(&p.puts)
 }

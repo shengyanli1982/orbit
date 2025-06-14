@@ -3,8 +3,8 @@ package orbit
 import (
 	"context"
 	"fmt"
-	"math"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -19,7 +19,11 @@ import (
 
 // 默认的服务器关闭超时时间
 // Default server shutdown timeout
-var defaultShutdownTimeout = 10 * time.Second
+var defaultShutdownTimeout = time.Second * com.DefaultShutdownTimeoutSeconds
+
+// defaultHttpIdleTimeoutSeconds 是 HTTP 连接的默认空闲超时时间（秒）
+// defaultHttpIdleTimeoutSeconds is the default idle timeout for HTTP connections (in seconds)
+const defaultHttpIdleTimeoutSeconds = int(com.DefaultHttpIdleTimeoutMillis / 1000)
 
 // Service 接口定义了注册路由组的方法。
 // The Service interface defines the method for registering router groups.
@@ -108,13 +112,23 @@ func (e *Engine) setupBaseHandlers() {
 	// 设置 404 路由未匹配的处理函数
 	// Set up handler for 404 route not found
 	e.ginSvr.NoRoute(func(c *gin.Context) {
-		c.String(http.StatusNotFound, "[404] http request route mismatch, method: "+c.Request.Method+", path: "+c.Request.URL.Path)
+		var sb strings.Builder
+		sb.WriteString("[404] http request route mismatch, method: ")
+		sb.WriteString(c.Request.Method)
+		sb.WriteString(", path: ")
+		sb.WriteString(c.Request.URL.Path)
+		c.String(http.StatusNotFound, sb.String())
 	})
 
 	// 设置 405 方法不允许的处理函数
 	// Set up handler for 405 method not allowed
 	e.ginSvr.NoMethod(func(c *gin.Context) {
-		c.String(http.StatusMethodNotAllowed, "[405] http request method not allowed, method: "+c.Request.Method+", path: "+c.Request.URL.Path)
+		var sb strings.Builder
+		sb.WriteString("[405] http request method not allowed, method: ")
+		sb.WriteString(c.Request.Method)
+		sb.WriteString(", path: ")
+		sb.WriteString(c.Request.URL.Path)
+		c.String(http.StatusMethodNotAllowed, sb.String())
 	})
 
 	// 注册基本中间件
@@ -185,14 +199,26 @@ func (e *Engine) Run() {
 // createHTTPServer 方法创建并配置 HTTP 服务器实例。
 // The createHTTPServer method creates and configures an HTTP server instance.
 func (e *Engine) createHTTPServer() *http.Server {
+	// 使用更合理的 MaxHeaderBytes 值，避免使用过大的值
+	maxHeaderBytes := com.DefaultMaxHeaderBytes
+	if e.config.MaxHeaderBytes > 0 {
+		maxHeaderBytes = int(e.config.MaxHeaderBytes)
+	}
+
+	// 设置合理的空闲超时时间
+	idleTimeout := time.Duration(e.config.HttpIdleTimeout) * time.Millisecond
+	if idleTimeout <= 0 {
+		idleTimeout = time.Duration(defaultHttpIdleTimeoutSeconds) * time.Second // 默认 15 秒
+	}
+
 	return &http.Server{
 		Addr:              e.endpoint,                                                       // 服务器监听地址 (Server listen address)
 		Handler:           e.ginSvr,                                                         // Gin 引擎处理器 (Gin engine handler)
 		ReadTimeout:       time.Duration(e.config.HttpReadTimeout) * time.Millisecond,       // 读取超时时间 (Read timeout)
 		ReadHeaderTimeout: time.Duration(e.config.HttpReadHeaderTimeout) * time.Millisecond, // 读取头部超时时间 (Read header timeout)
 		WriteTimeout:      time.Duration(e.config.HttpWriteTimeout) * time.Millisecond,      // 写入超时时间 (Write timeout)
-		IdleTimeout:       0,                                                                // 空闲超时时间，0 表示不限制 (Idle timeout, 0 means no limit)
-		MaxHeaderBytes:    math.MaxUint32,                                                   // 最大头部字节数 (Maximum header bytes)
+		IdleTimeout:       idleTimeout,                                                      // 空闲超时时间 (Idle timeout)
+		MaxHeaderBytes:    maxHeaderBytes,                                                   // 最大头部字节数 (Maximum header bytes)
 		ErrorLog:          ilog.NewStandardLoggerFromLogr(e.config.logger),                  // 错误日志记录器 (Error logger)
 	}
 }
@@ -248,7 +274,7 @@ func (e *Engine) shutdownHTTPServer() {
 
 	// 创建带超时的上下文
 	// Create context with timeout
-	ctx, cancel := context.WithTimeout(context.Background(), defaultShutdownTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*com.DefaultShutdownTimeoutSeconds)
 	defer cancel()
 
 	// 尝试优雅关闭服务器
