@@ -6,119 +6,63 @@ import (
 	"github.com/shengyanli1982/orbit/utils/log"
 )
 
-// OrbitName 是 "orbit" 的常量定义。
-// OrbitName is a constant definition of "orbit".
-
+// OrbitName 是框架的名称
 const OrbitName = "orbit"
 
-// HttpHeaderContentType 表示 Content-Type 的 HTTP 头部键。
-// HttpHeaderContentType represents the HTTP header key for Content-Type.
-const HttpHeaderContentType = "Content-Type"
+// HTTP 头部相关常量
+const (
+	// HTTP 头部键
+	HttpHeaderContentType = "Content-Type"
+	HttpHeaderRequestID   = "X-Request-Id"
 
-// HttpHeaderJSONContentTypeValue 表示 JSON Content-Type 的值。
-// HttpHeaderJSONContentTypeValue represents the value for JSON Content-Type.
-const HttpHeaderJSONContentTypeValue = binding.MIMEJSON
+	// Content-Type 值
+	HttpHeaderJSONContentTypeValue       = binding.MIMEJSON
+	HttpHeaderXMLContentTypeValue        = binding.MIMEXML
+	HttpHeaderPXMLContentTypeValue       = binding.MIMEXML2
+	HttpHeaderYAMLContentTypeValue       = binding.MIMEYAML
+	HttpHeaderTOMLContentTypeValue       = binding.MIMETOML
+	HttpHeaderTextContentTypeValue       = binding.MIMEPlain
+	HttpHeaderJavascriptContentTypeValue = "application/javascript"
+)
 
-// HttpHeaderXMLContentTypeValue 表示 XML Content-Type 的值。
-// HttpHeaderXMLContentTypeValue represents the value for XML Content-Type.
-const HttpHeaderXMLContentTypeValue = binding.MIMEXML
+// URL 路径相关常量
+const (
+	EmptyURLPath       = ""
+	PromMetricURLPath  = "/metrics"
+	HealthCheckURLPath = "/ping"
+	RootURLPath        = "/"
+	SwaggerURLPath     = "/docs"
+	PprofURLPath       = "/debug/pprof"
+)
 
-// HttpHeaderPXMLContentTypeValue 表示 Test XML Content-Type 的值。
-// HttpHeaderPXMLContentTypeValue represents the value for Test XML Content-Type.
-const HttpHeaderPXMLContentTypeValue = binding.MIMEXML2
+// 请求相关常量
+const (
+	// 请求和响应的缓冲区键
+	RequestBodyBufferKey  = "REQUEST_BODY_zdiT5HaFaMF7ZfO556rZRYqn"
+	ResponseBodyBufferKey = "RESPONSE_BODY_DT6IKLsNULVD3bTgnz1QJbeN"
+	RequestLoggerKey      = "REQUEST_LOGGER_3Z3opcTKBSe2O5yZQnSGD"
 
-// HttpHeaderYAMLContentTypeValue 表示 YAML Content-Type 的值。
-// HttpHeaderYAMLContentTypeValue represents the value for YAML Content-Type.
-const HttpHeaderYAMLContentTypeValue = binding.MIMEYAML
-
-// HttpHeaderTOMLContentTypeValue 表示 TOML Content-Type 的值。
-// HttpHeaderTOMLContentTypeValue represents the value for TOML Content-Type.
-const HttpHeaderTOMLContentTypeValue = binding.MIMETOML
-
-// HttpHeaderTextContentTypeValue 表示 Plain Text Content-Type 的值。
-// HttpHeaderTextContentTypeValue represents the value for Plain Text Content-Type.
-const HttpHeaderTextContentTypeValue = binding.MIMEPlain
-
-// HttpHeaderJavascriptContentTypeValue 表示 JavaScript Content-Type 的值。
-// HttpHeaderJavascriptContentTypeValue represents the value for JavaScript Content-Type.
-const HttpHeaderJavascriptContentTypeValue = "application/javascript"
-
-// HttpHeaderRequestID 表示 Request ID 的 HTTP 头部键。
-// HttpHeaderRequestID represents the HTTP header key for Request ID.
-const HttpHeaderRequestID = "X-Request-Id"
-
-// EmptyURLPath 表示空的 URL 路径。
-// EmptyURLPath represents the empty URL path.
-const EmptyURLPath = ""
-
-// PromMetricURLPath 表示 Prometheus metrics 的 URL 路径。
-// PromMetricURLPath represents the URL path for Prometheus metrics.
-const PromMetricURLPath = "/metrics"
-
-// HealthCheckURLPath 表示 health check 的 URL 路径。
-// HealthCheckURLPath represents the URL path for health check.
-const HealthCheckURLPath = "/ping"
-
-// RootURLPath 表示 root URL 路径。
-// RootURLPath represents the root URL path.
-const RootURLPath = "/"
-
-// SwaggerURLPath 表示 Swagger documentation 的 URL 路径。
-// SwaggerURLPath represents the URL path for Swagger documentation.
-const SwaggerURLPath = "/docs"
-
-// PprofURLPath 表示 pprof debugging 的 URL 路径。
-// PprofURLPath represents the URL path for pprof debugging.
-const PprofURLPath = "/debug/pprof"
-
-// RequestBodyBufferKey 表示 request body buffer 的键。
-// RequestBodyBufferKey represents the key for request body buffer.
-const RequestBodyBufferKey = "REQUEST_BODY_zdiT5HaFaMF7ZfO556rZRYqn"
-
-// ResponseBodyBufferKey 表示 response body buffer 的键。
-// ResponseBodyBufferKey represents the key for response body buffer.
-const ResponseBodyBufferKey = "RESPONSE_BODY_DT6IKLsNULVD3bTgnz1QJbeN"
-
-// RequestLoggerKey 表示 request logger 的键。
-// RequestLoggerKey represents the key for request logger.
-const RequestLoggerKey = "REQUEST_LOGGER_3Z3opcTKBSe2O5yZQnSGD"
-
-// RequestOKCode 表示请求成功的代码。
-// RequestOKCode represents the success code for a request.
-const RequestOKCode int64 = 0
-
-// RequestErrorCode 表示请求错误的代码。
-// RequestErrorCode represents the error code for a request.
-const RequestErrorCode int64 = 10
-
-// RequestOK 表示请求成功的消息。
-// RequestOK represents the success message for a request.
-const RequestOK = "success"
-
-// LogEventFunc 表示一个用于记录事件的函数。
-// LogEventFunc represents a function for logging events.
-type LogEventFunc func(logger *logr.Logger, event *log.LogEvent)
+	// 请求状态码和消息
+	RequestOKCode    int64 = 0
+	RequestErrorCode int64 = 10
+	RequestOK              = "success"
+)
 
 // HTTP 服务器默认配置常量
-// HTTP server default configuration constants
 const (
-	// DefaultShutdownTimeoutSeconds 是服务器关闭的默认超时时间（秒）
-	// DefaultShutdownTimeoutSeconds is the default timeout for server shutdown (in seconds)
+	// 服务器关闭的默认超时时间（秒）
 	DefaultShutdownTimeoutSeconds = 10
 
-	// DefaultMaxHeaderBytes 是 HTTP 请求头的默认最大字节数 (1MB)
-	// DefaultMaxHeaderBytes is the default maximum bytes for HTTP request headers (1MB)
-	DefaultMaxHeaderBytes int = 1 << 20
+	// HTTP 请求头的默认最大字节数 (2MB)
+	DefaultMaxHeaderBytes int = 1 << 21
 
-	// DefaultHttpIdleTimeoutMillis 是 HTTP 连接的默认空闲超时时间（毫秒）
-	// DefaultHttpIdleTimeoutMillis is the default idle timeout for HTTP connections (in milliseconds)
+	// HTTP 连接的默认空闲超时时间（毫秒）
 	DefaultHttpIdleTimeoutMillis uint32 = 15000
 
-	// DefaultHttpListenAddress 是默认的 HTTP 监听地址
-	// DefaultHttpListenAddress is the default HTTP listen address
-	DefaultHttpListenAddress = "127.0.0.1"
-
-	// DefaultHttpListenPort 是默认的 HTTP 监听端口
-	// DefaultHttpListenPort is the default HTTP listen port
-	DefaultHttpListenPort uint16 = 8080
+	// 默认的 HTTP 监听地址和端口
+	DefaultHttpListenAddress        = "127.0.0.1"
+	DefaultHttpListenPort    uint16 = 8080
 )
+
+// LogEventFunc 是用于记录事件的函数类型
+type LogEventFunc func(logger *logr.Logger, event *log.LogEvent)

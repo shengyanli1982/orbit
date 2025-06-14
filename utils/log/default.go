@@ -4,8 +4,7 @@ import (
 	"github.com/go-logr/logr"
 )
 
-// DefaultAccessEventFunc 是默认的访问日志事件函数。
-// DefaultAccessEventFunc is the default access log event function.
+// 默认的访问日志事件函数
 func DefaultAccessEventFunc(logger *logr.Logger, event *LogEvent) {
 	logger.Info(
 		event.Message,
@@ -24,8 +23,7 @@ func DefaultAccessEventFunc(logger *logr.Logger, event *LogEvent) {
 	)
 }
 
-// DefaultRecoveryEventFunc 是默认的恢复日志事件函数。
-// DefaultRecoveryEventFunc is the default recovery log event function.
+// 默认的恢复日志事件函数
 func DefaultRecoveryEventFunc(logger *logr.Logger, event *LogEvent) {
 	logger.Error(
 		event.Error,

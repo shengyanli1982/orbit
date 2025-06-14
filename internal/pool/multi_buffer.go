@@ -6,12 +6,10 @@ import (
 )
 
 const (
-	// Buffer size constants (in bytes)
 	// 缓冲区大小常量（字节）
 	KiB = 1 << 10 // 1 KiB = 1024 bytes
 	MiB = 1 << 20 // 1 MiB = 1024 KiB
 
-	// Buffer size class definitions
 	// 缓冲区大小类别定义
 	SizeClass2KiB   = 2 * KiB   // 2 KiB
 	SizeClass8KiB   = 8 * KiB   // 8 KiB
@@ -21,7 +19,6 @@ const (
 	SizeClass1MiB   = MiB       // 1 MiB
 )
 
-// bufferSizeClasses defines the size classes for buffer pools
 // 定义缓冲池的大小类别
 var bufferSizeClasses = []uint32{
 	SizeClass2KiB,   // Class 0: 2 KiB
@@ -32,20 +29,17 @@ var bufferSizeClasses = []uint32{
 	SizeClass1MiB,   // Class 5: 1 MiB
 }
 
-// MultiSizeBufferPool implements a multi-size buffer pool that manages different size classes of buffers
-// MultiSizeBufferPool 实现了一个多规格的缓冲池，管理不同大小类别的缓冲区
+// 实现了一个多规格的缓冲池，管理不同大小类别的缓冲区
 type MultiSizeBufferPool struct {
-	sizeClassPools []*BufferPool // Array of buffer pools for different size classes
+	sizeClassPools []*BufferPool // 不同大小类别缓冲池的数组
 }
 
-// NewMultiSizeBufferPool creates a new multi-size buffer pool
-// NewMultiSizeBufferPool 创建一个新的多规格缓冲池
+// 创建一个新的多规格缓冲池
 func NewMultiSizeBufferPool() *MultiSizeBufferPool {
 	pool := &MultiSizeBufferPool{
 		sizeClassPools: make([]*BufferPool, len(bufferSizeClasses)),
 	}
 
-	// Initialize pools for each size class
 	// 初始化每个大小类别的缓冲池
 	for classIndex, classSize := range bufferSizeClasses {
 		pool.sizeClassPools[classIndex] = NewBufferPool(classSize)
@@ -54,27 +48,22 @@ func NewMultiSizeBufferPool() *MultiSizeBufferPool {
 	return pool
 }
 
-// getSizeClassIndex determines the appropriate size class for a given buffer size
-// getSizeClassIndex 根据给定的缓冲区大小确定合适的大小类别
+// 根据给定的缓冲区大小确定合适的大小类别
 func (p *MultiSizeBufferPool) getSizeClassIndex(bufferSize uint32) int {
 	// 快速路径：小于等于最小类别
-	// Fast path: less than or equal to the smallest class
 	if bufferSize <= SizeClass2KiB {
 		return 0
 	}
 
 	// 快速路径：大于等于最大类别
-	// Fast path: greater than or equal to the largest class
 	if bufferSize > SizeClass512KiB {
 		return 5 // 1MiB class
 	}
 
 	// 向上取整到最接近的 2 的幂
-	// Round up to the nearest power of 2
 	powerOfTwo := ceilToPowerOfTwo(bufferSize)
 
 	// 通过 powerOfTwo 直接映射到索引
-	// Map powerOfTwo directly to index
 	// 2KiB (1<<11): 11 -> 0
 	// 8KiB (1<<13): 13 -> 1
 	// 32KiB (1<<15): 15 -> 2
@@ -84,14 +73,12 @@ func (p *MultiSizeBufferPool) getSizeClassIndex(bufferSize uint32) int {
 	return int((bits.Len32(powerOfTwo) - 11) >> 1)
 }
 
-// Get retrieves a buffer with at least the specified size
-// Get 获取一个至少具有指定大小的缓冲区
+// 获取一个至少具有指定大小的缓冲区
 func (p *MultiSizeBufferPool) Get(minSize uint32) *bytes.Buffer {
 	return p.sizeClassPools[p.getSizeClassIndex(minSize)].Get()
 }
 
-// Put returns a buffer to its appropriate size class pool
-// Put 将缓冲区返回到相应大小类别的池中
+// 将缓冲区返回到相应大小类别的池中
 func (p *MultiSizeBufferPool) Put(buf *bytes.Buffer) {
 	if buf == nil {
 		return
@@ -99,7 +86,6 @@ func (p *MultiSizeBufferPool) Put(buf *bytes.Buffer) {
 
 	bufferSize := uint32(buf.Cap())
 
-	// Discard if larger than the maximum size class
 	// 如果大于最大大小类别，则丢弃
 	if bufferSize > bufferSizeClasses[len(bufferSizeClasses)-1] {
 		return

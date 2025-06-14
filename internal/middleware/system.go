@@ -16,12 +16,10 @@ import (
 	"github.com/shengyanli1982/orbit/utils/httptool"
 )
 
-// Cors 函数返回一个处理跨域请求的 Gin 中间件。
-// The Cors function returns a Gin middleware that handles CORS requests.
+// 返回一个处理跨域请求的 Gin 中间件
 func Cors() gin.HandlerFunc {
 	return func(context *gin.Context) {
 		// 设置允许跨域的各种 Header
-		// Set various CORS headers
 		context.Header("Access-Control-Allow-Origin", "*")
 		context.Header("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE, UPDATE")
 		context.Header("Access-Control-Allow-Headers", "*")
@@ -30,7 +28,6 @@ func Cors() gin.HandlerFunc {
 		context.Header("Access-Control-Max-Age", "172800")
 
 		// 处理 OPTIONS 预检请求
-		// Handle OPTIONS preflight requests
 		if context.Request.Method == "OPTIONS" {
 			context.AbortWithStatus(http.StatusNoContent)
 			return
@@ -40,8 +37,7 @@ func Cors() gin.HandlerFunc {
 	}
 }
 
-// AccessLogger 函数返回一个用于记录访问日志的 Gin 中间件。
-// The AccessLogger function returns a Gin middleware that logs access information.
+// 返回一个用于记录访问日志的 Gin 中间件
 func AccessLogger(logger *logr.Logger, logEventFunc com.LogEventFunc, record bool) gin.HandlerFunc {
 	return func(context *gin.Context) {
 		// 预先获取所有需要的值，避免重复获取
@@ -102,8 +98,7 @@ func AccessLogger(logger *logr.Logger, logEventFunc com.LogEventFunc, record boo
 	}
 }
 
-// Recovery 函数返回一个用于处理 panic 恢复的 Gin 中间件。
-// The Recovery function returns a Gin middleware that recovers from panics.
+// 返回一个用于处理 panic 恢复的 Gin 中间件
 func Recovery(logger *logr.Logger, logEventFunc com.LogEventFunc) gin.HandlerFunc {
 	return func(context *gin.Context) {
 		defer func() {
