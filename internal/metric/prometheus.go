@@ -15,12 +15,6 @@ import (
 // 度量标准的标签
 var metricLabels = []string{"method", "path", "status"}
 
-// 默认的 Prometheus 指标路径
-const DefaultMetricsPath = com.PromMetricURLPath
-
-// 默认的 Prometheus 指标端口
-const DefaultMetricsPort = "9090"
-
 // ServerMetrics 结构体包含了请求计数器、请求延迟直方图、请求延迟仪表盘和 Prometheus 注册表
 type ServerMetrics struct {
 	requestCount     *prometheus.CounterVec   // 请求计数器

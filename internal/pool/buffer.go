@@ -21,9 +21,6 @@ const (
 
 	// 缓冲区的默认最大容量 (1MB)
 	DefaultMaxCapacity = 1 << 20
-
-	// 预热时每个大小创建的缓冲区数量
-	DefaultPrewarmCount = 10
 )
 
 // 将一个数向上取整到最接近的2的幂
@@ -77,37 +74,7 @@ func NewBufferPool(initSize uint32) *BufferPool {
 		initSize:    initSize,
 	}
 
-	// 预热缓冲池，创建一些常用大小的缓冲区
-	bp.Prewarm()
-
 	return bp
-}
-
-// 预热缓冲池，创建一些常用大小的缓冲区
-func (p *BufferPool) Prewarm() {
-	// 预创建一些不同大小的缓冲区
-	sizes := []uint32{
-		p.initSize,      // 初始大小
-		p.initSize << 1, // 2倍初始大小
-		p.initSize << 2, // 4倍初始大小
-		p.initSize << 3, // 8倍初始大小
-	}
-
-	// 确保所有预热大小都不超过最大容量
-	for i, size := range sizes {
-		if size > p.maxCapacity {
-			sizes = sizes[:i]
-			break
-		}
-	}
-
-	// 为每个大小创建多个缓冲区
-	for _, size := range sizes {
-		for i := 0; i < DefaultPrewarmCount; i++ {
-			buf := bytes.NewBuffer(make([]byte, 0, size))
-			p.pool.Put(buf)
-		}
-	}
 }
 
 // 从池中获取一个 bytes.Buffer 对象
