@@ -12,30 +12,27 @@ import (
 	"github.com/shengyanli1982/orbit/internal/conver"
 )
 
-// 定义错误变量。
-// Define error variables.
+// 定义错误变量
 var (
-	ErrorContextIsNil       = errors.New("context is nil")                  // 上下文为空错误 (Context is nil error)
-	ErrorValueIsNil         = errors.New("value is nil")                    // 值为空错误 (Value is nil error)
-	ErrorContentTypeIsEmpty = errors.New("content type is empty")           // 内容类型为空错误 (Content type is empty error)
-	ErrorBindRequestBody    = errors.New("failed to bind request body")     // 绑定请求体失败错误 (Failed to bind request body error)
-	ErrorGenerateBody       = errors.New("failed to generate request body") // 生成请求体失败错误 (Failed to generate request body error)
+	ErrorContextIsNil       = errors.New("context is nil")
+	ErrorValueIsNil         = errors.New("value is nil")
+	ErrorContentTypeIsEmpty = errors.New("content type is empty")
+	ErrorBindRequestBody    = errors.New("failed to bind request body")
+	ErrorGenerateBody       = errors.New("failed to generate request body")
 )
 
-// contentTypes 包含支持的内容类型列表。
-// contentTypes contains a list of supported content types.
+// contentTypes 包含支持的内容类型列表
 var contentTypes = []string{
-	com.HttpHeaderJSONContentTypeValue,       // JSON内容类型 (JSON content type)
-	com.HttpHeaderJavascriptContentTypeValue, // JavaScript内容类型 (JavaScript content type)
-	com.HttpHeaderTextContentTypeValue,       // 文本内容类型 (Text content type)
-	com.HttpHeaderXMLContentTypeValue,        // XML内容类型 (XML content type)
-	com.HttpHeaderPXMLContentTypeValue,       // PXML内容类型 (PXML content type)
-	com.HttpHeaderYAMLContentTypeValue,       // YAML内容类型 (YAML content type)
-	com.HttpHeaderTOMLContentTypeValue,       // TOML内容类型 (TOML content type)
+	com.HttpHeaderJSONContentTypeValue,
+	com.HttpHeaderJavascriptContentTypeValue,
+	com.HttpHeaderTextContentTypeValue,
+	com.HttpHeaderXMLContentTypeValue,
+	com.HttpHeaderPXMLContentTypeValue,
+	com.HttpHeaderYAMLContentTypeValue,
+	com.HttpHeaderTOMLContentTypeValue,
 }
 
-// CalcRequestSize 计算HTTP请求的总大小（以字节为单位）。
-// CalcRequestSize calculates the total size of an HTTP request in bytes.
+// 计算HTTP请求的总大小（以字节为单位）
 func CalcRequestSize(request *http.Request) int64 {
 	if request == nil {
 		return 0
@@ -68,8 +65,7 @@ func CalcRequestSize(request *http.Request) int64 {
 	return size
 }
 
-// StringFilterFlags 从内容类型字符串中过滤掉标志。
-// StringFilterFlags filters out flags from the content type string.
+// 从内容类型字符串中过滤掉标志
 func StringFilterFlags(content string) string {
 	if i := strings.IndexAny(content, "; "); i >= 0 {
 		return content[:i]
@@ -77,8 +73,7 @@ func StringFilterFlags(content string) string {
 	return content
 }
 
-// CanRecordContextBody 检查是否可以记录请求体。
-// CanRecordContextBody checks if the request body can be recorded.
+// 检查是否可以记录请求体
 func CanRecordContextBody(header http.Header) bool {
 	contentType := StringFilterFlags(header.Get(com.HttpHeaderContentType))
 	if contentType == "" || !strings.Contains(contentType, "/") {
@@ -94,8 +89,7 @@ func CanRecordContextBody(header http.Header) bool {
 	return false
 }
 
-// GenerateRequestPath 生成请求路径。
-// GenerateRequestPath generates the request path.
+// 生成请求路径
 func GenerateRequestPath(context *gin.Context) string {
 	if len(context.Request.URL.RawQuery) > 0 {
 		return context.Request.URL.RequestURI()
@@ -103,8 +97,7 @@ func GenerateRequestPath(context *gin.Context) string {
 	return context.Request.URL.Path
 }
 
-// GenerateRequestBody 生成请求体。
-// GenerateRequestBody generates the request body.
+// 生成请求体
 func GenerateRequestBody(context *gin.Context) ([]byte, error) {
 	if context.Request.Body == nil {
 		return conver.StringToBytes("request body is nil"), nil
@@ -144,8 +137,7 @@ func GenerateRequestBody(context *gin.Context) ([]byte, error) {
 	return bodyData, nil
 }
 
-// ParseRequestBody 解析请求体。
-// ParseRequestBody parses the request body.
+// 解析请求体
 func ParseRequestBody(context *gin.Context, value interface{}, emptyRequestBodyContent bool) error {
 	// 快速参数验证
 	if value == nil {
@@ -156,7 +148,7 @@ func ParseRequestBody(context *gin.Context, value interface{}, emptyRequestBodyC
 		return ErrorContextIsNil
 	}
 
-	// 获取并验证内容类型（使用 Header.Get 直接获取，避免额外的字符串处理）
+	// 获取并验证内容类型
 	contentType := context.Request.Header.Get(com.HttpHeaderContentType)
 	if contentType == "" {
 		return ErrorContentTypeIsEmpty
