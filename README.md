@@ -68,6 +68,8 @@ go get github.com/shengyanli1982/orbit
 -   `WithHttpReadTimeout` - HTTP server read timeout (default: `15s`).
 -   `WithHttpWriteTimeout` - HTTP server write timeout (default: `15s`).
 -   `WithHttpReadHeaderTimeout` - HTTP server read header timeout (default: `15s`).
+-   `WithHttpIdleTimeout` - HTTP server idle timeout (default: `15s`).
+-   `WithMaxHeaderBytes` - HTTP server maximum header bytes (default: `2MB`).
 -   `WithAccessLogEventFunc` - HTTP server access log event function (default: `DefaultAccessEventFunc`).
 -   `WithRecoveryLogEventFunc` - HTTP server recovery log event function (default: `DefaultRecoveryEventFunc`).
 -   `WithPrometheusRegistry` - HTTP server Prometheus registry (default: `prometheus.DefaultRegister`).
@@ -1059,7 +1061,7 @@ func customMiddleware() gin.HandlerFunc {
 		// Call the next middleware or handler function
 		c.Next()
 
-		// 从上下文中获取响应体缓��区
+		// 从上下文中获取响应体缓冲区
 		// Get the response body buffer from the context
 		for i := 0; i < 20; i++ {
 			// 生成响应体
