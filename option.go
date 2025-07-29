@@ -2,6 +2,7 @@ package orbit
 
 // Options 表示应用程序的配置选项
 type Options struct {
+	healthCheck       bool // 启用健康检查
 	pprof             bool // 启用 pprof 端点
 	swagger           bool // 启用 swagger 文档
 	metric            bool // 启用度量收集
@@ -13,7 +14,13 @@ type Options struct {
 
 // NewOptions 创建一个新的 Options 实例
 func NewOptions() *Options {
-	return &Options{}
+	return &Options{healthCheck: true}
+}
+
+// EnableHealthCheck 启用健康检查
+func (o *Options) EnableHealthCheck() *Options {
+	o.healthCheck = true
+	return o
 }
 
 // EnablePProf 启用 pprof 端点
@@ -66,6 +73,11 @@ func DebugOptions() *Options {
 // ReleaseOptions 返回一个仅启用了 metric 功能的 Options 实例，用于生产环境
 func ReleaseOptions() *Options {
 	return NewOptions().EnableMetric()
+}
+
+// EmptyOptions 返回一个空的 Options 实例
+func EmptyOptions() *Options {
+	return &Options{}
 }
 
 // isOptionsValid 检查选项是否有效，并在必要时应用默认值

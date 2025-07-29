@@ -25,14 +25,7 @@ func TestNewEngine(t *testing.T) {
 	}
 
 	// Create a new Options
-	options := &Options{
-		forwordByClientIp: true,
-		trailingSlash:     true,
-		fixedPath:         true,
-		swagger:           true,
-		pprof:             true,
-		metric:            true,
-	}
+	options := NewOptions()
 
 	// Call the NewEngine function
 	engine := NewEngine(config, options)
@@ -84,14 +77,7 @@ func TestNewEngineNoRoute(t *testing.T) {
 	}
 
 	// Create a new Options
-	options := &Options{
-		forwordByClientIp: true,
-		trailingSlash:     true,
-		fixedPath:         true,
-		swagger:           true,
-		pprof:             true,
-		metric:            true,
-	}
+	options := NewOptions()
 
 	// Call the NewEngine function
 	engine := NewEngine(config, options)
@@ -125,14 +111,7 @@ func TestNewEngineNoMethod(t *testing.T) {
 	}
 
 	// Create a new Options
-	options := &Options{
-		forwordByClientIp: true,
-		trailingSlash:     true,
-		fixedPath:         true,
-		swagger:           true,
-		pprof:             true,
-		metric:            true,
-	}
+	options := NewOptions()
 
 	// Call the NewEngine function
 	engine := NewEngine(config, options)
@@ -166,14 +145,7 @@ func TestNewEngineHealthCheck(t *testing.T) {
 	}
 
 	// Create a new Options
-	options := &Options{
-		forwordByClientIp: true,
-		trailingSlash:     true,
-		fixedPath:         true,
-		swagger:           true,
-		pprof:             true,
-		metric:            true,
-	}
+	options := NewOptions()
 
 	// Call the NewEngine function
 	engine := NewEngine(config, options)
@@ -207,14 +179,7 @@ func TestRegisterMiddleware(t *testing.T) {
 	}
 
 	// Create a new Options
-	options := &Options{
-		forwordByClientIp: true,
-		trailingSlash:     true,
-		fixedPath:         true,
-		swagger:           true,
-		pprof:             true,
-		metric:            true,
-	}
+	options := NewOptions()
 
 	// Call the NewEngine function
 	engine := NewEngine(config, options)

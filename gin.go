@@ -126,10 +126,10 @@ func (e *Engine) setupBaseHandlers() {
 
 // 注册内置的服务，包括健康检查、Swagger、pprof 和指标收集等
 func (e *Engine) registerBuiltinServices() {
-	// 注册健康检查服务
-	healthcheckService(e.root.Group(com.HealthCheckURLPath))
-
 	// 根据配置注册可选服务
+	if e.opts.healthCheck {
+		healthcheckService(e.root.Group(com.HealthCheckURLPath)) // 注册健康检查服务
+	}
 	if e.opts.swagger {
 		swaggerService(e.root.Group(com.SwaggerURLPath)) // 注册 Swagger 服务
 	}
