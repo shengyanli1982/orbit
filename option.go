@@ -14,7 +14,7 @@ type Options struct {
 
 // NewOptions 创建一个新的 Options 实例
 func NewOptions() *Options {
-	return &Options{}
+	return &Options{healthCheck: true}
 }
 
 // EnableHealthCheck 启用健康检查
@@ -67,17 +67,17 @@ func (o *Options) EnableRecordRequestBody() *Options {
 
 // DebugOptions 返回一个启用了 pprof、swagger、metric 和请求体记录功能的 Options 实例，用于调试环境
 func DebugOptions() *Options {
-	return NewOptions().EnablePProf().EnableSwagger().EnableMetric().EnableRecordRequestBody().EnableHealthCheck()
+	return NewOptions().EnablePProf().EnableSwagger().EnableMetric().EnableRecordRequestBody()
 }
 
 // ReleaseOptions 返回一个仅启用了 metric 功能的 Options 实例，用于生产环境
 func ReleaseOptions() *Options {
-	return NewOptions().EnableMetric().EnableHealthCheck()
+	return NewOptions().EnableMetric()
 }
 
 // EmptyOptions 返回一个空的 Options 实例
 func EmptyOptions() *Options {
-	return NewOptions()
+	return &Options{}
 }
 
 // isOptionsValid 检查选项是否有效，并在必要时应用默认值
