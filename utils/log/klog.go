@@ -16,7 +16,7 @@ import (
 var once sync.Once
 
 // 初始化 klog 的标志配置
-func initKlogFlags() {
+func initKlogFlags(isRelease bool) {
 	once.Do(func() {
 		// 创建一个新的标志集，用于 klog 配置
 		fs := flag.NewFlagSet("klog", flag.PanicOnError)
@@ -30,6 +30,15 @@ func initKlogFlags() {
 		_ = fs.Set("alsologtostderr", "false") // 禁用同时输出到标准错误
 		_ = fs.Set("stderrthreshold", "FATAL") // 设置标准错误阈值为 FATAL
 
+		// 根据运行模式设置日志详细程度
+		if isRelease {
+			// Release 模式: 降低详细程度，只输出 Info 级别以上的日志
+			_ = fs.Set("v", "0")
+		} else {
+			// Debug 模式: 提高详细程度，输出更多调试信息
+			_ = fs.Set("v", "2")
+		}
+
 		// 解析标志，不传入任何参数
 		_ = fs.Parse(nil)
 	})
@@ -42,9 +51,9 @@ type LogrLogger struct {
 }
 
 // 创建并返回一个新的 LogrLogger 实例
-func NewLogrLogger(w io.Writer) *LogrLogger {
+func NewLogrLogger(w io.Writer, isRelease bool) *LogrLogger {
 	// 初始化 klog 标志
-	initKlogFlags()
+	initKlogFlags(isRelease)
 
 	// 如果没有提供写入器，则使用标准输出
 	if w == nil {
@@ -62,6 +71,13 @@ func NewLogrLogger(w io.Writer) *LogrLogger {
 		l:  l,
 		sl: ilog.NewStandardLoggerFromLogr(&l),
 	}
+}
+
+// 根据运行模式创建合适的 LogrLogger 实例的便利函数
+// release 模式：降低详细程度，只输出 Info 级别以上的日志 (verbosity=0)
+// debug 模式：提高详细程度，输出更多调试信息 (verbosity=2)
+func NewLogrLoggerWithMode(w io.Writer, isReleaseMode bool) *LogrLogger {
+	return NewLogrLogger(w, isReleaseMode)
 }
 
 // 返回 logr.Logger 的指针

@@ -62,7 +62,7 @@ func TestAccessLogger(t *testing.T) {
 
 	// Create a test logger
 	buff := bytes.NewBuffer(make([]byte, 0, 1024))
-	logger := log.NewZapLogger(zapcore.AddSync(buff)).GetLogrLogger()
+	logger := log.NewZapLogger(zapcore.AddSync(buff), false).GetLogrLogger()
 
 	// Create a test log event function
 	logEventFunc := func(logger *logr.Logger, event *log.LogEvent) {
@@ -106,7 +106,7 @@ func TestLogrAccessLogger(t *testing.T) {
 
 	// Create a test logger
 	buff := bytes.NewBuffer(make([]byte, 0, 1024))
-	logger := log.NewLogrLogger(buff).GetLogrLogger()
+	logger := log.NewLogrLogger(buff, false).GetLogrLogger()
 
 	// Create a test log event function
 	logEventFunc := func(logger *logr.Logger, event *log.LogEvent) {
@@ -150,7 +150,7 @@ func TestRecovery(t *testing.T) {
 
 	// Create a test logger
 	buff := bytes.NewBuffer(make([]byte, 0, 1024))
-	logger := log.NewZapLogger(zapcore.AddSync(buff)).GetLogrLogger()
+	logger := log.NewZapLogger(zapcore.AddSync(buff), false).GetLogrLogger()
 
 	// Add the Recovery middleware to the router
 	router.Use(Recovery(logger, log.DefaultRecoveryEventFunc))
@@ -189,7 +189,7 @@ func TestLogrRecovery(t *testing.T) {
 
 	// Create a test logger
 	buff := bytes.NewBuffer(make([]byte, 0, 1024))
-	logger := log.NewLogrLogger(buff).GetLogrLogger()
+	logger := log.NewLogrLogger(buff, false).GetLogrLogger()
 
 	// Add the Recovery middleware to the router
 	router.Use(Recovery(logger, log.DefaultRecoveryEventFunc))

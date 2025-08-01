@@ -14,7 +14,7 @@ func TestGetZapLogger(t *testing.T) {
 	buff := bytes.NewBuffer(make([]byte, 0, 1024))
 
 	// Create a new logger
-	logger := NewZapLogger(zapcore.AddSync(buff))
+	logger := NewZapLogger(zapcore.AddSync(buff), false)
 	zapLogger := logger.GetZapLogger()
 
 	// Assert that the logger is not nil
@@ -31,7 +31,7 @@ func TestGetZapSugaredLogger(t *testing.T) {
 	buff := bytes.NewBuffer(make([]byte, 0, 1024))
 
 	// Create a new logger
-	logger := NewZapLogger(zapcore.AddSync(buff))
+	logger := NewZapLogger(zapcore.AddSync(buff), false)
 	sugaredLogger := logger.GetZapSugaredLogger()
 
 	// Assert that the logger is not nil
@@ -47,7 +47,7 @@ func TestGetZapStdLogger(t *testing.T) {
 	buff := bytes.NewBuffer(make([]byte, 0, 1024))
 
 	// Create a new logger
-	logger := NewZapLogger(zapcore.AddSync(buff))
+	logger := NewZapLogger(zapcore.AddSync(buff), false)
 	stdLogger := logger.GetStandardLogger()
 
 	// Assert that the logger is not nil

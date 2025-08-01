@@ -12,7 +12,7 @@ func TestGetLogrLogger(t *testing.T) {
 	buff := bytes.NewBuffer(make([]byte, 0, 1024))
 
 	// Create a new logger
-	logger := NewLogrLogger(buff)
+	logger := NewLogrLogger(buff, false)
 	logrLogger := logger.GetLogrLogger()
 
 	// Assert that the logger is not nil
@@ -28,7 +28,7 @@ func TestGetLogrStdLogger(t *testing.T) {
 	buff := bytes.NewBuffer(make([]byte, 0, 1024))
 
 	// Create a new logger
-	logger := NewLogrLogger(buff)
+	logger := NewLogrLogger(buff, false)
 	stdLogger := logger.GetStandardLogger()
 
 	// Assert that the logger is not nil

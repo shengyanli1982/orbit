@@ -15,7 +15,7 @@ var ResponseBodyBufferPool = bp.NewBufferPool(0)
 var LogEventPool = bp.NewLogEventPool()
 
 // 默认的控制台日志记录器
-var DefaultConsoleLogger = log.NewZapLogger(nil)
+var DefaultConsoleLogger = log.NewZapLogger(nil, false)
 
 // 默认的带糖的日志记录器
 var DefaultSugeredLogger = DefaultConsoleLogger.GetZapSugaredLogger().Named(log.DefaultLoggerName)
