@@ -21,7 +21,7 @@ While `gin` is an excellent framework, it requires additional setup for logging 
 # Advantages
 
 -   Lightweight and user-friendly
--   Supports `zap` and `klog` logging with both `async` and `sync` modes
+-   Supports `zap` and `klog` logging with both `async` and `sync` modes, automatic log level control based on release mode
 -   Integrates `prometheus` for monitoring
 -   Includes `swagger` API documentation support
 -   Graceful server shutdown
@@ -1295,7 +1295,7 @@ func (s *service) RegisterGroup(g *gin.RouterGroup) {
 func main() {
     // 创建一个新的 Zap 日志记录器
     // Create a new Zap logger
-    zapLogger := log.NewZapLogger(nil)
+    zapLogger := log.NewZapLogger(nil, false) // false = debug mode, true = release mode
 
     // 创建一个新的 Orbit 配置，并设置 Zap 日志记录器
     // Create a new Orbit configuration and set the Zap logger
@@ -1378,7 +1378,7 @@ func (s *service) RegisterGroup(g *gin.RouterGroup) {
 func main() {
     // 创建一个新的 Klog 日志记录器
     // Create a new Klog logger
-    klogLogger := log.NewLogrLogger(nil)
+    klogLogger := log.NewLogrLogger(nil, false) // false = debug mode, true = release mode
 
     // 创建一个新的 Orbit 配置，并设置 Klog 日志记录器
     // Create a new Orbit configuration and set the Klog logger

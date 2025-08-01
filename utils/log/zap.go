@@ -50,23 +50,36 @@ type ZapLogger struct {
 }
 
 // 创建并返回一个新的 ZapLogger 实例
-func NewZapLogger(ws zapcore.WriteSyncer, opts ...zap.Option) *ZapLogger {
+func NewZapLogger(ws zapcore.WriteSyncer, isRelease bool, opts ...zap.Option) *ZapLogger {
 	// 如果没有提供 WriteSyncer，则使用标准输出
 	if ws == nil {
 		ws = zapcore.AddSync(os.Stdout)
+	}
+
+	// 根据运行模式设置日志级别
+	logLevel := zap.DebugLevel
+	if isRelease {
+		logLevel = zap.InfoLevel
 	}
 
 	// 创建核心日志组件
 	core := zapcore.NewCore(
 		zapcore.NewJSONEncoder(LogEncodingConfig),
 		ws,
-		zap.NewAtomicLevelAt(zap.DebugLevel),
+		zap.NewAtomicLevelAt(logLevel),
 	)
 
 	// 初始化各种日志记录器
 	l := zap.New(core, zap.AddCaller()).WithOptions(opts...)
 	rl := zapr.NewLogger(l)
 	return &ZapLogger{l: l, rl: &rl, sul: l.Sugar(), sl: zap.NewStdLog(l)}
+}
+
+// 根据运行模式创建合适的 ZapLogger 实例的便利函数
+// release 模式：输出 Info 级别以上的日志
+// debug 模式：输出 Debug 级别以上的日志
+func NewZapLoggerWithMode(ws zapcore.WriteSyncer, isReleaseMode bool, opts ...zap.Option) *ZapLogger {
+	return NewZapLogger(ws, isReleaseMode, opts...)
 }
 
 // 返回原始的 Zap 日志记录器

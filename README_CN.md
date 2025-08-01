@@ -21,7 +21,7 @@
 # 优势
 
 -   轻量级且用户友好（就像你的贴心小助手）
--   支持 `zap` 和 `klog` 日志，提供异步和同步两种模式
+-   支持 `zap` 和 `klog` 日志，提供异步和同步两种模式，基于运行模式自动控制日志级别
 -   集成 `prometheus` 监控（让你的服务数据一目了然）
 -   包含 `swagger` API 文档支持
 -   优雅的服务器关闭机制
@@ -1286,7 +1286,7 @@ func (s *service) RegisterGroup(g *gin.RouterGroup) {
 func main() {
     // 创建一个新的 Zap 日志记录器
     // Create a new Zap logger
-    zapLogger := log.NewZapLogger(nil)
+    zapLogger := log.NewZapLogger(nil, false) // false = debug 模式, true = release 模式
 
     // 创建一个新的 Orbit 配置，并设置 Zap 日志记录器
     // Create a new Orbit configuration and set the Zap logger
@@ -1369,7 +1369,7 @@ func (s *service) RegisterGroup(g *gin.RouterGroup) {
 func main() {
     // 创建一个新的 Klog 日志记录器
     // Create a new Klog logger
-    klogLogger := log.NewLogrLogger(nil)
+    klogLogger := log.NewLogrLogger(nil, false) // false = debug 模式, true = release 模式
 
     // 创建一个新的 Orbit 配置，并设置 Klog 日志记录器
     // Create a new Orbit configuration and set the Klog logger
