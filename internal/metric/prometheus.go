@@ -2,11 +2,11 @@ package metric
 
 import (
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-logr/logr"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/prometheus/client_golang/prometheus"
 	com "github.com/shengyanli1982/orbit/common"
 	"github.com/shengyanli1982/orbit/utils/middleware"
@@ -17,15 +17,17 @@ var metricLabels = []string{"method", "path", "status"}
 
 // ServerMetrics 结构体包含了请求计数器、请求延迟直方图、请求延迟仪表盘和 Prometheus 注册表
 type ServerMetrics struct {
-	requestCount     *prometheus.CounterVec   // 请求计数器
-	requestLatencies *prometheus.HistogramVec // 请求延迟直方图
-	requestLatency   *prometheus.GaugeVec     // 请求延迟仪表盘
-	registry         *prometheus.Registry     // Prometheus注册表
-	labelCache       *sync.Map                // 标签缓存
+	requestCount     *prometheus.CounterVec       // 请求计数器
+	requestLatencies *prometheus.HistogramVec     // 请求延迟直方图
+	requestLatency   *prometheus.GaugeVec         // 请求延迟仪表盘
+	registry         *prometheus.Registry         // Prometheus注册表
+	labelCache       *lru.Cache[string, []string] // LRU 标签缓存
 }
 
 // 返回一个新的 ServerMetrics 实例
 func NewServerMetrics(registry *prometheus.Registry) *ServerMetrics {
+	// 创建 LRU 缓存，最大 2048 条目
+	cache, _ := lru.New[string, []string](2048)
 	return &ServerMetrics{
 		// 创建一个新的 Prometheus 计数器向量，用于记录 HTTP 请求总数
 		requestCount: prometheus.NewCounterVec(
@@ -61,8 +63,8 @@ func NewServerMetrics(registry *prometheus.Registry) *ServerMetrics {
 		// Prometheus 注册表用于注册和收集度量标准
 		registry: registry,
 
-		// 初始化标签缓存
-		labelCache: &sync.Map{},
+		// 初始化 LRU 标签缓存
+		labelCache: cache,
 	}
 }
 
@@ -115,7 +117,9 @@ func (m *ServerMetrics) Reset() {
 	m.requestCount.Reset()     // 重置请求计数器
 	m.requestLatencies.Reset() // 重置请求延迟直方图
 	m.requestLatency.Reset()   // 重置请求延迟仪表盘
-	m.labelCache = &sync.Map{} // 重置标签缓存
+
+	// 重置 LRU 标签缓存（线程安全）
+	m.labelCache.Purge()
 }
 
 // 返回一个 Gin 中间件处理函数
@@ -153,15 +157,16 @@ func (m *ServerMetrics) HandlerFunc(logger *logr.Logger) gin.HandlerFunc {
 		// 获取状态码
 		status := strconv.Itoa(context.Writer.Status())
 
-		// 尝试从缓存获取标签值
+		// 尝试从 LRU 缓存获取标签值（线程安全）
 		var labels []string
 		cacheKeyWithStatus := cacheKey + ":" + status
-		if cachedLabels, ok := m.labelCache.Load(cacheKeyWithStatus); ok {
-			labels = cachedLabels.([]string)
+
+		if cachedLabels, ok := m.labelCache.Get(cacheKeyWithStatus); ok {
+			labels = cachedLabels
 		} else {
 			// 创建新的标签值并缓存
 			labels = []string{method, path, status}
-			m.labelCache.Store(cacheKeyWithStatus, labels)
+			m.labelCache.Add(cacheKeyWithStatus, labels)
 		}
 
 		// 一次性计算所有指标需要的值
