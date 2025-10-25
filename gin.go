@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -36,8 +37,7 @@ type Engine struct {
 	root     *gin.RouterGroup   // 根路由组
 	config   *Config            // 服务器配置
 	opts     *Options           // 服务器选项
-	running  bool               // 服务器运行状态
-	lock     sync.RWMutex       // 读写锁，用于并发控制
+	running  atomic.Bool        // 服务器运行状态 (使用 atomic.Bool 替代 bool + RWMutex)
 	wg       sync.WaitGroup     // 等待组，用于优雅关闭
 	once     sync.Once          // 确保某些操作只执行一次
 	ctx      context.Context    // 上下文，用于控制服务器生命周期
@@ -250,25 +250,18 @@ func (e *Engine) shutdownHTTPServer() {
 
 // 返回服务器的运行状态
 func (e *Engine) IsRunning() bool {
-	e.lock.Lock()
-	defer e.lock.Unlock()
-	return e.running
+	return e.running.Load()
 }
 
 // 更新服务器的运行状态
 func (e *Engine) updateRunningState(status bool) {
-	e.lock.Lock()
-	defer e.lock.Unlock()
-	e.running = status
+	e.running.Store(status)
 }
 
 // 注册用户定义的服务
 func (e *Engine) registerUserServices() {
-	e.lock.Lock()
-	defer e.lock.Unlock()
-
 	// 只在服务器未运行时注册服务
-	if !e.running {
+	if !e.running.Load() {
 		for i := 0; i < len(e.services); i++ {
 			e.services[i].RegisterGroup(e.root)
 		}
@@ -277,29 +270,22 @@ func (e *Engine) registerUserServices() {
 
 // 添加用户定义的服务到服务列表中
 func (e *Engine) RegisterService(service Service) {
-	e.lock.Lock()
-	defer e.lock.Unlock()
-	if !e.running {
+	if !e.running.Load() {
 		e.services = append(e.services, service)
 	}
 }
 
 // 添加中间件到处理器列表中
 func (e *Engine) RegisterMiddleware(handler gin.HandlerFunc) {
-	e.lock.Lock()
-	defer e.lock.Unlock()
-	if !e.running {
+	if !e.running.Load() {
 		e.handlers = append(e.handlers, handler)
 	}
 }
 
 // 注册用户定义的中间件
 func (e *Engine) registerUserMiddlewares() {
-	e.lock.Lock()
-	defer e.lock.Unlock()
-
 	// 只在服务器未运行时注册中间件
-	if !e.running {
+	if !e.running.Load() {
 		e.ginSvr.Use(e.handlers...)
 	}
 }
