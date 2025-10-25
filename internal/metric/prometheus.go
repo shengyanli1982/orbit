@@ -2,12 +2,12 @@ package metric
 
 import (
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-logr/logr"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/puzpuzpuz/xsync/v3"
 	com "github.com/shengyanli1982/orbit/common"
 	"github.com/shengyanli1982/orbit/utils/middleware"
 )
@@ -17,11 +17,23 @@ var metricLabels = []string{"method", "path", "status"}
 
 // ServerMetrics 结构体包含了请求计数器、请求延迟直方图、请求延迟仪表盘和 Prometheus 注册表
 type ServerMetrics struct {
-	requestCount     *prometheus.CounterVec           // 请求计数器
-	requestLatencies *prometheus.HistogramVec         // 请求延迟直方图
-	requestLatency   *prometheus.GaugeVec             // 请求延迟仪表盘
-	registry         *prometheus.Registry             // Prometheus注册表
-	labelCache       *xsync.MapOf[string, []string]   // 无锁标签缓存
+	requestCount     *prometheus.CounterVec    // 请求计数器
+	requestLatencies *prometheus.HistogramVec  // 请求延迟直方图
+	requestLatency   *prometheus.GaugeVec      // 请求延迟仪表盘
+	registry         *prometheus.Registry      // Prometheus注册表
+	pathNormalizer   func(*gin.Context) string // 路径规范化函数
+	rwlock           sync.RWMutex              // 互斥锁
+}
+
+// defaultPathNormalizer 是默认的路径规范化函数
+// 使用 Gin 的 FullPath() 获取路由模板，防止 cardinality explosion
+func defaultPathNormalizer(c *gin.Context) string {
+	path := c.FullPath()
+	if path == "" {
+		// 对于未注册路由，使用统一标记防止无限标签组合
+		return "unmatched"
+	}
+	return path
 }
 
 // 返回一个新的 ServerMetrics 实例
@@ -58,11 +70,11 @@ func NewServerMetrics(registry *prometheus.Registry) *ServerMetrics {
 			metricLabels,
 		),
 
+		// 使用默认的路径规范化函数
+		pathNormalizer: defaultPathNormalizer,
+
 		// Prometheus 注册表用于注册和收集度量标准
 		registry: registry,
-
-		// 初始化 xsync.Map 标签缓存（无锁高性能）
-		labelCache: xsync.NewMapOf[string, []string](),
 	}
 }
 
@@ -115,9 +127,17 @@ func (m *ServerMetrics) Reset() {
 	m.requestCount.Reset()     // 重置请求计数器
 	m.requestLatencies.Reset() // 重置请求延迟直方图
 	m.requestLatency.Reset()   // 重置请求延迟仪表盘
+}
 
-	// 清空 xsync.Map 标签缓存（无锁清空）
-	m.labelCache.Clear()
+// SetPathNormalizer 设置自定义的路径规范化函数
+// 用户可以根据业务需求自定义路径规范化逻辑，例如：
+// - 根据状态码分类未匹配路由（404 -> "not_found"）
+// - 使用正则表达式进一步规范化路径
+// - 实现自定义的路由参数替换逻辑
+func (m *ServerMetrics) SetPathNormalizer(fn func(*gin.Context) string) {
+	m.rwlock.Lock()
+	m.pathNormalizer = fn
+	m.rwlock.Unlock()
 }
 
 // 返回一个 Gin 中间件处理函数
@@ -130,16 +150,11 @@ func (m *ServerMetrics) HandlerFunc(logger *logr.Logger) gin.HandlerFunc {
 		}
 
 		// 在进入处理逻辑前获取所有需要的值
+		m.rwlock.RLock()
+		path := m.pathNormalizer(context) // 使用规范化路径
+		m.rwlock.RUnlock()
+
 		method := context.Request.Method
-		// 优先使用 FullPath，它返回路由模式而不是具体的 URL
-		path := context.FullPath()
-		if path == "" {
-			path = context.Request.URL.Path
-		}
-
-		// 生成缓存键
-		cacheKey := method + ":" + path
-
 		start := time.Now()
 		context.Next()
 
@@ -155,24 +170,12 @@ func (m *ServerMetrics) HandlerFunc(logger *logr.Logger) gin.HandlerFunc {
 		// 获取状态码
 		status := strconv.Itoa(context.Writer.Status())
 
-		// 从 xsync.Map 获取或创建标签值（无锁读取）
-		var labels []string
-		cacheKeyWithStatus := cacheKey + ":" + status
-
-		if cachedLabels, ok := m.labelCache.Load(cacheKeyWithStatus); ok {
-			labels = cachedLabels
-		} else {
-			// 创建新的标签值并缓存
-			labels = []string{method, path, status}
-			m.labelCache.Store(cacheKeyWithStatus, labels)
-		}
-
 		// 一次性计算所有指标需要的值
 		latency := time.Since(start).Seconds()
 
-		// 使用一次 WithLabelValues 调用更新所有指标
-		m.requestCount.WithLabelValues(labels...).Inc()
-		m.requestLatencies.WithLabelValues(labels...).Observe(latency)
-		m.requestLatency.WithLabelValues(labels...).Set(latency)
+		// 直接使用标签值更新所有指标
+		m.requestCount.WithLabelValues(method, path, status).Inc()
+		m.requestLatencies.WithLabelValues(method, path, status).Observe(latency)
+		m.requestLatency.WithLabelValues(method, path, status).Set(latency)
 	}
 }
