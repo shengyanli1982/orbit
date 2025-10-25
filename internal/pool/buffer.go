@@ -44,7 +44,6 @@ type BufferPool struct {
 	pool        sync.Pool // 对象池，用于存储和复用 buffer
 	maxCapacity uint32    // buffer 的最大容量限制
 	initSize    uint32    // buffer 的初始大小
-	stats       sync.Map  // 用于记录不同大小缓冲区的使用情况
 	gets        uint64    // 获取操作计数
 	puts        uint64    // 放回操作计数
 }
@@ -94,14 +93,6 @@ func (p *BufferPool) Put(buf *bytes.Buffer) {
 	// 增加放回操作计数
 	atomic.AddUint64(&p.puts, 1)
 
-	// 记录当前缓冲区容量的使用情况
-	cap := uint32(buf.Cap())
-	if v, ok := p.stats.Load(cap); ok {
-		p.stats.Store(cap, v.(int)+1)
-	} else {
-		p.stats.Store(cap, 1)
-	}
-
 	// 容量检查：如果 buffer 容量超过最大限制，直接丢弃
 	if int64(buf.Cap()) > int64(p.maxCapacity) {
 		return
@@ -120,16 +111,6 @@ func (p *BufferPool) GetMaxCapacity() uint32 {
 // 返回当前池的初始缓冲区大小
 func (p *BufferPool) GetInitSize() uint32 {
 	return p.initSize
-}
-
-// 返回缓冲池的使用统计信息
-func (p *BufferPool) GetStats() map[uint32]int {
-	stats := make(map[uint32]int)
-	p.stats.Range(func(key, value interface{}) bool {
-		stats[key.(uint32)] = value.(int)
-		return true
-	})
-	return stats
 }
 
 // 返回缓冲池的使用情况

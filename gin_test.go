@@ -37,8 +37,8 @@ func TestNewEngine(t *testing.T) {
 	// Assert that the engine is not nil
 	assert.NotNil(t, engine)
 
-	// Assert that the engine's running field is false
-	assert.True(t, engine.running)
+	// Assert that the engine's running field is true (使用 IsRunning() 方法)
+	assert.True(t, engine.IsRunning())
 
 	// Assert that the engine's endpoint matches the expected value
 	assert.Equal(t, "localhost:8080", engine.endpoint)
