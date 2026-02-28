@@ -13,7 +13,7 @@ import (
 	"github.com/go-logr/logr"
 	com "github.com/shengyanli1982/orbit/common"
 	"github.com/shengyanli1982/orbit/internal/conver"
-	"github.com/shengyanli1982/orbit/internal/httptool"
+	"github.com/shengyanli1982/orbit/utils/httptool"
 )
 
 // 返回一个处理跨域请求的 Gin 中间件
