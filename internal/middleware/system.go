@@ -54,6 +54,7 @@ func AccessLogger(logger *logr.Logger, logEventFunc com.LogEventFunc, record boo
 
 		// 设置请求日志记录器
 		context.Set(com.RequestLoggerKey, logger)
+		defer context.Set(com.RequestLoggerKey, nil)
 		start := time.Now()
 
 		// 只在需要时才记录请求体
@@ -63,9 +64,6 @@ func AccessLogger(logger *logr.Logger, logEventFunc com.LogEventFunc, record boo
 		}
 
 		context.Next()
-
-		// 使用 defer 确保资源清理
-		defer context.Set(com.RequestLoggerKey, nil)
 
 		// 错误处理优化
 		if errs := context.Errors; len(errs) > 0 {
@@ -115,7 +113,6 @@ func Recovery(logger *logr.Logger, logEventFunc com.LogEventFunc) gin.HandlerFun
 					req.Header.Get(com.HttpHeaderContentType),
 				)
 				rawQuery := req.URL.RawQuery
-				status := context.Writer.Status()
 
 				var brokenPipe bool
 
@@ -143,6 +140,8 @@ func Recovery(logger *logr.Logger, logEventFunc com.LogEventFunc) gin.HandlerFun
 					return
 				}
 
+				statusCode := http.StatusInternalServerError
+
 				// 从对象池获取事件对象
 				event := com.LogEventPool.Get()
 				defer com.LogEventPool.Put(event)
@@ -154,8 +153,8 @@ func Recovery(logger *logr.Logger, logEventFunc com.LogEventFunc) gin.HandlerFun
 				event.EndPoint = remoteAddr
 				event.Path = path
 				event.Method = method
-				event.Code = status
-				event.Status = http.StatusText(status)
+				event.Code = statusCode
+				event.Status = http.StatusText(statusCode)
 				event.Agent = userAgent
 				event.ReqContentType = requestContentType
 				event.ReqQuery = rawQuery
@@ -177,8 +176,8 @@ func Recovery(logger *logr.Logger, logEventFunc com.LogEventFunc) gin.HandlerFun
 				sb.WriteString(", path: ")
 				sb.WriteString(req.URL.Path)
 
-				context.AbortWithStatus(http.StatusInternalServerError)
-				context.String(http.StatusInternalServerError, sb.String())
+				context.AbortWithStatus(statusCode)
+				context.String(statusCode, sb.String())
 			}
 		}()
 
