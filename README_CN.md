@@ -7,6 +7,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/shengyanli1982/orbit)](https://goreportcard.com/report/github.com/shengyanli1982/orbit)
 [![Build Status](https://github.com/shengyanli1982/orbit/actions/workflows/test.yaml/badge.svg)](https://github.com/shengyanli1982/orbit/actions)
 [![Go Reference](https://pkg.go.dev/badge/github.com/shengyanli1982/orbit.svg)](https://pkg.go.dev/github.com/shengyanli1982/orbit)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/shengyanli1982/orbit)
 
 # 简介
 
