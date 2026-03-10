@@ -29,9 +29,6 @@ type LogEvent struct {
 	// 请求的延迟时间
 	Latency string `json:"latency,omitempty" yaml:"latency,omitempty"`
 
-	// 请求延迟（毫秒）
-	LatencyMs int64 `json:"latencyMs,omitempty" yaml:"latencyMs,omitempty"`
-
 	// 发起请求的用户代理
 	Agent string `json:"agent,omitempty" yaml:"agent,omitempty"`
 
@@ -65,7 +62,6 @@ func (e *LogEvent) Reset() {
 	e.Code = 0
 	e.Status = ""
 	e.Latency = ""
-	e.LatencyMs = 0
 	e.Agent = ""
 	e.ForwardedFor = ""
 	e.ReqContentType = ""

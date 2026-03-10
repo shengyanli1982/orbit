@@ -548,10 +548,6 @@ type LogEvent struct {
 	// The Latency field represents the latency of the request
 	Latency string `json:"latency,omitempty" yaml:"latency,omitempty"`
 
-	// LatencyMs 字段表示请求延迟（毫秒）
-	// The LatencyMs field represents request latency in milliseconds
-	LatencyMs int64 `json:"latencyMs,omitempty" yaml:"latencyMs,omitempty"`
-
 	// Agent 字段表示发起请求的用户代理
 	// The Agent field represents the user agent of the request initiator
 	Agent string `json:"agent,omitempty" yaml:"agent,omitempty"`
@@ -595,7 +591,6 @@ Each log event contains the following information:
 - `code` - HTTP status code
 - `status` - HTTP status text
 - `latency` - Request latency
-- `latencyMs` - Request latency in milliseconds
 - `agent` - User agent
 - `forwardedFor` - Raw forwarded-for header value
 - `query` - Request query parameters
@@ -701,7 +696,6 @@ Each log event contains the following information:
 - `code` - HTTP status code
 - `status` - HTTP status text
 - `latency` - Request latency
-- `latencyMs` - Request latency in milliseconds
 - `agent` - User agent
 - `forwardedFor` - Raw forwarded-for header value
 - `query` - Request query parameters
