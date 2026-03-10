@@ -111,6 +111,33 @@ When `EnableForwardedByClientIp` is enabled:
 3. If you explicitly set `WithTrustedProxies(...)` and the value is invalid (bad IP/CIDR), `orbit` fails fast and aborts startup.
 4. `WithRemoteIPHeaders(...)` controls the header priority used by `ClientIP()` parsing.
 
+**Example**
+
+```go
+package main
+
+import (
+	"github.com/shengyanli1982/orbit"
+)
+
+func main() {
+	// Production example: enable forwarded headers and only trust internal proxies.
+	config := orbit.NewConfig().
+		WithTrustedProxies([]string{"10.0.0.0/8"}).
+		WithRemoteIPHeaders([]string{"X-Forwarded-For", "X-Real-IP"}) // optional, this is the default
+
+	// Enable forwarded header based ClientIP parsing.
+	opts := orbit.NewOptions().EnableForwardedByClientIp()
+
+	_ = orbit.NewEngine(config, opts)
+}
+```
+
+> [!NOTE]
+>
+> - If you set `WithTrustedProxies([]string{})`, forwarded headers are ignored even when `EnableForwardedByClientIp` is enabled.
+> - If you set `WithTrustedProxies(...)` to an invalid CIDR while `EnableForwardedByClientIp` is enabled, engine initialization fails and `Run()` will be aborted.
+
 ### 2.2 CORS Policy
 
 `orbit` now uses explicit CORS policy configuration.
@@ -118,6 +145,75 @@ When `EnableForwardedByClientIp` is enabled:
 1. Default policy is conservative and does not automatically allow all browser origins.
 2. Use `WithCORSPolicy(...)` to configure whitelist origins, headers, methods, and credentials.
 3. For trusted service-to-service traffic (non-browser), you can disable CORS explicitly.
+
+**Examples**
+
+```go
+package main
+
+import (
+	"github.com/shengyanli1982/orbit"
+	com "github.com/shengyanli1982/orbit/common"
+)
+
+func main() {
+	// Allow-all origins (typically for development).
+	_ = orbit.NewConfig().WithCORSPolicy(com.CORSPolicy{
+		Enabled:         true,
+		AllowAllOrigins: true,
+		AllowedMethods:  []string{"GET", "POST", "OPTIONS"},
+		AllowedHeaders:  []string{"*"},
+		MaxAgeSeconds:   600,
+	})
+
+	// Origin whitelist (recommended for browser-facing services in production).
+	_ = orbit.NewConfig().WithCORSPolicy(com.CORSPolicy{
+		Enabled:          true,
+		AllowedOrigins:   []string{"https://app.example.com"},
+		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
+		AllowedHeaders:   []string{"Content-Type", "Authorization", "X-Request-Id"},
+		AllowCredentials: true,
+		MaxAgeSeconds:    600,
+	})
+
+	// Disable CORS middleware completely.
+	_ = orbit.NewConfig().WithCORSPolicy(com.CORSPolicy{Enabled: false})
+}
+```
+
+> [!TIP]
+>
+> If you need credentials (cookies/Authorization) for browser clients, it is recommended to use an origin whitelist (`AllowedOrigins`) and return the specific origin (i.e. keep `AllowAllOrigins=false`).
+
+**Minimal production baseline**
+
+```go
+package main
+
+import (
+	"github.com/shengyanli1982/orbit"
+	com "github.com/shengyanli1982/orbit/common"
+)
+
+func main() {
+	config := orbit.NewConfig().
+		WithTrustedProxies([]string{"10.0.0.0/8"}).
+		WithCORSPolicy(com.CORSPolicy{
+			Enabled:          true,
+			AllowedOrigins:   []string{"https://app.example.com"},
+			AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
+			AllowedHeaders:   []string{"Content-Type", "Authorization", "X-Request-Id"},
+			AllowCredentials: true,
+			MaxAgeSeconds:    600,
+		})
+
+	opts := orbit.NewOptions().
+		EnableForwardedByClientIp().
+		EnableMetric()
+
+	_ = orbit.NewEngine(config, opts)
+}
+```
 
 You can use `NewOptions` to create a null feature, and use `EnableXXX` methods to set the feature options.
 
@@ -391,12 +487,6 @@ func main() {
 ```bash
 $ curl -i http://127.0.0.1:8080/demo
 HTTP/1.1 200 OK
-Access-Control-Allow-Credentials: true
-Access-Control-Allow-Headers: *
-Access-Control-Allow-Methods: POST, GET, OPTIONS, PUT, DELETE, UPDATE
-Access-Control-Allow-Origin: *
-Access-Control-Expose-Headers: Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Cache-Control, Content-Language, Content-Type
-Access-Control-Max-Age: 172800
 Content-Type: text/plain; charset=utf-8
 Date: Wed, 10 Jan 2024 12:09:37 GMT
 Content-Length: 4
@@ -405,12 +495,6 @@ demo
 
 $ curl -i http://127.0.0.1:8080/demo/test
 HTTP/1.1 200 OK
-Access-Control-Allow-Credentials: true
-Access-Control-Allow-Headers: *
-Access-Control-Allow-Methods: POST, GET, OPTIONS, PUT, DELETE, UPDATE
-Access-Control-Allow-Origin: *
-Access-Control-Expose-Headers: Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Cache-Control, Content-Language, Content-Type
-Access-Control-Max-Age: 172800
 Content-Type: text/plain; charset=utf-8
 Date: Wed, 10 Jan 2024 12:09:43 GMT
 Content-Length: 4
@@ -464,9 +548,17 @@ type LogEvent struct {
 	// The Latency field represents the latency of the request
 	Latency string `json:"latency,omitempty" yaml:"latency,omitempty"`
 
+	// LatencyMs 字段表示请求延迟（毫秒）
+	// The LatencyMs field represents request latency in milliseconds
+	LatencyMs int64 `json:"latencyMs,omitempty" yaml:"latencyMs,omitempty"`
+
 	// Agent 字段表示发起请求的用户代理
 	// The Agent field represents the user agent of the request initiator
 	Agent string `json:"agent,omitempty" yaml:"agent,omitempty"`
+
+	// ForwardedFor 字段表示转发代理头原始值
+	// The ForwardedFor field represents the raw forwarded-for header value
+	ForwardedFor string `json:"forwardedFor,omitempty" yaml:"forwardedFor,omitempty"`
 
 	// ReqContentType 字段表示请求的内容类型
 	// The ReqContentType field represents the content type of the request
@@ -482,7 +574,7 @@ type LogEvent struct {
 
 	// Error 字段表示请求中的任何错误
 	// The Error field represents any errors in the request
-	Error any `json:"error,omitempty" yaml:"error,omitempty"`
+	Error error `json:"error,omitempty" yaml:"error,omitempty"`
 
 	// ErrorStack 字段表示错误的堆栈跟踪
 	// The ErrorStack field represents the stack trace of the error
@@ -503,7 +595,9 @@ Each log event contains the following information:
 - `code` - HTTP status code
 - `status` - HTTP status text
 - `latency` - Request latency
+- `latencyMs` - Request latency in milliseconds
 - `agent` - User agent
+- `forwardedFor` - Raw forwarded-for header value
 - `query` - Request query parameters
 - `reqContentType` - Request content type
 - `reqBody` - Request body (if enabled)
@@ -607,7 +701,9 @@ Each log event contains the following information:
 - `code` - HTTP status code
 - `status` - HTTP status text
 - `latency` - Request latency
+- `latencyMs` - Request latency in milliseconds
 - `agent` - User agent
+- `forwardedFor` - Raw forwarded-for header value
 - `query` - Request query parameters
 - `reqContentType` - Request content type
 - `reqBody` - Request body (if enabled)
