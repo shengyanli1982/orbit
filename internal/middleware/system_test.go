@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-logr/logr"
+	com "github.com/shengyanli1982/orbit/common"
 	"github.com/shengyanli1982/orbit/utils/log"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap/zapcore"
@@ -49,6 +50,60 @@ func TestCors(t *testing.T) {
 	assert.Equal(t, header.Get("Access-Control-Expose-Headers"), "Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Cache-Control, Content-Language, Content-Type")
 	assert.Equal(t, header.Get("Access-Control-Allow-Credentials"), "true")
 	assert.Equal(t, header.Get("Access-Control-Max-Age"), "172800")
+}
+
+func TestCorsWithPolicyDisabled(t *testing.T) {
+	router := gin.New()
+	router.Use(CorsWithPolicy(com.CORSPolicy{Enabled: false}))
+	router.GET("/test", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"message": "OK"}) })
+
+	req, _ := http.NewRequest(http.MethodGet, "/test", nil)
+	req.Header.Set("Origin", "https://app.example.com")
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	assert.Empty(t, recorder.Header().Get("Access-Control-Allow-Origin"))
+}
+
+func TestCorsWithPolicyWhitelist(t *testing.T) {
+	router := gin.New()
+	router.Use(CorsWithPolicy(com.CORSPolicy{
+		Enabled:          true,
+		AllowedOrigins:   []string{"https://app.example.com"},
+		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
+		AllowedHeaders:   []string{"Content-Type"},
+		ExposeHeaders:    []string{"X-Request-Id"},
+		AllowCredentials: true,
+		MaxAgeSeconds:    600,
+	}))
+	router.GET("/test", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"message": "OK"}) })
+
+	req, _ := http.NewRequest(http.MethodGet, "/test", nil)
+	req.Header.Set("Origin", "https://app.example.com")
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	assert.Equal(t, "https://app.example.com", recorder.Header().Get("Access-Control-Allow-Origin"))
+	assert.Equal(t, "Origin", recorder.Header().Get("Vary"))
+}
+
+func TestCorsWithPolicyWhitelistReject(t *testing.T) {
+	router := gin.New()
+	router.Use(CorsWithPolicy(com.CORSPolicy{
+		Enabled:        true,
+		AllowedOrigins: []string{"https://app.example.com"},
+	}))
+	router.GET("/test", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"message": "OK"}) })
+
+	req, _ := http.NewRequest(http.MethodGet, "/test", nil)
+	req.Header.Set("Origin", "https://evil.example.com")
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	assert.Empty(t, recorder.Header().Get("Access-Control-Allow-Origin"))
 }
 
 func TestAccessLogger(t *testing.T) {

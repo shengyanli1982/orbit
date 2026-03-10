@@ -15,6 +15,21 @@ var (
 	defaultHttpListenPort    = com.DefaultHttpListenPort        // 默认HTTP监听端口
 	defaultIdleTimeout       = com.DefaultHttpIdleTimeoutMillis // 默认空闲超时时间（毫秒）
 	defaultMaxHeaderBytes    = com.DefaultMaxHeaderBytes        // 默认最大头部字节数
+	// 默认与 Gin 保持一致：信任所有代理，按需通过 WithTrustedProxies 显式收紧
+	defaultTrustedProxies = []string{"0.0.0.0/0", "::/0"}
+	// 默认按标准代理头顺序解析真实客户端IP
+	defaultRemoteIPHeaders = []string{"X-Forwarded-For", "X-Real-IP"}
+	// 默认 CORS 策略：启用但保守，不放开所有来源
+	defaultCORSPolicy = com.CORSPolicy{
+		Enabled:          true,
+		AllowAllOrigins:  false,
+		AllowedOrigins:   []string{},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Content-Type", "Authorization", "X-Request-Id"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: false,
+		MaxAgeSeconds:    600,
+	}
 )
 
 // Config 结构体定义了服务器的配置选项
@@ -27,6 +42,9 @@ type Config struct {
 	HttpReadHeaderTimeout uint32               `json:"httpReadHeaderTimeout,omitempty" yaml:"httpReadHeaderTimeout,omitempty"` // HTTP读取头部超时时间
 	HttpIdleTimeout       uint32               `json:"httpIdleTimeout,omitempty" yaml:"httpIdleTimeout,omitempty"`             // HTTP空闲超时时间
 	MaxHeaderBytes        uint32               `json:"maxHeaderBytes,omitempty" yaml:"maxHeaderBytes,omitempty"`               // HTTP最大头部字节数
+	TrustedProxies        []string             `json:"trustedProxies,omitempty" yaml:"trustedProxies,omitempty"`               // 可信代理CIDR列表
+	RemoteIPHeaders       []string             `json:"remoteIPHeaders,omitempty" yaml:"remoteIPHeaders,omitempty"`             // 真实客户端IP解析头
+	CORSPolicy            *com.CORSPolicy      `json:"corsPolicy,omitempty" yaml:"corsPolicy,omitempty"`                       // CORS 策略（nil 表示使用默认策略）
 	logger                *logr.Logger         `json:"-" yaml:"-"`                                                             // 日志记录器
 	accessLogEventFunc    com.LogEventFunc     `json:"-" yaml:"-"`                                                             // 访问日志事件处理函数
 	recoveryLogEventFunc  com.LogEventFunc     `json:"-" yaml:"-"`                                                             // 恢复日志事件处理函数
@@ -44,6 +62,9 @@ func NewConfig() *Config {
 		HttpReadHeaderTimeout: defaultIdleTimeout,
 		HttpIdleTimeout:       defaultIdleTimeout,
 		MaxHeaderBytes:        uint32(defaultMaxHeaderBytes),
+		TrustedProxies:        cloneStringSlice(defaultTrustedProxies),
+		RemoteIPHeaders:       cloneStringSlice(defaultRemoteIPHeaders),
+		CORSPolicy:            cloneCORSPolicyPtr(&defaultCORSPolicy),
 		logger:                &com.DefaultLogrLogger,
 		accessLogEventFunc:    log.DefaultAccessEventFunc,
 		recoveryLogEventFunc:  log.DefaultRecoveryEventFunc,
@@ -105,6 +126,24 @@ func (c *Config) WithMaxHeaderBytes(bytes uint32) *Config {
 	return c
 }
 
+// 设置信任的代理CIDR列表
+func (c *Config) WithTrustedProxies(proxies []string) *Config {
+	c.TrustedProxies = cloneStringSlice(proxies)
+	return c
+}
+
+// 设置用于解析真实客户端IP的HTTP头部列表
+func (c *Config) WithRemoteIPHeaders(headers []string) *Config {
+	c.RemoteIPHeaders = cloneStringSlice(headers)
+	return c
+}
+
+// 设置 CORS 策略
+func (c *Config) WithCORSPolicy(policy com.CORSPolicy) *Config {
+	c.CORSPolicy = cloneCORSPolicyPtr(&policy)
+	return c
+}
+
 // 设置访问日志事件处理函数
 func (c *Config) WithAccessLogEventFunc(fn com.LogEventFunc) *Config {
 	c.accessLogEventFunc = fn
@@ -162,6 +201,17 @@ func isConfigValid(conf *Config) *Config {
 	if conf.MaxHeaderBytes == 0 {
 		conf.MaxHeaderBytes = defaultConf.MaxHeaderBytes
 	}
+	if conf.TrustedProxies == nil {
+		conf.TrustedProxies = cloneStringSlice(defaultConf.TrustedProxies)
+	} else {
+		conf.TrustedProxies = cloneStringSlice(conf.TrustedProxies)
+	}
+	if conf.RemoteIPHeaders == nil {
+		conf.RemoteIPHeaders = cloneStringSlice(defaultConf.RemoteIPHeaders)
+	} else {
+		conf.RemoteIPHeaders = cloneStringSlice(conf.RemoteIPHeaders)
+	}
+	conf.CORSPolicy = normalizeCORSPolicy(conf.CORSPolicy, defaultConf.CORSPolicy)
 
 	// 验证并设置日志和事件处理配置
 	if conf.logger == nil {
@@ -180,4 +230,70 @@ func isConfigValid(conf *Config) *Config {
 	}
 
 	return conf
+}
+
+func cloneStringSlice(values []string) []string {
+	if values == nil {
+		return nil
+	}
+
+	result := make([]string, len(values))
+	copy(result, values)
+	return result
+}
+
+func isStringSliceEqual(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+
+	for i := 0; i < len(left); i++ {
+		if left[i] != right[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func cloneCORSPolicy(policy com.CORSPolicy) com.CORSPolicy {
+	policy.AllowedOrigins = cloneStringSlice(policy.AllowedOrigins)
+	policy.AllowedMethods = cloneStringSlice(policy.AllowedMethods)
+	policy.AllowedHeaders = cloneStringSlice(policy.AllowedHeaders)
+	policy.ExposeHeaders = cloneStringSlice(policy.ExposeHeaders)
+	return policy
+}
+
+func cloneCORSPolicyPtr(policy *com.CORSPolicy) *com.CORSPolicy {
+	if policy == nil {
+		return nil
+	}
+	cp := cloneCORSPolicy(*policy)
+	return &cp
+}
+
+func normalizeCORSPolicy(current, fallback *com.CORSPolicy) *com.CORSPolicy {
+	if fallback == nil {
+		return cloneCORSPolicyPtr(current)
+	}
+	if current == nil {
+		return cloneCORSPolicyPtr(fallback)
+	}
+
+	merged := cloneCORSPolicy(*current)
+	def := cloneCORSPolicy(*fallback)
+
+	if len(merged.AllowedMethods) == 0 {
+		merged.AllowedMethods = def.AllowedMethods
+	}
+	if len(merged.AllowedHeaders) == 0 {
+		merged.AllowedHeaders = def.AllowedHeaders
+	}
+	if len(merged.ExposeHeaders) == 0 {
+		merged.ExposeHeaders = def.ExposeHeaders
+	}
+	if merged.MaxAgeSeconds <= 0 {
+		merged.MaxAgeSeconds = def.MaxAgeSeconds
+	}
+
+	return &merged
 }

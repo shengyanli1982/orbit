@@ -20,17 +20,17 @@ While `gin` is an excellent framework, it requires additional setup for logging 
 
 # Advantages
 
--   Lightweight and user-friendly
--   Supports `zap` and `klog` logging with both `async` and `sync` modes, automatic log level control based on release mode
--   Integrates `prometheus` for monitoring
--   Includes `swagger` API documentation support
--   Graceful server shutdown
--   `cors` middleware for cross-origin requests
--   Automatic panic recovery
--   Customizable middleware
--   Flexible router groups
--   Customizable access log format and fields
--   Supports repeat reading of request/response body and caching
+- Lightweight and user-friendly
+- Supports `zap` and `klog` logging with both `async` and `sync` modes, automatic log level control based on release mode
+- Integrates `prometheus` for monitoring
+- Includes `swagger` API documentation support
+- Graceful server shutdown
+- `cors` middleware for cross-origin requests
+- Automatic panic recovery
+- Customizable middleware
+- Flexible router groups
+- Customizable access log format and fields
+- Supports repeat reading of request/response body and caching
 
 # Installation
 
@@ -52,27 +52,30 @@ go get github.com/shengyanli1982/orbit
 >
 > The default URL paths are system-defined and cannot be changed.
 
--   `/metrics` - Prometheus metrics
--   `/swagger/*any` - Swagger API documentation
--   `/debug/pprof/*any` - PProf debug
--   `/ping` - Health check
+- `/metrics` - Prometheus metrics
+- `/swagger/*any` - Swagger API documentation
+- `/debug/pprof/*any` - PProf debug
+- `/ping` - Health check
 
 ## 1. Configuration
 
 `orbit` provides several configuration options that can be set before starting the `orbit` instance.
 
--   `WithLogger` - Use `logr` logger (default: `DefaultConsoleLogger`).
--   `WithAddress` - HTTP server listen address (default: `127.0.0.1`).
--   `WithPort` - HTTP server listen port (default: `8080`).
--   `WithRelease` - HTTP server release mode (default: `false`).
--   `WithHttpReadTimeout` - HTTP server read timeout (default: `15s`).
--   `WithHttpWriteTimeout` - HTTP server write timeout (default: `15s`).
--   `WithHttpReadHeaderTimeout` - HTTP server read header timeout (default: `15s`).
--   `WithHttpIdleTimeout` - HTTP server idle timeout (default: `15s`).
--   `WithMaxHeaderBytes` - HTTP server maximum header bytes (default: `2MB`).
--   `WithAccessLogEventFunc` - HTTP server access log event function (default: `DefaultAccessEventFunc`).
--   `WithRecoveryLogEventFunc` - HTTP server recovery log event function (default: `DefaultRecoveryEventFunc`).
--   `WithPrometheusRegistry` - HTTP server Prometheus registry (default: `prometheus.DefaultRegister`).
+- `WithLogger` - Use `logr` logger (default: `DefaultConsoleLogger`).
+- `WithAddress` - HTTP server listen address (default: `127.0.0.1`).
+- `WithPort` - HTTP server listen port (default: `8080`).
+- `WithRelease` - HTTP server release mode (default: `false`).
+- `WithHttpReadTimeout` - HTTP server read timeout (default: `15s`).
+- `WithHttpWriteTimeout` - HTTP server write timeout (default: `15s`).
+- `WithHttpReadHeaderTimeout` - HTTP server read header timeout (default: `15s`).
+- `WithHttpIdleTimeout` - HTTP server idle timeout (default: `15s`).
+- `WithMaxHeaderBytes` - HTTP server maximum header bytes (default: `2MB`).
+- `WithTrustedProxies` - trusted proxy CIDR list for `ClientIP` resolution (default: `["0.0.0.0/0","::/0"]`, Gin-compatible).
+- `WithRemoteIPHeaders` - header order used to resolve real client IP (default: `["X-Forwarded-For","X-Real-IP"]`).
+- `WithCORSPolicy` - configurable CORS policy (default: enabled with conservative settings; not allow-all).
+- `WithAccessLogEventFunc` - HTTP server access log event function (default: `DefaultAccessEventFunc`).
+- `WithRecoveryLogEventFunc` - HTTP server recovery log event function (default: `DefaultRecoveryEventFunc`).
+- `WithPrometheusRegistry` - HTTP server Prometheus registry (default: `prometheus.DefaultRegister`).
 
 You can use `NewConfig` to create a default configuration and `WithXXX` methods to set the configuration options. `DefaultConfig` is an alias for `NewConfig()`.
 
@@ -89,18 +92,133 @@ You can use `NewConfig` to create a default configuration and `WithXXX` methods 
 
 `orbit` provides several feature options that can be set before starting the `orbit` instance:
 
--   `EnablePProf` - enable pprof debug (default: `false`)
--   `EnableSwagger` - enable swagger API documentation (default: `false`)
--   `EnableMetric` - enable Prometheus metrics (default: `false`)
--   `EnableRedirectTrailingSlash` - enable redirect trailing slash (default: `false`)
--   `EnableRedirectFixedPath` - enable redirect fixed path (default: `false`)
--   `EnableForwardedByClientIp` - enable forwarded by client IP (default: `false`)
--   `EnableRecordRequestBody` - enable record request body (default: `false`)
+- `EnablePProf` - enable pprof debug (default: `false`)
+- `EnableSwagger` - enable swagger API documentation (default: `false`)
+- `EnableMetric` - enable Prometheus metrics (default: `false`)
+- `EnableRedirectTrailingSlash` - enable redirect trailing slash (default: `false`)
+- `EnableRedirectFixedPath` - enable redirect fixed path (default: `false`)
+- `EnableForwardedByClientIp` - enable forwarded by client IP (default: `false`)
+- `EnableRecordRequestBody` - enable record request body (default: `false`)
+
+### 2.1 Client IP Forwarding and Trusted Proxy Policy
+
+`EnableForwardedByClientIp` controls whether forwarded headers are used for real client IP parsing.
+
+When `EnableForwardedByClientIp` is enabled:
+
+1. By default, `orbit` keeps Gin-compatible behavior and trusts all proxies (`0.0.0.0/0`, `::/0`).
+2. You can and should tighten trust boundaries by setting `WithTrustedProxies(...)` in production.
+3. If you explicitly set `WithTrustedProxies(...)` and the value is invalid (bad IP/CIDR), `orbit` fails fast and aborts startup.
+4. `WithRemoteIPHeaders(...)` controls the header priority used by `ClientIP()` parsing.
+
+**Example**
+
+```go
+package main
+
+import (
+	"github.com/shengyanli1982/orbit"
+)
+
+func main() {
+	// Production example: enable forwarded headers and only trust internal proxies.
+	config := orbit.NewConfig().
+		WithTrustedProxies([]string{"10.0.0.0/8"}).
+		WithRemoteIPHeaders([]string{"X-Forwarded-For", "X-Real-IP"}) // optional, this is the default
+
+	// Enable forwarded header based ClientIP parsing.
+	opts := orbit.NewOptions().EnableForwardedByClientIp()
+
+	_ = orbit.NewEngine(config, opts)
+}
+```
+
+> [!NOTE]
+>
+> - If you set `WithTrustedProxies([]string{})`, forwarded headers are ignored even when `EnableForwardedByClientIp` is enabled.
+> - If you set `WithTrustedProxies(...)` to an invalid CIDR while `EnableForwardedByClientIp` is enabled, engine initialization fails and `Run()` will be aborted.
+
+### 2.2 CORS Policy
+
+`orbit` now uses explicit CORS policy configuration.
+
+1. Default policy is conservative and does not automatically allow all browser origins.
+2. Use `WithCORSPolicy(...)` to configure whitelist origins, headers, methods, and credentials.
+3. For trusted service-to-service traffic (non-browser), you can disable CORS explicitly.
+
+**Examples**
+
+```go
+package main
+
+import (
+	"github.com/shengyanli1982/orbit"
+	com "github.com/shengyanli1982/orbit/common"
+)
+
+func main() {
+	// Allow-all origins (typically for development).
+	_ = orbit.NewConfig().WithCORSPolicy(com.CORSPolicy{
+		Enabled:         true,
+		AllowAllOrigins: true,
+		AllowedMethods:  []string{"GET", "POST", "OPTIONS"},
+		AllowedHeaders:  []string{"*"},
+		MaxAgeSeconds:   600,
+	})
+
+	// Origin whitelist (recommended for browser-facing services in production).
+	_ = orbit.NewConfig().WithCORSPolicy(com.CORSPolicy{
+		Enabled:          true,
+		AllowedOrigins:   []string{"https://app.example.com"},
+		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
+		AllowedHeaders:   []string{"Content-Type", "Authorization", "X-Request-Id"},
+		AllowCredentials: true,
+		MaxAgeSeconds:    600,
+	})
+
+	// Disable CORS middleware completely.
+	_ = orbit.NewConfig().WithCORSPolicy(com.CORSPolicy{Enabled: false})
+}
+```
+
+> [!TIP]
+>
+> If you need credentials (cookies/Authorization) for browser clients, it is recommended to use an origin whitelist (`AllowedOrigins`) and return the specific origin (i.e. keep `AllowAllOrigins=false`).
+
+**Minimal production baseline**
+
+```go
+package main
+
+import (
+	"github.com/shengyanli1982/orbit"
+	com "github.com/shengyanli1982/orbit/common"
+)
+
+func main() {
+	config := orbit.NewConfig().
+		WithTrustedProxies([]string{"10.0.0.0/8"}).
+		WithCORSPolicy(com.CORSPolicy{
+			Enabled:          true,
+			AllowedOrigins:   []string{"https://app.example.com"},
+			AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
+			AllowedHeaders:   []string{"Content-Type", "Authorization", "X-Request-Id"},
+			AllowCredentials: true,
+			MaxAgeSeconds:    600,
+		})
+
+	opts := orbit.NewOptions().
+		EnableForwardedByClientIp().
+		EnableMetric()
+
+	_ = orbit.NewEngine(config, opts)
+}
+```
 
 You can use `NewOptions` to create a null feature, and use `EnableXXX` methods to set the feature options.
 
--   `DebugOptions` is used for debugging and is an alias of `NewOptions().EnablePProf().EnableSwagger().EnableMetric().EnableRecordRequestBody()`.
--   `ReleaseOptions` is used for release and is an alias of `NewOptions().EnableMetric()`.
+- `DebugOptions` is used for debugging and is an alias of `NewOptions().EnablePProf().EnableSwagger().EnableMetric().EnableRecordRequestBody()`.
+- `ReleaseOptions` is used for release and is an alias of `NewOptions().EnableMetric()`.
 
 > [!NOTE]
 >
@@ -369,12 +487,6 @@ func main() {
 ```bash
 $ curl -i http://127.0.0.1:8080/demo
 HTTP/1.1 200 OK
-Access-Control-Allow-Credentials: true
-Access-Control-Allow-Headers: *
-Access-Control-Allow-Methods: POST, GET, OPTIONS, PUT, DELETE, UPDATE
-Access-Control-Allow-Origin: *
-Access-Control-Expose-Headers: Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Cache-Control, Content-Language, Content-Type
-Access-Control-Max-Age: 172800
 Content-Type: text/plain; charset=utf-8
 Date: Wed, 10 Jan 2024 12:09:37 GMT
 Content-Length: 4
@@ -383,12 +495,6 @@ demo
 
 $ curl -i http://127.0.0.1:8080/demo/test
 HTTP/1.1 200 OK
-Access-Control-Allow-Credentials: true
-Access-Control-Allow-Headers: *
-Access-Control-Allow-Methods: POST, GET, OPTIONS, PUT, DELETE, UPDATE
-Access-Control-Allow-Origin: *
-Access-Control-Expose-Headers: Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Cache-Control, Content-Language, Content-Type
-Access-Control-Max-Age: 172800
 Content-Type: text/plain; charset=utf-8
 Date: Wed, 10 Jan 2024 12:09:43 GMT
 Content-Length: 4
@@ -442,9 +548,17 @@ type LogEvent struct {
 	// The Latency field represents the latency of the request
 	Latency string `json:"latency,omitempty" yaml:"latency,omitempty"`
 
+	// LatencyMs 字段表示请求延迟（毫秒）
+	// The LatencyMs field represents request latency in milliseconds
+	LatencyMs int64 `json:"latencyMs,omitempty" yaml:"latencyMs,omitempty"`
+
 	// Agent 字段表示发起请求的用户代理
 	// The Agent field represents the user agent of the request initiator
 	Agent string `json:"agent,omitempty" yaml:"agent,omitempty"`
+
+	// ForwardedFor 字段表示转发代理头原始值
+	// The ForwardedFor field represents the raw forwarded-for header value
+	ForwardedFor string `json:"forwardedFor,omitempty" yaml:"forwardedFor,omitempty"`
 
 	// ReqContentType 字段表示请求的内容类型
 	// The ReqContentType field represents the content type of the request
@@ -460,7 +574,7 @@ type LogEvent struct {
 
 	// Error 字段表示请求中的任何错误
 	// The Error field represents any errors in the request
-	Error any `json:"error,omitempty" yaml:"error,omitempty"`
+	Error error `json:"error,omitempty" yaml:"error,omitempty"`
 
 	// ErrorStack 字段表示错误的堆栈跟踪
 	// The ErrorStack field represents the stack trace of the error
@@ -472,25 +586,27 @@ type LogEvent struct {
 
 Each log event contains the following information:
 
--   `message` - Log message
--   `id` - Request ID
--   `ip` - Client IP
--   `endpoint` - Request endpoint
--   `path` - Request path
--   `method` - HTTP method
--   `code` - HTTP status code
--   `status` - HTTP status text
--   `latency` - Request latency
--   `agent` - User agent
--   `query` - Request query parameters
--   `reqContentType` - Request content type
--   `reqBody` - Request body (if enabled)
+- `message` - Log message
+- `id` - Request ID
+- `ip` - Client IP
+- `endpoint` - Request endpoint
+- `path` - Request path
+- `method` - HTTP method
+- `code` - HTTP status code
+- `status` - HTTP status text
+- `latency` - Request latency
+- `latencyMs` - Request latency in milliseconds
+- `agent` - User agent
+- `forwardedFor` - Raw forwarded-for header value
+- `query` - Request query parameters
+- `reqContentType` - Request content type
+- `reqBody` - Request body (if enabled)
 
 ### Logging Options
 
--   `zap` and `klog` logger with both async and sync modes
--   Standard Go logger compatibility
--   Custom log event handlers via `WithAccessLogEventFunc`
+- `zap` and `klog` logger with both async and sync modes
+- Standard Go logger compatibility
+- Custom log event handlers via `WithAccessLogEventFunc`
 
 **Example**
 
@@ -576,27 +692,29 @@ Http server recovery log allows you to understand what happened when your servic
 
 Each log event contains the following information:
 
--   `message` - Log message
--   `id` - Request ID
--   `ip` - Client IP
--   `endpoint` - Request endpoint
--   `path` - Request path
--   `method` - HTTP method
--   `code` - HTTP status code
--   `status` - HTTP status text
--   `latency` - Request latency
--   `agent` - User agent
--   `query` - Request query parameters
--   `reqContentType` - Request content type
--   `reqBody` - Request body (if enabled)
--   `error` - Error message (for recovery events)
--   `errorStack` - Error stack trace (for recovery events)
+- `message` - Log message
+- `id` - Request ID
+- `ip` - Client IP
+- `endpoint` - Request endpoint
+- `path` - Request path
+- `method` - HTTP method
+- `code` - HTTP status code
+- `status` - HTTP status text
+- `latency` - Request latency
+- `latencyMs` - Request latency in milliseconds
+- `agent` - User agent
+- `forwardedFor` - Raw forwarded-for header value
+- `query` - Request query parameters
+- `reqContentType` - Request content type
+- `reqBody` - Request body (if enabled)
+- `error` - Error message (for recovery events)
+- `errorStack` - Error stack trace (for recovery events)
 
 ### Logging Options
 
--   `zap` and `klog` logger with both async and sync modes
--   Standard Go logger compatibility
--   Custom log event handlers via `WithRecoveryLogEventFunc`
+- `zap` and `klog` logger with both async and sync modes
+- Standard Go logger compatibility
+- Custom log event handlers via `WithRecoveryLogEventFunc`
 
 **Example**
 
@@ -797,15 +915,15 @@ $ go run demo.go
 
 When metrics are enabled (`EnableMetric`), `orbit` automatically collects the following HTTP metrics:
 
--   `orbit_http_request_count` - Total number of HTTP requests made
--   `orbit_http_request_latency_seconds_histogram` - HTTP request latencies in seconds (Histogram)
--   `orbit_http_request_latency_seconds` - HTTP request latencies in seconds (Gauge)
+- `orbit_http_request_count` - Total number of HTTP requests made
+- `orbit_http_request_latency_seconds_histogram` - HTTP request latencies in seconds (Histogram)
+- `orbit_http_request_latency_seconds` - HTTP request latencies in seconds (Gauge)
 
 All metrics include the following labels:
 
--   `method` - HTTP method
--   `path` - Request path
--   `status` - HTTP status code
+- `method` - HTTP method
+- `path` - Request path
+- `status` - HTTP status code
 
 > [!TIP]
 >
@@ -1423,3 +1541,62 @@ I0113 11:20:23.191458   12345 gin.go:165] http server is ready {"address": "127.
 I0113 11:20:25.194523   12345 default.go:10] http server access log {"id": "", "ip": "127.0.0.1", "endpoint": "127.0.0.1:59139", "path": "/demo", "method": "GET", "code": 200, "status": "OK", "latency": "20.326µs", "agent": "Go-http-client/1.1", "query": "", "reqContentType": "", "reqBody": ""}
 I0113 11:20:53.195721   12345 gin.go:190] http server is shutdown {"address": "127.0.0.1:8080"}
 ```
+
+## 13. WebSocket Guide
+
+`orbit` is based on Gin, so WebSocket endpoints can be implemented as regular HTTP handlers with upgrade logic.
+
+### 13.1 Minimal WebSocket Example
+
+```go
+package main
+
+import (
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
+	"github.com/shengyanli1982/orbit"
+)
+
+var upgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool { return true },
+}
+
+type wsService struct{}
+
+func (s *wsService) RegisterGroup(g *gin.RouterGroup) {
+	g.GET("/ws", func(c *gin.Context) {
+		conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+		if err != nil {
+			c.String(http.StatusBadRequest, err.Error())
+			return
+		}
+		defer conn.Close()
+
+		for {
+			msgType, payload, err := conn.ReadMessage()
+			if err != nil {
+				return
+			}
+			if err = conn.WriteMessage(msgType, payload); err != nil {
+				return
+			}
+		}
+	})
+}
+
+func main() {
+	engine := orbit.NewEngine(orbit.NewConfig(), orbit.NewOptions())
+	engine.RegisterService(&wsService{})
+	engine.Run()
+	select {}
+}
+```
+
+### 13.2 Proxy/LB Notes (Cloud-Agnostic)
+
+1. Ensure reverse proxy keeps `Upgrade` and `Connection: upgrade` headers.
+2. Configure idle/read timeouts to be larger than your heartbeat interval.
+3. Keep sticky-session strategy aligned with your WebSocket state model (stateless hubs are preferred).
+4. If you enable `EnableForwardedByClientIp`, configure `WithTrustedProxies(...)` explicitly for production.

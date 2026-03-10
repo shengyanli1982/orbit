@@ -10,6 +10,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
 
@@ -50,8 +51,71 @@ func TestServerMetricsHandlerFunc(t *testing.T) {
 	// Assert the metrics
 	_ = metrics.requestCount.WithLabelValues("GET", "/test", "200").Write(m)
 	assert.Equal(t, 1, int(m.Counter.GetValue()))
-	_ = metrics.requestLatency.WithLabelValues("GET", "/test", "200").Write(m)
-	assert.Equal(t, 1, int(m.Counter.GetValue()))
+	g := &dto.Metric{}
+	_ = metrics.requestLatency.WithLabelValues("GET", "/test", "200").Write(g)
+	assert.NotNil(t, g.GetGauge())
+	assert.GreaterOrEqual(t, g.GetGauge().GetValue(), 0.0)
+}
+
+func TestServerMetricsPrometheusNaming(t *testing.T) {
+	registry := prometheus.NewRegistry()
+	metrics := NewServerMetrics(registry)
+	metrics.IncRequestCount("GET", "/test", "200")
+	metrics.ObserveRequestLatency("GET", "/test", "200", 0.2)
+	metrics.SetRequestLatency("GET", "/test", "200", 0.2)
+	metrics.Register()
+	defer metrics.Unregister()
+
+	families, err := registry.Gather()
+	assert.NoError(t, err)
+
+	names := make(map[string]struct{}, len(families))
+	for _, family := range families {
+		names[family.GetName()] = struct{}{}
+	}
+
+	assert.Contains(t, names, "orbit_http_requests_total")
+	assert.Contains(t, names, "orbit_http_request_duration_seconds")
+	assert.Contains(t, names, "orbit_http_request_duration_seconds_last")
+}
+
+func TestServerMetricsDurationBucketsCover120Seconds(t *testing.T) {
+	registry := prometheus.NewRegistry()
+	metrics := NewServerMetrics(registry)
+	metrics.ObserveRequestLatency("GET", "/test", "200", 95)
+	metrics.Register()
+	defer metrics.Unregister()
+
+	families, err := registry.Gather()
+	require.NoError(t, err)
+
+	var durationFamily *dto.MetricFamily
+	for _, family := range families {
+		if family.GetName() == "orbit_http_request_duration_seconds" {
+			durationFamily = family
+			break
+		}
+	}
+	require.NotNil(t, durationFamily)
+	require.NotEmpty(t, durationFamily.Metric)
+
+	histogram := durationFamily.Metric[0].GetHistogram()
+	require.NotNil(t, histogram)
+
+	has120sBucket := false
+	maxUpperBound := 0.0
+	for _, bucket := range histogram.Bucket {
+		upper := bucket.GetUpperBound()
+		if upper > maxUpperBound {
+			maxUpperBound = upper
+		}
+		if upper == 120 {
+			has120sBucket = true
+		}
+	}
+
+	assert.True(t, has120sBucket, "duration histogram should include 120s bucket")
+	assert.GreaterOrEqual(t, maxUpperBound, 120.0)
 }
 
 func TestServerMetricsPathNormalization(t *testing.T) {

@@ -21,7 +21,9 @@
 go.work
 
 .idea
+.serena
 .vscode
 .DS_Store
 .cursorrules
 docs/
+

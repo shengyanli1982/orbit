@@ -70,8 +70,10 @@ func TestResponseBodyWriter_Flush(t *testing.T) {
 
 	w.Flush()
 
-	assert.Equal(t, testData, string(mock.written))
-	assert.Equal(t, 0, buf.Len())
+	// Flush should not write duplicate payload to the underlying writer.
+	assert.Empty(t, mock.written)
+	// Keep buffer unchanged for later response body inspection.
+	assert.Equal(t, testData, buf.String())
 }
 
 func BenchmarkResponseBodyWriter_Write(b *testing.B) {

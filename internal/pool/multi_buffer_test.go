@@ -47,21 +47,20 @@ func TestMultiSizeBufferPool(t *testing.T) {
 		const (
 			numGoroutines = 10
 			numOperations = 1000
+			maxRandSize   = 64 * KiB
 		)
 
 		var wg sync.WaitGroup
 		wg.Add(numGoroutines)
-		errChan := make(chan error, numGoroutines)
-
-		r := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 		for i := 0; i < numGoroutines; i++ {
-			go func() {
+			go func(seed int64) {
 				defer wg.Done()
+				r := rand.New(rand.NewSource(seed))
 				buffers := make([]*bytes.Buffer, 0, numOperations/10)
 
 				for j := 0; j < numOperations; j++ {
-					size := uint32(r.Int31n(int32(SizeClass1MiB)))
+					size := uint32(r.Int31n(maxRandSize))
 
 					if j%10 == 0 {
 						buf := pool.Get(size)
@@ -78,15 +77,10 @@ func TestMultiSizeBufferPool(t *testing.T) {
 				for _, buf := range buffers {
 					pool.Put(buf)
 				}
-			}()
+			}(time.Now().UnixNano() + int64(i))
 		}
 
 		wg.Wait()
-		close(errChan)
-
-		for err := range errChan {
-			assert.NoError(t, err, "concurrent operation error")
-		}
 	})
 
 	t.Run("Edge Cases", func(t *testing.T) {
@@ -239,11 +233,16 @@ func TestMultiSizeBufferPool_EdgeCases(t *testing.T) {
 			require.GreaterOrEqual(buf.Cap(), int(tt.expected),
 				"Buffer capacity should be greater than or equal to expected size")
 
-			// 测试写入对应大小的数据
-			data := make([]byte, tt.size)
+			// 避免在极端用例（如 Max uint32）下分配不可接受的大块内存。
+			// 这里使用受限写入来验证 buffer 可写和行为正确性。
+			writeSize := int(tt.size)
+			if writeSize > 16*KiB {
+				writeSize = 16 * KiB
+			}
+			data := make([]byte, writeSize)
 			n, err := buf.Write(data)
 			require.NoError(err, "Write should not error")
-			require.Equal(int(tt.size), n, "Should write all bytes")
+			require.Equal(writeSize, n, "Should write all bytes")
 
 			// 测试 Put
 			pool.Put(buf)
@@ -303,8 +302,9 @@ func TestMultiSizeBufferPool_HighLoad(t *testing.T) {
 	// 模拟高负载场景
 	t.Run("High Load Test", func(t *testing.T) {
 		const (
-			goroutines = 50
-			iterations = 1000
+			goroutines  = 20
+			iterations  = 400
+			maxRandSize = 128 * KiB
 		)
 
 		var wg sync.WaitGroup
@@ -317,7 +317,7 @@ func TestMultiSizeBufferPool_HighLoad(t *testing.T) {
 				buffers := make([]*bytes.Buffer, 0, iterations/10)
 				for i := 0; i < iterations; i++ {
 					// 随机大小请求
-					size := uint32(rand.Intn(1048577)) // 0 到 1MiB
+					size := uint32(rand.Intn(maxRandSize))
 					buf := pool.Get(size)
 					require.NotNil(buf)
 

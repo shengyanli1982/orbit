@@ -45,6 +45,7 @@ type Engine struct {
 	handlers []gin.HandlerFunc  // 中间件处理函数列表
 	services []Service          // 服务列表
 	metric   *mtc.ServerMetrics // 服务器指标收集器
+	initErr  error              // 引擎初始化错误，存在时禁止启动
 }
 
 // NewEngine 创建并返回一个新的引擎实例
@@ -73,7 +74,7 @@ func NewEngine(config *Config, options *Options) *Engine {
 	engine.ctx, engine.cancel = context.WithTimeout(context.Background(), defaultShutdownTimeout)
 
 	// 初始化 Gin 引擎并设置基本配置
-	engine.initGinEngine(options)
+	engine.initErr = engine.initGinEngine(options)
 
 	// 注册内置服务（健康检查、Swagger、Pprof、指标收集等）
 	engine.registerBuiltinServices()
@@ -82,16 +83,23 @@ func NewEngine(config *Config, options *Options) *Engine {
 }
 
 // 初始化 Gin 引擎并设置基本配置
-func (e *Engine) initGinEngine(options *Options) {
+func (e *Engine) initGinEngine(options *Options) error {
 	e.ginSvr = gin.New()
 	e.root = &e.ginSvr.RouterGroup
 
 	e.ginSvr.ForwardedByClientIP = options.forwordByClientIp
+	e.ginSvr.RemoteIPHeaders = cloneStringSlice(e.config.RemoteIPHeaders)
+	if options.forwordByClientIp {
+		if err := e.ginSvr.SetTrustedProxies(cloneStringSlice(e.config.TrustedProxies)); err != nil {
+			return fmt.Errorf("failed to set trusted proxies %v: %w", e.config.TrustedProxies, err)
+		}
+	}
 	e.ginSvr.RedirectTrailingSlash = options.trailingSlash
 	e.ginSvr.RedirectFixedPath = options.fixedPath
 	e.ginSvr.HandleMethodNotAllowed = true
 
 	e.setupBaseHandlers()
+	return nil
 }
 
 // 设置基本的 HTTP 处理函数，包括 404、405 处理和中间件
@@ -119,8 +127,8 @@ func (e *Engine) setupBaseHandlers() {
 	// 注册基本中间件
 	e.ginSvr.Use(
 		mid.Recovery(e.config.logger, e.config.recoveryLogEventFunc), // 恢复中间件
-		mid.BodyBuffer(), // 请求体缓冲中间件
-		mid.Cors(),       // CORS 中间件
+		mid.BodyBuffer(),                         // 请求体缓冲中间件
+		mid.CorsWithPolicy(*e.config.CORSPolicy), // CORS 中间件
 	)
 }
 
@@ -150,6 +158,11 @@ func (e *Engine) setupMetricService() {
 
 // 启动 HTTP 服务器
 func (e *Engine) Run() {
+	if e.initErr != nil {
+		e.config.logger.Error(e.initErr, "engine initialization failed, startup aborted")
+		return
+	}
+
 	// 检查服务器是否已经在运行
 	if e.IsRunning() {
 		return
