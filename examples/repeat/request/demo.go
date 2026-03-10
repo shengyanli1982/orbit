@@ -63,7 +63,10 @@ func main() {
 
 	// 模拟一个请求
 	// Simulate a request
-	resp, _ := http.Post("http://localhost:8080/demo", "text/plain", io.Reader(bytes.NewBuffer([]byte("demo"))))
+	resp, err := http.Post("http://localhost:8080/demo", "text/plain", io.Reader(bytes.NewBuffer([]byte("demo"))))
+	if err != nil {
+		panic(err)
+	}
 	defer resp.Body.Close()
 
 	// 打印响应体

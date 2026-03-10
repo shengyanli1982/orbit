@@ -15,6 +15,17 @@ import (
 // 度量标准的标签
 var metricLabels = []string{"method", "path", "status"}
 
+// defaultRequestDurationBuckets 默认 HTTP 请求耗时桶（秒）
+// 设计原则：
+// 1) 常见时延区间（5ms~1s）更细粒度，便于定位性能回退
+// 2) 慢请求长尾区间扩展到 120s，覆盖批处理/下游抖动等场景
+// 3) 控制桶数量，避免时序成本过高
+var defaultRequestDurationBuckets = []float64{
+	0.005, 0.01, 0.025, 0.05, 0.1,
+	0.25, 0.5, 1, 2.5, 5,
+	10, 15, 20, 30, 45, 60, 90, 120,
+}
+
 // ServerMetrics 结构体包含了请求计数器、请求延迟直方图、请求延迟仪表盘和 Prometheus 注册表
 type ServerMetrics struct {
 	requestCount     *prometheus.CounterVec    // 请求计数器
@@ -43,7 +54,7 @@ func NewServerMetrics(registry *prometheus.Registry) *ServerMetrics {
 		requestCount: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
 				Namespace: com.OrbitName,
-				Name:      "http_request_count", // HTTP请求总数
+				Name:      "http_requests_total", // HTTP请求总数（Prometheus Counter 命名规范）
 				Help:      "Total number of HTTP requests made.",
 			},
 			metricLabels,
@@ -53,9 +64,9 @@ func NewServerMetrics(registry *prometheus.Registry) *ServerMetrics {
 		requestLatencies: prometheus.NewHistogramVec(
 			prometheus.HistogramOpts{
 				Namespace: com.OrbitName,
-				Name:      "http_request_latency_seconds_histogram", // HTTP请求延迟直方图（秒）
-				Help:      "HTTP request latencies in seconds(Histogram).",
-				Buckets:   []float64{0.1, 0.5, 1, 2, 5, 10},
+				Name:      "http_request_duration_seconds", // HTTP请求耗时分布（秒）
+				Help:      "HTTP request duration in seconds (histogram).",
+				Buckets:   defaultRequestDurationBuckets,
 			},
 			metricLabels,
 		),
@@ -64,8 +75,8 @@ func NewServerMetrics(registry *prometheus.Registry) *ServerMetrics {
 		requestLatency: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Namespace: com.OrbitName,
-				Name:      "http_request_latency_seconds", // HTTP请求延迟仪表盘（秒）
-				Help:      "HTTP request latencies in seconds.",
+				Name:      "http_request_duration_seconds_last", // 最近一次请求耗时（秒）
+				Help:      "Last observed HTTP request duration in seconds.",
 			},
 			metricLabels,
 		),

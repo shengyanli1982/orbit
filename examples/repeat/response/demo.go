@@ -76,7 +76,10 @@ func main() {
 
 	// 模拟一个请求
 	// Simulate a request
-	resp, _ := http.Get("http://localhost:8080/demo")
+	resp, err := http.Get("http://localhost:8080/demo")
+	if err != nil {
+		panic(err)
+	}
 	defer resp.Body.Close()
 
 	// 等待 30 秒

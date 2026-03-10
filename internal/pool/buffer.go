@@ -3,7 +3,6 @@ package pool
 import (
 	"bytes"
 	"sync"
-	"sync/atomic"
 )
 
 // GC 影响：
@@ -44,8 +43,6 @@ type BufferPool struct {
 	pool        sync.Pool // 对象池，用于存储和复用 buffer
 	maxCapacity uint32    // buffer 的最大容量限制
 	initSize    uint32    // buffer 的初始大小
-	gets        uint64    // 获取操作计数
-	puts        uint64    // 放回操作计数
 }
 
 // 创建一个新的 BufferPool 实例
@@ -78,8 +75,6 @@ func NewBufferPool(initSize uint32) *BufferPool {
 
 // 从池中获取一个 bytes.Buffer 对象
 func (p *BufferPool) Get() *bytes.Buffer {
-	// 增加获取操作计数
-	atomic.AddUint64(&p.gets, 1)
 	return p.pool.Get().(*bytes.Buffer)
 }
 
@@ -89,9 +84,6 @@ func (p *BufferPool) Put(buf *bytes.Buffer) {
 	if buf == nil {
 		return
 	}
-
-	// 增加放回操作计数
-	atomic.AddUint64(&p.puts, 1)
 
 	// 容量检查：如果 buffer 容量超过最大限制，直接丢弃
 	if int64(buf.Cap()) > int64(p.maxCapacity) {
@@ -111,9 +103,4 @@ func (p *BufferPool) GetMaxCapacity() uint32 {
 // 返回当前池的初始缓冲区大小
 func (p *BufferPool) GetInitSize() uint32 {
 	return p.initSize
-}
-
-// 返回缓冲池的使用情况
-func (p *BufferPool) GetUsage() (gets, puts uint64) {
-	return atomic.LoadUint64(&p.gets), atomic.LoadUint64(&p.puts)
 }

@@ -12,8 +12,9 @@ const OrbitName = "orbit"
 // HTTP 头部相关常量
 const (
 	// HTTP 头部键
-	HttpHeaderContentType = "Content-Type"
-	HttpHeaderRequestID   = "X-Request-Id"
+	HttpHeaderContentType  = "Content-Type"
+	HttpHeaderRequestID    = "X-Request-Id"
+	HttpHeaderForwardedFor = "X-Forwarded-For"
 
 	// Content-Type 值
 	HttpHeaderJSONContentTypeValue       = binding.MIMEJSON

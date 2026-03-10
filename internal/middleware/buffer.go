@@ -40,9 +40,5 @@ func BodyBuffer() gin.HandlerFunc {
 		// 恢复原始的响应写入器
 		context.Writer = originalWriter
 		bufferedWriter.Reset()
-
-		// 清除上下文中的引用
-		context.Set(com.RequestBodyBufferKey, nil)
-		context.Set(com.ResponseBodyBufferKey, nil)
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"time"
 
@@ -18,14 +19,70 @@ import (
 
 // 返回一个处理跨域请求的 Gin 中间件
 func Cors() gin.HandlerFunc {
+	legacyPolicy := com.CORSPolicy{
+		Enabled:          true,
+		AllowAllOrigins:  true,
+		AllowedMethods:   []string{"POST", "GET", "OPTIONS", "PUT", "DELETE", "UPDATE"},
+		AllowedHeaders:   []string{"*"},
+		ExposeHeaders:    []string{"Content-Length", "Access-Control-Allow-Origin", "Access-Control-Allow-Headers", "Cache-Control", "Content-Language", "Content-Type"},
+		AllowCredentials: true,
+		MaxAgeSeconds:    172800,
+	}
+	return CorsWithPolicy(legacyPolicy)
+}
+
+// CorsWithPolicy 返回一个按策略处理跨域请求的 Gin 中间件
+func CorsWithPolicy(policy com.CORSPolicy) gin.HandlerFunc {
+	allowMethods := strings.Join(policy.AllowedMethods, ", ")
+	allowHeaders := strings.Join(policy.AllowedHeaders, ", ")
+	exposeHeaders := strings.Join(policy.ExposeHeaders, ", ")
+	maxAge := strconv.Itoa(policy.MaxAgeSeconds)
+
 	return func(context *gin.Context) {
-		// 设置允许跨域的各种 Header
-		context.Header("Access-Control-Allow-Origin", "*")
-		context.Header("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE, UPDATE")
-		context.Header("Access-Control-Allow-Headers", "*")
-		context.Header("Access-Control-Expose-Headers", "Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Cache-Control, Content-Language, Content-Type")
-		context.Header("Access-Control-Allow-Credentials", "true")
-		context.Header("Access-Control-Max-Age", "172800")
+		if !policy.Enabled {
+			context.Next()
+			return
+		}
+
+		origin := context.GetHeader("Origin")
+		// Fast path: non-browser requests without Origin do not need CORS headers.
+		if origin == "" && !policy.AllowAllOrigins {
+			if context.Request.Method == "OPTIONS" {
+				context.AbortWithStatus(http.StatusNoContent)
+				return
+			}
+			context.Next()
+			return
+		}
+
+		if policy.AllowAllOrigins {
+			context.Header("Access-Control-Allow-Origin", "*")
+		} else if origin != "" && isOriginAllowed(origin, policy.AllowedOrigins) {
+			context.Header("Access-Control-Allow-Origin", origin)
+			context.Header("Vary", "Origin")
+		} else if origin != "" {
+			// Keep behavior explicit for disallowed origins: no CORS headers returned.
+			if context.Request.Method == "OPTIONS" {
+				context.AbortWithStatus(http.StatusNoContent)
+				return
+			}
+			context.Next()
+			return
+		}
+
+		if allowMethods != "" {
+			context.Header("Access-Control-Allow-Methods", allowMethods)
+		}
+		if allowHeaders != "" {
+			context.Header("Access-Control-Allow-Headers", allowHeaders)
+		}
+		if exposeHeaders != "" {
+			context.Header("Access-Control-Expose-Headers", exposeHeaders)
+		}
+		context.Header("Access-Control-Allow-Credentials", strconv.FormatBool(policy.AllowCredentials))
+		if maxAge != "0" {
+			context.Header("Access-Control-Max-Age", maxAge)
+		}
 
 		// 处理 OPTIONS 预检请求
 		if context.Request.Method == "OPTIONS" {
@@ -35,6 +92,15 @@ func Cors() gin.HandlerFunc {
 
 		context.Next()
 	}
+}
+
+func isOriginAllowed(origin string, allowed []string) bool {
+	for _, item := range allowed {
+		if item == "*" || item == origin {
+			return true
+		}
+	}
+	return false
 }
 
 // 返回一个用于记录访问日志的 Gin 中间件
@@ -48,13 +114,13 @@ func AccessLogger(logger *logr.Logger, logEventFunc com.LogEventFunc, record boo
 		path := httptool.GenerateRequestPath(context)
 		requestContentType := httptool.StringFilterFlags(header.Get(com.HttpHeaderContentType))
 		requestID := header.Get(com.HttpHeaderRequestID)
+		forwardedFor := header.Get(com.HttpHeaderForwardedFor)
 		userAgent := req.UserAgent()
 		remoteAddr := req.RemoteAddr
 		rawQuery := req.URL.RawQuery
 
 		// 设置请求日志记录器
 		context.Set(com.RequestLoggerKey, logger)
-		defer context.Set(com.RequestLoggerKey, nil)
 		start := time.Now()
 
 		// 只在需要时才记录请求体
@@ -86,8 +152,11 @@ func AccessLogger(logger *logr.Logger, logEventFunc com.LogEventFunc, record boo
 		event.Method = method
 		event.Code = context.Writer.Status()
 		event.Status = http.StatusText(event.Code)
-		event.Latency = time.Since(start).String()
+		latency := time.Since(start)
+		event.Latency = latency.String()
+		event.LatencyMs = latency.Milliseconds()
 		event.Agent = userAgent
+		event.ForwardedFor = forwardedFor
 		event.ReqContentType = requestContentType
 		event.ReqQuery = rawQuery
 		event.ReqBody = conver.BytesToString(requestBody)
@@ -107,6 +176,7 @@ func Recovery(logger *logr.Logger, logEventFunc com.LogEventFunc) gin.HandlerFun
 				method := req.Method
 				path := httptool.GenerateRequestPath(context)
 				requestID := context.GetHeader(com.HttpHeaderRequestID)
+				forwardedFor := req.Header.Get(com.HttpHeaderForwardedFor)
 				userAgent := req.UserAgent()
 				remoteAddr := req.RemoteAddr
 				requestContentType := httptool.StringFilterFlags(
@@ -156,6 +226,7 @@ func Recovery(logger *logr.Logger, logEventFunc com.LogEventFunc) gin.HandlerFun
 				event.Code = statusCode
 				event.Status = http.StatusText(statusCode)
 				event.Agent = userAgent
+				event.ForwardedFor = forwardedFor
 				event.ReqContentType = requestContentType
 				event.ReqQuery = rawQuery
 

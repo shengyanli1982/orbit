@@ -33,8 +33,12 @@ var pprofHandlers = map[string]http.HandlerFunc{
 
 // pprofService 将 pprof 处理器注册到给定的路由组
 func pprofService(group *gin.RouterGroup) {
+	if group == nil {
+		return
+	}
+
 	// 创建一个 pprof 子路由组，避免重复的路径前缀
-	pprofGroup := group.Group("/debug/pprof")
+	pprofGroup := group
 
 	// 统一注册所有 GET 处理器
 	for path, handler := range pprofHandlers {

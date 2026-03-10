@@ -25,4 +25,15 @@ func TestGetLoggerFromContext(t *testing.T) {
 	// Test when RequestLoggerKey does not exist in the context
 	result = GetLoggerFromContext(context)
 	assert.Equal(t, com.DefaultSugeredLogger, result)
+
+	// Test when RequestLoggerKey exists but with unsupported logger type
+	context = &gin.Context{}
+	logrLogger := com.DefaultLogrLogger
+	context.Set(com.RequestLoggerKey, &logrLogger)
+	result = GetLoggerFromContext(context)
+	assert.Equal(t, com.DefaultSugeredLogger, result)
+
+	// Test with nil context
+	result = GetLoggerFromContext(nil)
+	assert.Equal(t, com.DefaultSugeredLogger, result)
 }

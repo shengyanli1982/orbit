@@ -16,6 +16,14 @@ func (s *emptyBodyService) RegisterGroup(g *gin.RouterGroup) {
 	g.GET("/empty", func(ctx *gin.Context) {})
 }
 
+type clientIPService struct{}
+
+func (s *clientIPService) RegisterGroup(g *gin.RouterGroup) {
+	g.GET("/client-ip", func(ctx *gin.Context) {
+		ctx.String(http.StatusOK, ctx.ClientIP())
+	})
+}
+
 func TestNewEngine(t *testing.T) {
 	// Create a new Config
 	config := &Config{
@@ -170,6 +178,43 @@ func TestNewEngineHealthCheck(t *testing.T) {
 	assert.Equal(t, com.RequestOK, recorder.Body.String())
 }
 
+func TestEngineDefaultCorsPolicyIsConservative(t *testing.T) {
+	engine := NewEngine(NewConfig(), NewOptions())
+	engine.Run()
+	defer engine.Stop()
+
+	req, _ := http.NewRequest(http.MethodGet, com.HealthCheckURLPath, nil)
+	req.Header.Set("Origin", "https://app.example.com")
+	recorder := httptest.NewRecorder()
+	engine.ginSvr.ServeHTTP(recorder, req)
+
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	assert.Empty(t, recorder.Header().Get("Access-Control-Allow-Origin"))
+}
+
+func TestEngineCorsPolicyCanAllowAllOrigins(t *testing.T) {
+	config := NewConfig().WithCORSPolicy(com.CORSPolicy{
+		Enabled:          true,
+		AllowAllOrigins:  true,
+		AllowedMethods:   []string{"GET", "OPTIONS"},
+		AllowedHeaders:   []string{"*"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAgeSeconds:    120,
+	})
+	engine := NewEngine(config, NewOptions())
+	engine.Run()
+	defer engine.Stop()
+
+	req, _ := http.NewRequest(http.MethodGet, com.HealthCheckURLPath, nil)
+	req.Header.Set("Origin", "https://app.example.com")
+	recorder := httptest.NewRecorder()
+	engine.ginSvr.ServeHTTP(recorder, req)
+
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	assert.Equal(t, "*", recorder.Header().Get("Access-Control-Allow-Origin"))
+}
+
 func TestRegisterMiddleware(t *testing.T) {
 	// Create a new Config
 	config := &Config{
@@ -214,4 +259,157 @@ func TestRegisterMiddleware(t *testing.T) {
 
 	// Assert that the response body matches the expected value
 	assert.Equal(t, "middleware", recorder.Body.String())
+}
+
+func TestPprofServiceRoute(t *testing.T) {
+	config := &Config{
+		Address:     "localhost",
+		Port:        8080,
+		ReleaseMode: true,
+	}
+	options := NewOptions().EnablePProf()
+	engine := NewEngine(config, options)
+
+	req, _ := http.NewRequest(http.MethodGet, "/debug/pprof/", nil)
+	recorder := httptest.NewRecorder()
+	engine.ginSvr.ServeHTTP(recorder, req)
+	assert.Equal(t, http.StatusOK, recorder.Code)
+
+	req, _ = http.NewRequest(http.MethodGet, "/debug/pprof/debug/pprof/", nil)
+	recorder = httptest.NewRecorder()
+	engine.ginSvr.ServeHTTP(recorder, req)
+	assert.Equal(t, http.StatusNotFound, recorder.Code)
+}
+
+func TestClientIPForwardedDisabledIgnoresHeader(t *testing.T) {
+	engine := NewEngine(NewConfig(), NewOptions())
+	engine.RegisterService(&clientIPService{})
+	engine.Run()
+	defer engine.Stop()
+
+	req, _ := http.NewRequest(http.MethodGet, "/client-ip", nil)
+	req.RemoteAddr = "10.1.2.3:12345"
+	req.Header.Set("X-Forwarded-For", "1.2.3.4")
+	recorder := httptest.NewRecorder()
+	engine.ginSvr.ServeHTTP(recorder, req)
+
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	assert.Equal(t, "10.1.2.3", recorder.Body.String())
+}
+
+func TestClientIPForwardedEnabledUsesHeaderByDefaultTrustedProxies(t *testing.T) {
+	engine := NewEngine(NewConfig(), NewOptions().EnableForwardedByClientIp())
+	engine.RegisterService(&clientIPService{})
+	engine.Run()
+	defer engine.Stop()
+
+	req, _ := http.NewRequest(http.MethodGet, "/client-ip", nil)
+	req.RemoteAddr = "10.1.2.3:12345"
+	req.Header.Set("X-Forwarded-For", "1.2.3.4")
+	recorder := httptest.NewRecorder()
+	engine.ginSvr.ServeHTTP(recorder, req)
+
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	assert.Equal(t, "1.2.3.4", recorder.Body.String())
+}
+
+func TestClientIPForwardedEnabledTrustedProxyUsesHeader(t *testing.T) {
+	config := NewConfig().WithTrustedProxies([]string{"10.0.0.0/8"})
+	options := NewOptions().EnableForwardedByClientIp()
+	engine := NewEngine(config, options)
+	engine.RegisterService(&clientIPService{})
+	engine.Run()
+	defer engine.Stop()
+
+	req, _ := http.NewRequest(http.MethodGet, "/client-ip", nil)
+	req.RemoteAddr = "10.1.2.3:12345"
+	req.Header.Set("X-Forwarded-For", "1.2.3.4")
+	recorder := httptest.NewRecorder()
+	engine.ginSvr.ServeHTTP(recorder, req)
+
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	assert.Equal(t, "1.2.3.4", recorder.Body.String())
+}
+
+func TestClientIPForwardedEnabledUntrustedProxyIgnoresHeader(t *testing.T) {
+	config := NewConfig().WithTrustedProxies([]string{"192.168.0.0/16"})
+	options := NewOptions().EnableForwardedByClientIp()
+	engine := NewEngine(config, options)
+	engine.RegisterService(&clientIPService{})
+	engine.Run()
+	defer engine.Stop()
+
+	req, _ := http.NewRequest(http.MethodGet, "/client-ip", nil)
+	req.RemoteAddr = "10.1.2.3:12345"
+	req.Header.Set("X-Forwarded-For", "1.2.3.4")
+	recorder := httptest.NewRecorder()
+	engine.ginSvr.ServeHTTP(recorder, req)
+
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	assert.Equal(t, "10.1.2.3", recorder.Body.String())
+}
+
+func TestClientIPForwardedEnabledWithNoTrustedProxiesIgnoresHeader(t *testing.T) {
+	config := NewConfig().WithTrustedProxies([]string{})
+	options := NewOptions().EnableForwardedByClientIp()
+	engine := NewEngine(config, options)
+	engine.RegisterService(&clientIPService{})
+	engine.Run()
+	defer engine.Stop()
+
+	req, _ := http.NewRequest(http.MethodGet, "/client-ip", nil)
+	req.RemoteAddr = "10.1.2.3:12345"
+	req.Header.Set("X-Forwarded-For", "1.2.3.4")
+	recorder := httptest.NewRecorder()
+	engine.ginSvr.ServeHTTP(recorder, req)
+
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	assert.Equal(t, "10.1.2.3", recorder.Body.String())
+}
+
+func TestClientIPForwardedEnabledUsesConfiguredHeaderOrder(t *testing.T) {
+	config := NewConfig().
+		WithTrustedProxies([]string{"10.0.0.0/8"}).
+		WithRemoteIPHeaders([]string{"X-Real-IP"})
+	options := NewOptions().EnableForwardedByClientIp()
+	engine := NewEngine(config, options)
+	engine.RegisterService(&clientIPService{})
+	engine.Run()
+	defer engine.Stop()
+
+	req, _ := http.NewRequest(http.MethodGet, "/client-ip", nil)
+	req.RemoteAddr = "10.1.2.3:12345"
+	req.Header.Set("X-Forwarded-For", "1.2.3.4")
+	req.Header.Set("X-Real-IP", "5.6.7.8")
+	recorder := httptest.NewRecorder()
+	engine.ginSvr.ServeHTTP(recorder, req)
+
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	assert.Equal(t, "5.6.7.8", recorder.Body.String())
+}
+
+func TestRunFailFastWhenForwardedEnabledAndTrustedProxiesInvalid(t *testing.T) {
+	config := NewConfig().WithTrustedProxies([]string{"invalid-cidr"})
+	options := NewOptions().EnableForwardedByClientIp()
+	engine := NewEngine(config, options)
+
+	assert.Error(t, engine.initErr)
+
+	engine.Run()
+
+	assert.False(t, engine.IsRunning())
+	assert.Nil(t, engine.httpSvr)
+}
+
+func TestRunNotFailWhenForwardedDisabledEvenIfTrustedProxiesInvalid(t *testing.T) {
+	config := NewConfig().WithTrustedProxies([]string{"invalid-cidr"})
+	options := NewOptions()
+	engine := NewEngine(config, options)
+
+	assert.NoError(t, engine.initErr)
+
+	engine.Run()
+	defer engine.Stop()
+
+	assert.True(t, engine.IsRunning())
 }

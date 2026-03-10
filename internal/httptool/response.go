@@ -2,6 +2,7 @@ package httptool
 
 import (
 	"bytes"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	com "github.com/shengyanli1982/orbit/common"
@@ -13,15 +14,22 @@ type ResponseBodyWriter struct {
 	buffer             *bytes.Buffer // 用于存储响应数据的缓冲区
 }
 
+var responseBodyWriterPool = sync.Pool{
+	New: func() interface{} {
+		return &ResponseBodyWriter{}
+	},
+}
+
 // 返回一个新的 ResponseBodyWriter 实例
 func NewResponseBodyWriter(w gin.ResponseWriter, buf *bytes.Buffer) *ResponseBodyWriter {
 	if buf == nil {
 		buf = com.ResponseBodyBufferPool.Get()
 	}
-	return &ResponseBodyWriter{
-		ResponseWriter: w,
-		buffer:         buf,
-	}
+
+	rw := responseBodyWriterPool.Get().(*ResponseBodyWriter)
+	rw.ResponseWriter = w
+	rw.buffer = buf
+	return rw
 }
 
 // 实现了 io.Writer 接口，将数据同时写入缓冲区和响应写入器
@@ -42,9 +50,13 @@ func (w *ResponseBodyWriter) WriteString(s string) (int, error) {
 
 // 清空并回收缓冲区
 func (w *ResponseBodyWriter) Reset() {
-	w.buffer.Reset()
-	com.ResponseBodyBufferPool.Put(w.buffer)
-	w.buffer = nil
+	if w.buffer != nil {
+		w.buffer.Reset()
+		com.ResponseBodyBufferPool.Put(w.buffer)
+		w.buffer = nil
+	}
+	w.ResponseWriter = nil
+	responseBodyWriterPool.Put(w)
 }
 
 // 返回当前缓冲区
@@ -59,14 +71,13 @@ func (w *ResponseBodyWriter) GetResponseWriter() gin.ResponseWriter {
 
 // 返回已写入的数据大小
 func (w *ResponseBodyWriter) Size() int {
+	if w.buffer == nil {
+		return 0
+	}
 	return w.buffer.Len()
 }
 
 // 将缓冲区数据写入底层的 ResponseWriter
 func (w *ResponseBodyWriter) Flush() {
-	if w.buffer.Len() > 0 {
-		_, _ = w.ResponseWriter.Write(w.buffer.Bytes())
-		w.buffer.Reset()
-	}
 	w.ResponseWriter.Flush()
 }
