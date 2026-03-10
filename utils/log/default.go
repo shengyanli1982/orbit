@@ -8,18 +8,15 @@ import (
 func DefaultAccessEventFunc(logger *logr.Logger, event *LogEvent) {
 	logger.Info(
 		event.Message,
-		"id", event.ID, // backward compatibility
-		"ip", event.IP, // backward compatibility
-		"request_id", event.ID,
-		"client_ip", event.IP,
-		"forwarded_for", event.ForwardedFor,
+		"id", event.ID,
+		"ip", event.IP,
+		"forwardedFor", event.ForwardedFor,
 		"endpoint", event.EndPoint,
 		"path", event.Path,
 		"method", event.Method,
 		"code", event.Code,
 		"status", event.Status,
 		"latency", event.Latency,
-		"latency_ms", event.LatencyMs,
 		"agent", event.Agent,
 		"query", event.ReqQuery,
 		"reqContentType", event.ReqContentType,
@@ -32,18 +29,15 @@ func DefaultRecoveryEventFunc(logger *logr.Logger, event *LogEvent) {
 	logger.Error(
 		event.Error,
 		event.Message,
-		"id", event.ID, // backward compatibility
-		"ip", event.IP, // backward compatibility
-		"request_id", event.ID,
-		"client_ip", event.IP,
-		"forwarded_for", event.ForwardedFor,
+		"id", event.ID,
+		"ip", event.IP,
+		"forwardedFor", event.ForwardedFor,
 		"endpoint", event.EndPoint,
 		"path", event.Path,
 		"method", event.Method,
 		"code", event.Code,
 		"status", event.Status,
 		"latency", event.Latency,
-		"latency_ms", event.LatencyMs,
 		"agent", event.Agent,
 		"query", event.ReqQuery,
 		"reqContentType", event.ReqContentType,

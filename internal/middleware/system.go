@@ -154,7 +154,6 @@ func AccessLogger(logger *logr.Logger, logEventFunc com.LogEventFunc, record boo
 		event.Status = http.StatusText(event.Code)
 		latency := time.Since(start)
 		event.Latency = latency.String()
-		event.LatencyMs = latency.Milliseconds()
 		event.Agent = userAgent
 		event.ForwardedFor = forwardedFor
 		event.ReqContentType = requestContentType

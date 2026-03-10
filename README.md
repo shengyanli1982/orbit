@@ -7,6 +7,7 @@ English | [中文](./README_CN.md)
 [![Go Report Card](https://goreportcard.com/badge/github.com/shengyanli1982/orbit)](https://goreportcard.com/report/github.com/shengyanli1982/orbit)
 [![Build Status](https://github.com/shengyanli1982/orbit/actions/workflows/test.yaml/badge.svg)](https://github.com/shengyanli1982/orbit/actions)
 [![Go Reference](https://pkg.go.dev/badge/github.com/shengyanli1982/orbit.svg)](https://pkg.go.dev/github.com/shengyanli1982/orbit)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/shengyanli1982/orbit)
 
 # Introduction
 
@@ -548,10 +549,6 @@ type LogEvent struct {
 	// The Latency field represents the latency of the request
 	Latency string `json:"latency,omitempty" yaml:"latency,omitempty"`
 
-	// LatencyMs 字段表示请求延迟（毫秒）
-	// The LatencyMs field represents request latency in milliseconds
-	LatencyMs int64 `json:"latencyMs,omitempty" yaml:"latencyMs,omitempty"`
-
 	// Agent 字段表示发起请求的用户代理
 	// The Agent field represents the user agent of the request initiator
 	Agent string `json:"agent,omitempty" yaml:"agent,omitempty"`
@@ -595,7 +592,6 @@ Each log event contains the following information:
 - `code` - HTTP status code
 - `status` - HTTP status text
 - `latency` - Request latency
-- `latencyMs` - Request latency in milliseconds
 - `agent` - User agent
 - `forwardedFor` - Raw forwarded-for header value
 - `query` - Request query parameters
@@ -701,7 +697,6 @@ Each log event contains the following information:
 - `code` - HTTP status code
 - `status` - HTTP status text
 - `latency` - Request latency
-- `latencyMs` - Request latency in milliseconds
 - `agent` - User agent
 - `forwardedFor` - Raw forwarded-for header value
 - `query` - Request query parameters
