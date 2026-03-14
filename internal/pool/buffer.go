@@ -2,7 +2,6 @@ package pool
 
 import (
 	"bytes"
-	"sync"
 )
 
 // GC 影响：
@@ -40,9 +39,9 @@ func ceilToPowerOfTwo(n uint32) uint32 {
 
 // 用于管理和复用 bytes.Buffer 的对象池
 type BufferPool struct {
-	pool        sync.Pool // 对象池，用于存储和复用 buffer
-	maxCapacity uint32    // buffer 的最大容量限制
-	initSize    uint32    // buffer 的初始大小
+	pool        *ObjectPool[*bytes.Buffer] // 对象池，用于存储和复用 buffer
+	maxCapacity uint32                     // buffer 的最大容量限制
+	initSize    uint32                     // buffer 的初始大小
 }
 
 // 创建一个新的 BufferPool 实例
@@ -60,12 +59,10 @@ func NewBufferPool(initSize uint32) *BufferPool {
 	}
 
 	bp := &BufferPool{
-		pool: sync.Pool{
-			New: func() interface{} {
-				// 创建一个新的 buffer，初始容量为 initSize
-				return bytes.NewBuffer(make([]byte, 0, initSize))
-			},
-		},
+		pool: NewObjectPool(func() *bytes.Buffer {
+			// 创建一个新的 buffer，初始容量为 initSize
+			return bytes.NewBuffer(make([]byte, 0, initSize))
+		}),
 		maxCapacity: maxCapacity,
 		initSize:    initSize,
 	}
@@ -75,7 +72,7 @@ func NewBufferPool(initSize uint32) *BufferPool {
 
 // 从池中获取一个 bytes.Buffer 对象
 func (p *BufferPool) Get() *bytes.Buffer {
-	return p.pool.Get().(*bytes.Buffer)
+	return p.pool.Get()
 }
 
 // 将一个 bytes.Buffer 对象放回池中

@@ -2,10 +2,10 @@ package httptool
 
 import (
 	"bytes"
-	"sync"
 
 	"github.com/gin-gonic/gin"
 	com "github.com/shengyanli1982/orbit/common"
+	bp "github.com/shengyanli1982/orbit/internal/pool"
 )
 
 // 包装了 gin.ResponseWriter，添加了缓冲区功能
@@ -14,11 +14,9 @@ type ResponseBodyWriter struct {
 	buffer             *bytes.Buffer // 用于存储响应数据的缓冲区
 }
 
-var responseBodyWriterPool = sync.Pool{
-	New: func() interface{} {
-		return &ResponseBodyWriter{}
-	},
-}
+var responseBodyWriterPool = bp.NewObjectPool(func() *ResponseBodyWriter {
+	return &ResponseBodyWriter{}
+})
 
 // 返回一个新的 ResponseBodyWriter 实例
 func NewResponseBodyWriter(w gin.ResponseWriter, buf *bytes.Buffer) *ResponseBodyWriter {
@@ -26,7 +24,7 @@ func NewResponseBodyWriter(w gin.ResponseWriter, buf *bytes.Buffer) *ResponseBod
 		buf = com.ResponseBodyBufferPool.Get()
 	}
 
-	rw := responseBodyWriterPool.Get().(*ResponseBodyWriter)
+	rw := responseBodyWriterPool.Get()
 	rw.ResponseWriter = w
 	rw.buffer = buf
 	return rw
