@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -121,5 +122,53 @@ func TestBodyBuffer(t *testing.T) {
 			// 验证响应体
 			assert.Equal(t, tt.responseBody, resp.Body.String())
 		})
+	}
+}
+
+func TestBodyBufferConcurrentSafety(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	router.Use(BodyBuffer())
+	router.GET("/concurrent", func(c *gin.Context) {
+		c.String(http.StatusOK, "OK")
+	})
+
+	const (
+		goroutines = 32
+		iterations = 200
+	)
+
+	var wg sync.WaitGroup
+	errCh := make(chan string, goroutines*iterations)
+
+	wg.Add(goroutines)
+	for g := 0; g < goroutines; g++ {
+		go func() {
+			defer wg.Done()
+			for i := 0; i < iterations; i++ {
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							errCh <- "panic in concurrent request"
+						}
+					}()
+
+					req := httptest.NewRequest(http.MethodGet, "/concurrent", nil)
+					resp := httptest.NewRecorder()
+					router.ServeHTTP(resp, req)
+					if resp.Code != http.StatusOK {
+						errCh <- "unexpected status code"
+					}
+				}()
+			}
+		}()
+	}
+
+	wg.Wait()
+	close(errCh)
+
+	for errMsg := range errCh {
+		t.Fatal(errMsg)
 	}
 }

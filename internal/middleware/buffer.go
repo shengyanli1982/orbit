@@ -17,14 +17,6 @@ func BodyBuffer() gin.HandlerFunc {
 		reqBodyBuffer.Reset()
 		respBodyBuffer.Reset()
 
-		defer func() {
-			// 使用 defer 确保缓冲区一定会被清理和归还到池中
-			reqBodyBuffer.Reset()
-			respBodyBuffer.Reset()
-			com.RequestBodyBufferPool.Put(reqBodyBuffer)
-			com.ResponseBodyBufferPool.Put(respBodyBuffer)
-		}()
-
 		// 将缓冲区存储在上下文中
 		context.Set(com.RequestBodyBufferKey, reqBodyBuffer)
 		context.Set(com.ResponseBodyBufferKey, respBodyBuffer)
@@ -33,12 +25,16 @@ func BodyBuffer() gin.HandlerFunc {
 		bufferedWriter := ihttptool.NewResponseBodyWriter(context.Writer, respBodyBuffer)
 		originalWriter := context.Writer
 		context.Writer = bufferedWriter
+		defer func() {
+			// 恢复原始写入器，并归还对象池资源。
+			// 注意：respBodyBuffer 由 bufferedWriter.Reset() 归还，避免重复 Put 导致并发复用。
+			context.Writer = originalWriter
+			bufferedWriter.Reset()
+			reqBodyBuffer.Reset()
+			com.RequestBodyBufferPool.Put(reqBodyBuffer)
+		}()
 
 		// 执行后续的中间件和处理函数
 		context.Next()
-
-		// 恢复原始的响应写入器
-		context.Writer = originalWriter
-		bufferedWriter.Reset()
 	}
 }

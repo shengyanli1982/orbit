@@ -1,8 +1,9 @@
 package metric
 
 import (
+	"net/http"
 	"strconv"
-	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -28,12 +29,11 @@ var defaultRequestDurationBuckets = []float64{
 
 // ServerMetrics 结构体包含了请求计数器、请求延迟直方图、请求延迟仪表盘和 Prometheus 注册表
 type ServerMetrics struct {
-	requestCount     *prometheus.CounterVec    // 请求计数器
-	requestLatencies *prometheus.HistogramVec  // 请求延迟直方图
-	requestLatency   *prometheus.GaugeVec      // 请求延迟仪表盘
-	registry         *prometheus.Registry      // Prometheus注册表
-	pathNormalizer   func(*gin.Context) string // 路径规范化函数
-	rwlock           sync.RWMutex              // 互斥锁
+	requestCount     *prometheus.CounterVec   // 请求计数器
+	requestLatencies *prometheus.HistogramVec // 请求延迟直方图
+	requestLatency   *prometheus.GaugeVec     // 请求延迟仪表盘
+	registry         *prometheus.Registry     // Prometheus注册表
+	pathNormalizer   atomic.Value             // 存储 func(*gin.Context) string
 }
 
 // defaultPathNormalizer 是默认的路径规范化函数
@@ -49,7 +49,7 @@ func defaultPathNormalizer(c *gin.Context) string {
 
 // 返回一个新的 ServerMetrics 实例
 func NewServerMetrics(registry *prometheus.Registry) *ServerMetrics {
-	return &ServerMetrics{
+	metrics := &ServerMetrics{
 		// 创建一个新的 Prometheus 计数器向量，用于记录 HTTP 请求总数
 		requestCount: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
@@ -81,11 +81,41 @@ func NewServerMetrics(registry *prometheus.Registry) *ServerMetrics {
 			metricLabels,
 		),
 
-		// 使用默认的路径规范化函数
-		pathNormalizer: defaultPathNormalizer,
-
 		// Prometheus 注册表用于注册和收集度量标准
 		registry: registry,
+	}
+	metrics.pathNormalizer.Store(defaultPathNormalizer)
+	return metrics
+}
+
+func formatStatusCode(status int) string {
+	switch status {
+	case http.StatusOK:
+		return "200"
+	case http.StatusCreated:
+		return "201"
+	case http.StatusNoContent:
+		return "204"
+	case http.StatusBadRequest:
+		return "400"
+	case http.StatusUnauthorized:
+		return "401"
+	case http.StatusForbidden:
+		return "403"
+	case http.StatusNotFound:
+		return "404"
+	case http.StatusMethodNotAllowed:
+		return "405"
+	case http.StatusInternalServerError:
+		return "500"
+	case http.StatusBadGateway:
+		return "502"
+	case http.StatusServiceUnavailable:
+		return "503"
+	case http.StatusGatewayTimeout:
+		return "504"
+	default:
+		return strconv.Itoa(status)
 	}
 }
 
@@ -146,9 +176,10 @@ func (m *ServerMetrics) Reset() {
 // - 使用正则表达式进一步规范化路径
 // - 实现自定义的路由参数替换逻辑
 func (m *ServerMetrics) SetPathNormalizer(fn func(*gin.Context) string) {
-	m.rwlock.Lock()
-	m.pathNormalizer = fn
-	m.rwlock.Unlock()
+	if fn == nil {
+		fn = defaultPathNormalizer
+	}
+	m.pathNormalizer.Store(fn)
 }
 
 // 返回一个 Gin 中间件处理函数
@@ -160,10 +191,8 @@ func (m *ServerMetrics) HandlerFunc(logger *logr.Logger) gin.HandlerFunc {
 			return
 		}
 
-		// 在进入处理逻辑前获取所有需要的值
-		m.rwlock.RLock()
-		path := m.pathNormalizer(context) // 使用规范化路径
-		m.rwlock.RUnlock()
+		// 无锁读取路径归一化函数，避免热路径锁竞争。
+		path := m.pathNormalizer.Load().(func(*gin.Context) string)(context)
 
 		method := context.Request.Method
 		start := time.Now()
@@ -178,8 +207,8 @@ func (m *ServerMetrics) HandlerFunc(logger *logr.Logger) gin.HandlerFunc {
 			return
 		}
 
-		// 获取状态码
-		status := strconv.Itoa(context.Writer.Status())
+		// 获取状态码（常见状态码走无分配快路径）
+		status := formatStatusCode(context.Writer.Status())
 
 		// 一次性计算所有指标需要的值
 		latency := time.Since(start).Seconds()
