@@ -1,11 +1,10 @@
-//go:build jsoniter
-// +build jsoniter
+//go:build jsoniter && !sonic
+// +build jsoniter,!sonic
 
 package json
 
 import jsoniter "github.com/json-iterator/go"
 
-// json 是 jsoniter.ConfigCompatibleWithStandardLibrary 的一个实例
 var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 var (

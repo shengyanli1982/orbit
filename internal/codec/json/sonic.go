@@ -1,9 +1,11 @@
-//go:build !jsoniter && !sonic
-// +build !jsoniter,!sonic
+//go:build sonic
+// +build sonic
 
 package json
 
-import "encoding/json"
+import "github.com/bytedance/sonic"
+
+var json = sonic.ConfigStd
 
 var (
 	Marshal       = json.Marshal
