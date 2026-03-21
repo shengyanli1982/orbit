@@ -25,5 +25,11 @@ go.work
 .vscode
 .DS_Store
 .cursorrules
-docs/
+.tmp/
+
+# Keep docs ignored by default, but track plan/report markdowns.
+docs/*
+!docs/plans/
+docs/plans/*
+!docs/plans/*.md
 
