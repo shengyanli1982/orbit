@@ -18,7 +18,10 @@ var ErrorRequestBodyBufferNotFound = errors.New("request body buffer not found")
 func GenerateResponseBody(context *gin.Context) ([]byte, error) {
 	// 从上下文中获取响应体缓冲区
 	if buffer, ok := context.Get(com.ResponseBodyBufferKey); ok {
-		respBodyBuffer := buffer.(*bytes.Buffer)
+		respBodyBuffer, ok := buffer.(*bytes.Buffer)
+		if !ok {
+			return nil, ErrorRequestBodyBufferNotFound
+		}
 
 		// 检查缓冲区是否为空
 		if respBodyBuffer.Len() <= 0 {

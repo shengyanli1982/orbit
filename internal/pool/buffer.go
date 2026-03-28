@@ -5,15 +5,6 @@ import (
 	"sync"
 )
 
-// GC 影响：
-// - sync.Pool 的对象在 GC 时会被清理
-// - 大对象会增加 GC 的压力和时间
-// - 影响 GC 的效率和应用性能
-// 使用场景：
-// - 大对象通常是临时的或特殊场景使用
-// - 重用的概率较低
-// - 维护大对象在池中的成本高于重新创建
-
 const (
 	// 缓冲区的默认初始大小 (2KB)
 	DefaultInitSize = 2048
@@ -22,7 +13,7 @@ const (
 	DefaultMaxCapacity = 1 << 20
 )
 
-// 将一个数向上取整到最接近的2的幂
+// ceilToPowerOfTwo 将一个数向上取整到最接近的2的幂
 func ceilToPowerOfTwo(n uint32) uint32 {
 	if n&(n-1) == 0 {
 		return n // 已经是2的幂

@@ -88,6 +88,8 @@ func NewServerMetrics(registry *prometheus.Registry) *ServerMetrics {
 	return metrics
 }
 
+// formatStatusCode 将 HTTP 状态码格式化为字符串
+// 对于常见状态码使用预定义的字符串，避免重复转换
 func formatStatusCode(status int) string {
 	switch status {
 	case http.StatusOK:

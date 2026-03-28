@@ -94,6 +94,8 @@ func CorsWithPolicy(policy com.CORSPolicy) gin.HandlerFunc {
 	}
 }
 
+// isOriginAllowed 检查给定的 origin 是否在允许的列表中
+// 支持通配符 "*" 匹配所有来源
 func isOriginAllowed(origin string, allowed []string) bool {
 	for _, item := range allowed {
 		if item == "*" || item == origin {

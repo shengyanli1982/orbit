@@ -2,28 +2,22 @@ package httptool
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/go-logr/logr"
 	com "github.com/shengyanli1982/orbit/common"
-	"go.uber.org/zap"
 )
 
-// 从上下文中返回日志记录器
-func GetLoggerFromContext(context *gin.Context) *zap.SugaredLogger {
+// GetLoggerFromContext 从 gin.Context 中获取日志记录器
+// 如果上下文中存在日志记录器则返回，否则返回默认日志记录器
+func GetLoggerFromContext(context *gin.Context) *logr.Logger {
 	if context == nil {
-		return com.DefaultSugeredLogger
+		return &com.DefaultLogrLogger
 	}
 
 	if obj, ok := context.Get(com.RequestLoggerKey); ok {
-		switch logger := obj.(type) {
-		case *zap.SugaredLogger:
-			if logger != nil {
-				return logger
-			}
-		case *zap.Logger:
-			if logger != nil {
-				return logger.Sugar()
-			}
+		if logger, ok := obj.(*logr.Logger); ok && logger != nil {
+			return logger
 		}
 	}
 
-	return com.DefaultSugeredLogger
+	return &com.DefaultLogrLogger
 }
