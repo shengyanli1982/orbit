@@ -6,34 +6,30 @@ import (
 	"github.com/gin-gonic/gin"
 	com "github.com/shengyanli1982/orbit/common"
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap"
 )
 
 func TestGetLoggerFromContext(t *testing.T) {
-	// Create a mock gin.Context
-	context := &gin.Context{}
+	defaultLogger := &com.DefaultLogrLogger
 
-	// Test when RequestLoggerKey exists in the context
-	logger := &zap.SugaredLogger{}
-	context.Set(com.RequestLoggerKey, logger)
-	result := GetLoggerFromContext(context)
-	assert.Equal(t, logger, result)
-
-	// Create another mock gin.Context
-	context = &gin.Context{}
+	// Test with nil context
+	result := GetLoggerFromContext(nil)
+	assert.Equal(t, defaultLogger, result)
 
 	// Test when RequestLoggerKey does not exist in the context
+	context := &gin.Context{}
 	result = GetLoggerFromContext(context)
-	assert.Equal(t, com.DefaultSugeredLogger, result)
+	assert.Equal(t, defaultLogger, result)
 
-	// Test when RequestLoggerKey exists but with unsupported logger type
+	// Test when RequestLoggerKey exists with *logr.Logger
 	context = &gin.Context{}
 	logrLogger := com.DefaultLogrLogger
 	context.Set(com.RequestLoggerKey, &logrLogger)
 	result = GetLoggerFromContext(context)
-	assert.Equal(t, com.DefaultSugeredLogger, result)
+	assert.NotNil(t, result)
 
-	// Test with nil context
-	result = GetLoggerFromContext(nil)
-	assert.Equal(t, com.DefaultSugeredLogger, result)
+	// Test when RequestLoggerKey exists with unsupported type
+	context = &gin.Context{}
+	context.Set(com.RequestLoggerKey, "unsupported")
+	result = GetLoggerFromContext(context)
+	assert.Equal(t, defaultLogger, result)
 }

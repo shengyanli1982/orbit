@@ -232,6 +232,8 @@ func isConfigValid(conf *Config) *Config {
 	return conf
 }
 
+// cloneStringSlice 复制字符串切片
+// 返回一个独立的副本，避免共享引用
 func cloneStringSlice(values []string) []string {
 	if values == nil {
 		return nil
@@ -242,6 +244,7 @@ func cloneStringSlice(values []string) []string {
 	return result
 }
 
+// isStringSliceEqual 比较两个字符串切片是否相等
 func isStringSliceEqual(left, right []string) bool {
 	if len(left) != len(right) {
 		return false
@@ -255,6 +258,8 @@ func isStringSliceEqual(left, right []string) bool {
 	return true
 }
 
+// cloneCORSPolicy 复制 CORS 策略结构体
+// 返回一个独立的副本，避免共享引用
 func cloneCORSPolicy(policy com.CORSPolicy) com.CORSPolicy {
 	policy.AllowedOrigins = cloneStringSlice(policy.AllowedOrigins)
 	policy.AllowedMethods = cloneStringSlice(policy.AllowedMethods)
@@ -263,6 +268,8 @@ func cloneCORSPolicy(policy com.CORSPolicy) com.CORSPolicy {
 	return policy
 }
 
+// cloneCORSPolicyPtr 复制 CORS 策略指针
+// 返回一个新的指针，指向复制后的 CORS 策略
 func cloneCORSPolicyPtr(policy *com.CORSPolicy) *com.CORSPolicy {
 	if policy == nil {
 		return nil
@@ -271,6 +278,8 @@ func cloneCORSPolicyPtr(policy *com.CORSPolicy) *com.CORSPolicy {
 	return &cp
 }
 
+// normalizeCORSPolicy 规范化 CORS 策略
+// 合并当前策略和备用策略，使用备用策略填充空缺字段
 func normalizeCORSPolicy(current, fallback *com.CORSPolicy) *com.CORSPolicy {
 	if fallback == nil {
 		return cloneCORSPolicyPtr(current)
