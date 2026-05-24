@@ -31,21 +31,22 @@ type Service interface {
 
 // Engine 结构体是 Orbit 框架的核心引擎，包含了 HTTP 服务器和相关配置
 type Engine struct {
-	endpoint string             // 服务器监听地址和端口
-	ginSvr   *gin.Engine        // Gin 引擎实例
-	httpSvr  *http.Server       // HTTP 服务器实例
-	root     *gin.RouterGroup   // 根路由组
-	config   *Config            // 服务器配置
-	opts     *Options           // 服务器选项
-	running  atomic.Bool        // 服务器运行状态 (使用 atomic.Bool 替代 bool + RWMutex)
-	wg       sync.WaitGroup     // 等待组，用于优雅关闭
-	once     sync.Once          // 确保某些操作只执行一次
-	ctx      context.Context    // 上下文，用于控制服务器生命周期
-	cancel   context.CancelFunc // 取消函数，用于停止服务器
-	handlers []gin.HandlerFunc  // 中间件处理函数列表
-	services []Service          // 服务列表
-	metric   *mtc.ServerMetrics // 服务器指标收集器
-	initErr  error              // 引擎初始化错误，存在时禁止启动
+	endpoint string
+	ginSvr   *gin.Engine
+	httpSvr  *http.Server
+	root     *gin.RouterGroup
+	config   *Config
+	opts     *Options
+	running  atomic.Bool
+	wg       sync.WaitGroup
+	once     sync.Once
+	ctx      context.Context
+	cancel   context.CancelFunc
+	handlers []gin.HandlerFunc
+	services []Service
+	metric   *mtc.ServerMetrics
+	initErr  error
+	runErr   error
 }
 
 // NewEngine 创建并返回一个新的引擎实例
@@ -76,8 +77,10 @@ func NewEngine(config *Config, options *Options) *Engine {
 	// 初始化 Gin 引擎并设置基本配置
 	engine.initErr = engine.initGinEngine(options)
 
-	// 注册内置服务（健康检查、Swagger、Pprof、指标收集等）
-	engine.registerBuiltinServices()
+	if engine.initErr == nil {
+		// 注册内置服务（健康检查、Swagger、Pprof、指标收集等）
+		engine.registerBuiltinServices()
+	}
 
 	return engine
 }
@@ -181,7 +184,6 @@ func (e *Engine) Run() {
 
 	// 更新服务器状态
 	e.updateRunningState(true)
-	e.once = sync.Once{}
 }
 
 // 创建并配置 HTTP 服务器实例
@@ -212,15 +214,12 @@ func (e *Engine) createHTTPServer() *http.Server {
 
 // 启动 HTTP 服务器并处理可能的错误
 func (e *Engine) startHTTPServer() {
-	defer e.wg.Done() // 确保在函数退出时减少等待组计数
-
-	// 启用 Keep-Alive
+	defer e.wg.Done()
 	e.httpSvr.SetKeepAlivesEnabled(true)
 	e.config.logger.Info("http server is ready", "address", e.endpoint)
-
-	// 启动服务器并处理错误
 	if err := e.httpSvr.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		e.config.logger.Error(err, "failed to start http server", "address", e.endpoint)
+		e.runErr = err
 	}
 }
 
@@ -249,13 +248,7 @@ func (e *Engine) shutdownHTTPServer() {
 	if e.httpSvr == nil {
 		return
 	}
-
-	// 创建带超时的上下文
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*com.DefaultShutdownTimeoutSeconds)
-	defer cancel()
-
-	// 尝试优雅关闭服务器
-	if err := e.httpSvr.Shutdown(ctx); err != nil {
+	if err := e.httpSvr.Shutdown(e.ctx); err != nil {
 		e.config.logger.Error(err, "http server forced to shutdown", "address", e.endpoint)
 	}
 	e.config.logger.Info("http server is shutdown", "address", e.endpoint)
@@ -326,4 +319,8 @@ func (e *Engine) GetPrometheusRegistry() *prometheus.Registry {
 // 返回服务器的监听地址
 func (e *Engine) GetListenEndpoint() string {
 	return e.endpoint
+}
+
+func (e *Engine) GetRunError() error {
+	return e.runErr
 }
