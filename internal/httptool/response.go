@@ -32,7 +32,6 @@ func NewResponseBodyWriter(w gin.ResponseWriter, buf *bytes.Buffer) *ResponseBod
 	return rw
 }
 
-// 实现了 io.Writer 接口，将数据同时写入缓冲区和响应写入器
 func (w *ResponseBodyWriter) Write(b []byte) (int, error) {
 	if n, err := w.buffer.Write(b); err != nil {
 		return n, err
@@ -40,7 +39,6 @@ func (w *ResponseBodyWriter) Write(b []byte) (int, error) {
 	return w.ResponseWriter.Write(b)
 }
 
-// 提供了字符串写入功能
 func (w *ResponseBodyWriter) WriteString(s string) (int, error) {
 	if n, err := w.buffer.WriteString(s); err != nil {
 		return n, err

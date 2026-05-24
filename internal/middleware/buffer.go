@@ -26,11 +26,8 @@ func BodyBuffer() gin.HandlerFunc {
 		originalWriter := context.Writer
 		context.Writer = bufferedWriter
 		defer func() {
-			// 恢复原始写入器，并归还对象池资源。
-			// 注意：respBodyBuffer 由 bufferedWriter.Reset() 归还，避免重复 Put 导致并发复用。
 			context.Writer = originalWriter
 			bufferedWriter.Reset()
-			reqBodyBuffer.Reset()
 			com.RequestBodyBufferPool.Put(reqBodyBuffer)
 		}()
 
