@@ -46,6 +46,7 @@ type Engine struct {
 	services []Service
 	metric   *mtc.ServerMetrics
 	initErr  error
+	runErrMu sync.Mutex
 	runErr   error
 }
 
@@ -71,8 +72,8 @@ func NewEngine(config *Config, options *Options) *Engine {
 		metric:   mtc.NewServerMetrics(config.prometheusRegistry),
 	}
 
-	// 创建带超时的上下文，用于服务器生命周期管理
-	engine.ctx, engine.cancel = context.WithTimeout(context.Background(), defaultShutdownTimeout)
+	// 创建可取消的上下文，用于服务器生命周期管理
+	engine.ctx, engine.cancel = context.WithCancel(context.Background())
 
 	// 初始化 Gin 引擎并设置基本配置
 	engine.initErr = engine.initGinEngine(options)
@@ -219,7 +220,9 @@ func (e *Engine) startHTTPServer() {
 	e.config.logger.Info("http server is ready", "address", e.endpoint)
 	if err := e.httpSvr.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		e.config.logger.Error(err, "failed to start http server", "address", e.endpoint)
+		e.runErrMu.Lock()
 		e.runErr = err
+		e.runErrMu.Unlock()
 	}
 }
 
@@ -229,8 +232,11 @@ func (e *Engine) Stop() {
 		// 更新服务器状态为停止
 		e.updateRunningState(false)
 
+		shutdownCtx, shutdownCancel := context.WithTimeout(e.ctx, defaultShutdownTimeout)
+		defer shutdownCancel()
+
 		// 关闭 HTTP 服务器
-		e.shutdownHTTPServer()
+		e.shutdownHTTPServer(shutdownCtx)
 
 		// 取消上下文并等待所有协程完成
 		e.cancel()
@@ -244,11 +250,11 @@ func (e *Engine) Stop() {
 }
 
 // 优雅地关闭 HTTP 服务器
-func (e *Engine) shutdownHTTPServer() {
+func (e *Engine) shutdownHTTPServer(ctx context.Context) {
 	if e.httpSvr == nil {
 		return
 	}
-	if err := e.httpSvr.Shutdown(e.ctx); err != nil {
+	if err := e.httpSvr.Shutdown(ctx); err != nil {
 		e.config.logger.Error(err, "http server forced to shutdown", "address", e.endpoint)
 	}
 	e.config.logger.Info("http server is shutdown", "address", e.endpoint)
@@ -276,14 +282,14 @@ func (e *Engine) registerUserServices() {
 
 // 添加用户定义的服务到服务列表中
 func (e *Engine) RegisterService(service Service) {
-	if !e.running.Load() {
+	if !e.running.Load() && service != nil {
 		e.services = append(e.services, service)
 	}
 }
 
 // 添加中间件到处理器列表中
 func (e *Engine) RegisterMiddleware(handler gin.HandlerFunc) {
-	if !e.running.Load() {
+	if !e.running.Load() && handler != nil {
 		e.handlers = append(e.handlers, handler)
 	}
 }
@@ -322,5 +328,11 @@ func (e *Engine) GetListenEndpoint() string {
 }
 
 func (e *Engine) GetRunError() error {
+	e.runErrMu.Lock()
+	defer e.runErrMu.Unlock()
 	return e.runErr
+}
+
+func (e *Engine) GetGinEngine() *gin.Engine {
+	return e.ginSvr
 }

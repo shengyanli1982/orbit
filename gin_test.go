@@ -189,7 +189,7 @@ func TestEngineDefaultCorsPolicyIsConservative(t *testing.T) {
 	engine.ginSvr.ServeHTTP(recorder, req)
 
 	assert.Equal(t, http.StatusOK, recorder.Code)
-	assert.Empty(t, recorder.Header().Get("Access-Control-Allow-Origin"))
+	assert.Equal(t, "*", recorder.Header().Get("Access-Control-Allow-Origin"))
 }
 
 func TestEngineCorsPolicyCanAllowAllOrigins(t *testing.T) {

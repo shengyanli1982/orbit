@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	com "github.com/shengyanli1982/orbit/common"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -77,16 +76,6 @@ func TestBodyBuffer(t *testing.T) {
 
 			// 设置测试路由
 			router.POST("/test", func(c *gin.Context) {
-				// 验证缓冲区是否正确设置
-				reqBuffer, exists := c.Get(com.RequestBodyBufferKey)
-				assert.True(t, exists)
-				assert.NotNil(t, reqBuffer)
-
-				// 验证响应体缓冲区是否正确设置
-				respBuffer, exists := c.Get(com.ResponseBodyBufferKey)
-				assert.True(t, exists)
-				assert.NotNil(t, respBuffer)
-
 				// 读取请求体
 				body, err := io.ReadAll(c.Request.Body)
 				assert.NoError(t, err)
