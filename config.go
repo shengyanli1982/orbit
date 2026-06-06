@@ -19,10 +19,10 @@ var (
 	defaultTrustedProxies = []string{"0.0.0.0/0", "::/0"}
 	// 默认按标准代理头顺序解析真实客户端IP
 	defaultRemoteIPHeaders = []string{"X-Forwarded-For", "X-Real-IP"}
-	// 默认 CORS 策略：启用但保守，不放开所有来源
+	// 默认 CORS 策略：启用并放开所有来源
 	defaultCORSPolicy = com.CORSPolicy{
 		Enabled:          true,
-		AllowAllOrigins:  false,
+		AllowAllOrigins:  true,
 		AllowedOrigins:   []string{},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Content-Type", "Authorization", "X-Request-Id"},

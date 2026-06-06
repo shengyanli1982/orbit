@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"fmt"
+	"math"
 	"net"
 	"net/http"
 	"os"
@@ -15,6 +16,32 @@ import (
 	com "github.com/shengyanli1982/orbit/common"
 	"github.com/shengyanli1982/orbit/internal/conver"
 	"github.com/shengyanli1982/orbit/utils/httptool"
+)
+
+func formatDurationMs(ns int64) string {
+	ms := float64(ns) / 1e6
+	return strconv.FormatFloat(math.Round(ms*100)/100, 'f', -1, 64) + "ms"
+}
+
+// Pre-computed canonical CORS header keys (already in textproto canonical form)
+// to avoid CanonicalMIMEHeaderKey allocations on every request.
+const (
+	corsHeaderAllowOrigin      = "Access-Control-Allow-Origin"
+	corsHeaderAllowMethods     = "Access-Control-Allow-Methods"
+	corsHeaderAllowHeaders     = "Access-Control-Allow-Headers"
+	corsHeaderExposeHeaders    = "Access-Control-Expose-Headers"
+	corsHeaderAllowCredentials = "Access-Control-Allow-Credentials"
+	corsHeaderMaxAge           = "Access-Control-Max-Age"
+	corsHeaderVary             = "Vary"
+)
+
+// Pre-computed static header value slices shared across all requests.
+// Safe for concurrent read: the CORS middleware only sets (never adds to) these keys.
+var (
+	corsAllowOriginAll = []string{"*"}
+	corsVaryOrigin     = []string{"Origin"}
+	corsBoolTrue       = []string{"true"}
+	corsBoolFalse      = []string{"false"}
 )
 
 // 返回一个处理跨域请求的 Gin 中间件
@@ -36,7 +63,25 @@ func CorsWithPolicy(policy com.CORSPolicy) gin.HandlerFunc {
 	allowMethods := strings.Join(policy.AllowedMethods, ", ")
 	allowHeaders := strings.Join(policy.AllowedHeaders, ", ")
 	exposeHeaders := strings.Join(policy.ExposeHeaders, ", ")
-	maxAge := strconv.Itoa(policy.MaxAgeSeconds)
+
+	var allowMethodsVal, allowHeadersVal, exposeHeadersVal, maxAgeVal []string
+	if allowMethods != "" {
+		allowMethodsVal = []string{allowMethods}
+	}
+	if allowHeaders != "" {
+		allowHeadersVal = []string{allowHeaders}
+	}
+	if exposeHeaders != "" {
+		exposeHeadersVal = []string{exposeHeaders}
+	}
+	if policy.MaxAgeSeconds != 0 {
+		maxAgeVal = []string{strconv.Itoa(policy.MaxAgeSeconds)}
+	}
+
+	credentialsVal := corsBoolFalse
+	if policy.AllowCredentials {
+		credentialsVal = corsBoolTrue
+	}
 
 	return func(context *gin.Context) {
 		if !policy.Enabled {
@@ -55,11 +100,14 @@ func CorsWithPolicy(policy com.CORSPolicy) gin.HandlerFunc {
 			return
 		}
 
+		// Write headers directly to the map to bypass CanonicalMIMEHeaderKey allocations.
+		h := context.Writer.Header()
+
 		if policy.AllowAllOrigins {
-			context.Header("Access-Control-Allow-Origin", "*")
+			h[corsHeaderAllowOrigin] = corsAllowOriginAll
 		} else if origin != "" && isOriginAllowed(origin, policy.AllowedOrigins) {
-			context.Header("Access-Control-Allow-Origin", origin)
-			context.Header("Vary", "Origin")
+			h[corsHeaderAllowOrigin] = []string{origin}
+			h[corsHeaderVary] = corsVaryOrigin
 		} else if origin != "" {
 			// Keep behavior explicit for disallowed origins: no CORS headers returned.
 			if context.Request.Method == "OPTIONS" {
@@ -70,18 +118,18 @@ func CorsWithPolicy(policy com.CORSPolicy) gin.HandlerFunc {
 			return
 		}
 
-		if allowMethods != "" {
-			context.Header("Access-Control-Allow-Methods", allowMethods)
+		if allowMethodsVal != nil {
+			h[corsHeaderAllowMethods] = allowMethodsVal
 		}
-		if allowHeaders != "" {
-			context.Header("Access-Control-Allow-Headers", allowHeaders)
+		if allowHeadersVal != nil {
+			h[corsHeaderAllowHeaders] = allowHeadersVal
 		}
-		if exposeHeaders != "" {
-			context.Header("Access-Control-Expose-Headers", exposeHeaders)
+		if exposeHeadersVal != nil {
+			h[corsHeaderExposeHeaders] = exposeHeadersVal
 		}
-		context.Header("Access-Control-Allow-Credentials", strconv.FormatBool(policy.AllowCredentials))
-		if maxAge != "0" {
-			context.Header("Access-Control-Max-Age", maxAge)
+		h[corsHeaderAllowCredentials] = credentialsVal
+		if maxAgeVal != nil {
+			h[corsHeaderMaxAge] = maxAgeVal
 		}
 
 		// 处理 OPTIONS 预检请求
@@ -111,7 +159,6 @@ func AccessLogger(logger *logr.Logger, logEventFunc com.LogEventFunc, record boo
 		// 预先获取所有需要的值，避免重复获取
 		req := context.Request
 		header := req.Header
-		clientIP := context.ClientIP()
 		method := req.Method
 		path := httptool.GenerateRequestPath(context)
 		requestContentType := httptool.StringFilterFlags(header.Get(com.HttpHeaderContentType))
@@ -138,7 +185,6 @@ func AccessLogger(logger *logr.Logger, logEventFunc com.LogEventFunc, record boo
 			for _, err := range errs {
 				logger.Error(err, "Error occurred")
 			}
-			return
 		}
 
 		// 从对象池获取事件对象
@@ -148,14 +194,13 @@ func AccessLogger(logger *logr.Logger, logEventFunc com.LogEventFunc, record boo
 		// 一次性设置所有字段
 		event.Message = "http server access log"
 		event.ID = requestID
-		event.IP = clientIP
+		event.IP = remoteAddr
 		event.EndPoint = remoteAddr
 		event.Path = path
 		event.Method = method
 		event.Code = context.Writer.Status()
 		event.Status = http.StatusText(event.Code)
-		latency := time.Since(start)
-		event.Latency = latency.String()
+		event.Latency = formatDurationMs(time.Since(start).Nanoseconds())
 		event.Agent = userAgent
 		event.ForwardedFor = forwardedFor
 		event.ReqContentType = requestContentType

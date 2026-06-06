@@ -92,7 +92,7 @@ func CanRecordContextBody(header http.Header) bool {
 // 生成请求路径
 func GenerateRequestPath(context *gin.Context) string {
 	if len(context.Request.URL.RawQuery) > 0 {
-		return context.Request.URL.RequestURI()
+		return context.Request.URL.Path + "?" + context.Request.URL.RawQuery
 	}
 	return context.Request.URL.Path
 }

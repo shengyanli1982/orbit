@@ -206,18 +206,16 @@ func (m *ServerMetrics) HandlerFunc(logger *logr.Logger) gin.HandlerFunc {
 			for _, err := range context.Errors {
 				logger.Error(err, "Error occurred")
 			}
-			return
 		}
 
 		// 获取状态码（常见状态码走无分配快路径）
 		status := formatStatusCode(context.Writer.Status())
 
-		// 一次性计算所有指标需要的值
 		latency := time.Since(start).Seconds()
+		labels := []string{method, path, status}
 
-		// 直接使用标签值更新所有指标
-		m.requestCount.WithLabelValues(method, path, status).Inc()
-		m.requestLatencies.WithLabelValues(method, path, status).Observe(latency)
-		m.requestLatency.WithLabelValues(method, path, status).Set(latency)
+		m.requestCount.WithLabelValues(labels...).Inc()
+		m.requestLatencies.WithLabelValues(labels...).Observe(latency)
+		m.requestLatency.WithLabelValues(labels...).Set(latency)
 	}
 }

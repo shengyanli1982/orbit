@@ -13,7 +13,7 @@ func TestNewConfigDefaultProxySettings(t *testing.T) {
 	assert.Equal(t, []string{"X-Forwarded-For", "X-Real-IP"}, config.RemoteIPHeaders)
 	assert.NotNil(t, config.CORSPolicy)
 	assert.True(t, config.CORSPolicy.Enabled)
-	assert.False(t, config.CORSPolicy.AllowAllOrigins)
+	assert.True(t, config.CORSPolicy.AllowAllOrigins)
 	assert.Equal(t, []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"}, config.CORSPolicy.AllowedMethods)
 }
 

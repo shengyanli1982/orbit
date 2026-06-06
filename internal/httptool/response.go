@@ -69,6 +69,9 @@ func (w *ResponseBodyWriter) GetResponseWriter() gin.ResponseWriter {
 
 // 返回已写入的数据大小
 func (w *ResponseBodyWriter) Size() int {
+	if w.ResponseWriter != nil {
+		return w.ResponseWriter.Size()
+	}
 	if w.buffer == nil {
 		return 0
 	}

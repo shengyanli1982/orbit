@@ -26,6 +26,10 @@ func (m *mockResponseWriter) WriteString(s string) (n int, err error) {
 
 func (m *mockResponseWriter) Flush() {}
 
+func (m *mockResponseWriter) Size() int {
+	return len(m.written)
+}
+
 func TestResponseBodyWriter_Write(t *testing.T) {
 	mock := &mockResponseWriter{written: make([]byte, 0)}
 	buf := bytes.NewBuffer(nil)
