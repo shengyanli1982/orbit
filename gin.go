@@ -332,3 +332,7 @@ func (e *Engine) GetRunError() error {
 	defer e.runErrMu.Unlock()
 	return e.runErr
 }
+
+func (e *Engine) GetGinEngine() *gin.Engine {
+	return e.ginSvr
+}
