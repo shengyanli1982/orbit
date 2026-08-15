@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"github.com/gin-gonic/gin"
+	com "github.com/shengyanli1982/orbit/common"
 	ihttptool "github.com/shengyanli1982/orbit/internal/httptool"
 )
 
@@ -11,6 +12,7 @@ func BodyBuffer() gin.HandlerFunc {
 		bufferedWriter := ihttptool.NewResponseBodyWriter(context.Writer, nil)
 		originalWriter := context.Writer
 		context.Writer = bufferedWriter
+		context.Set(com.ResponseBodyBufferKey, bufferedWriter.GetBuffer())
 		defer func() {
 			context.Writer = originalWriter
 			bufferedWriter.Reset()

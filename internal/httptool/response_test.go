@@ -87,7 +87,7 @@ func BenchmarkResponseBodyWriter_Write(b *testing.B) {
 	data := []byte("test data")
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		_, _ = w.Write(data)
 	}
 }
@@ -99,7 +99,7 @@ func BenchmarkResponseBodyWriter_WriteString(b *testing.B) {
 	data := "test data"
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		_, _ = w.WriteString(data)
 	}
 }

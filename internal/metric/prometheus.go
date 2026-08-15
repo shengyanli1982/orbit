@@ -1,8 +1,10 @@
 package metric
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -34,6 +36,20 @@ type ServerMetrics struct {
 	requestLatency   *prometheus.GaugeVec     // 请求延迟仪表盘
 	registry         *prometheus.Registry     // Prometheus注册表
 	pathNormalizer   atomic.Value             // 存储 func(*gin.Context) string
+	owned            bool                     // 注册是否全部由本实例新注册，用于共享注册表时安全注销
+	cache            sync.Map
+}
+
+type metricCacheKey struct {
+	method string
+	path   string
+	status string
+}
+
+type cachedMetric struct {
+	counter  prometheus.Counter
+	observer prometheus.Observer
+	gauge    prometheus.Gauge
 }
 
 // defaultPathNormalizer 是默认的路径规范化函数
@@ -123,13 +139,29 @@ func formatStatusCode(status int) string {
 
 // 将度量标准注册到 Prometheus 注册表
 func (m *ServerMetrics) Register() {
-	m.registry.MustRegister(m.requestCount)     // 注册请求计数器
-	m.registry.MustRegister(m.requestLatencies) // 注册请求延迟直方图
-	m.registry.MustRegister(m.requestLatency)   // 注册请求延迟仪表盘
+	collectors := []prometheus.Collector{
+		m.requestCount,     // 请求计数器
+		m.requestLatencies, // 请求延迟直方图
+		m.requestLatency,   // 请求延迟仪表盘
+	}
+	m.owned = true
+	for _, collector := range collectors {
+		if err := m.registry.Register(collector); err != nil {
+			var alreadyRegistered prometheus.AlreadyRegisteredError
+			if errors.As(err, &alreadyRegistered) {
+				m.owned = false
+				continue
+			}
+			panic(err)
+		}
+	}
 }
 
 // 将度量标准从 Prometheus 注册表中注销
 func (m *ServerMetrics) Unregister() {
+	if !m.owned {
+		return
+	}
 	m.registry.Unregister(m.requestCount)     // 注销请求计数器
 	m.registry.Unregister(m.requestLatencies) // 注销请求延迟直方图
 	m.registry.Unregister(m.requestLatency)   // 注销请求延迟仪表盘
@@ -212,10 +244,19 @@ func (m *ServerMetrics) HandlerFunc(logger *logr.Logger) gin.HandlerFunc {
 		status := formatStatusCode(context.Writer.Status())
 
 		latency := time.Since(start).Seconds()
-		labels := []string{method, path, status}
-
-		m.requestCount.WithLabelValues(labels...).Inc()
-		m.requestLatencies.WithLabelValues(labels...).Observe(latency)
-		m.requestLatency.WithLabelValues(labels...).Set(latency)
+		key := metricCacheKey{method: method, path: path, status: status}
+		cached, ok := m.cache.Load(key)
+		if !ok {
+			cached = &cachedMetric{
+				counter:  m.requestCount.WithLabelValues(method, path, status),
+				observer: m.requestLatencies.WithLabelValues(method, path, status),
+				gauge:    m.requestLatency.WithLabelValues(method, path, status),
+			}
+			m.cache.Store(key, cached)
+		}
+		cm := cached.(*cachedMetric)
+		cm.counter.Inc()
+		cm.observer.Observe(latency)
+		cm.gauge.Set(latency)
 	}
 }

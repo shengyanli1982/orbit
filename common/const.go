@@ -15,6 +15,7 @@ const (
 	HttpHeaderContentType  = "Content-Type"
 	HttpHeaderRequestID    = "X-Request-Id"
 	HttpHeaderForwardedFor = "X-Forwarded-For"
+	HttpHeaderOrigin       = "Origin"
 
 	// Content-Type 值
 	HttpHeaderJSONContentTypeValue       = binding.MIMEJSON

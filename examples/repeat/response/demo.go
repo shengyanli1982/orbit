@@ -22,7 +22,7 @@ func customMiddleware() gin.HandlerFunc {
 
 		// 从上下文中获取响应体缓冲区
 		// Get the response body buffer from the context
-		for i := 0; i < 20; i++ {
+		for i := range 20 {
 			// 生成响应体
 			// Generate the response body
 			body, _ := httptool.GenerateResponseBody(c)
@@ -54,9 +54,9 @@ func main() {
 	// Create a new Orbit configuration
 	config := orbit.NewConfig()
 
-	// 创建一个新的 Orbit 功能选项，并启用 metric
-	// Create a new Orbit feature options and enable metric
-	opts := orbit.NewOptions().EnableMetric()
+	// 创建一个新的 Orbit 功能选项，并启用 metric 和响应体记录
+	// Create a new Orbit feature options and enable metric and response body recording
+	opts := orbit.NewOptions().EnableMetric().EnableRecordResponseBody()
 
 	// 创建一个新的 Orbit 引擎
 	// Create a new Orbit engine

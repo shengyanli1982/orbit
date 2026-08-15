@@ -244,20 +244,6 @@ func cloneStringSlice(values []string) []string {
 	return result
 }
 
-// isStringSliceEqual 比较两个字符串切片是否相等
-func isStringSliceEqual(left, right []string) bool {
-	if len(left) != len(right) {
-		return false
-	}
-
-	for i := 0; i < len(left); i++ {
-		if left[i] != right[i] {
-			return false
-		}
-	}
-	return true
-}
-
 // cloneCORSPolicy 复制 CORS 策略结构体
 // 返回一个独立的副本，避免共享引用
 func cloneCORSPolicy(policy com.CORSPolicy) com.CORSPolicy {

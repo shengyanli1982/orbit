@@ -1,6 +1,6 @@
 module github.com/shengyanli1982/orbit
 
-go 1.20
+go 1.23
 
 require (
 	github.com/bytedance/sonic v1.14.2

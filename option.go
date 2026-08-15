@@ -10,6 +10,7 @@ type Options struct {
 	fixedPath         bool // 启用固定路径重定向
 	forwordByClientIp bool // 启用客户端 IP 转发
 	recReqBody        bool // 启用请求体记录
+	recRespBody       bool // 启用响应体记录
 }
 
 // NewOptions 创建一个新的 Options 实例
@@ -65,9 +66,15 @@ func (o *Options) EnableRecordRequestBody() *Options {
 	return o
 }
 
-// DebugOptions 返回一个启用了 pprof、swagger、metric 和请求体记录功能的 Options 实例，用于调试环境
+// EnableRecordResponseBody 启用响应体记录
+func (o *Options) EnableRecordResponseBody() *Options {
+	o.recRespBody = true
+	return o
+}
+
+// DebugOptions 返回一个启用了 pprof、swagger、metric、请求体记录和响应体记录功能的 Options 实例，用于调试环境
 func DebugOptions() *Options {
-	return NewOptions().EnablePProf().EnableSwagger().EnableMetric().EnableRecordRequestBody()
+	return NewOptions().EnablePProf().EnableSwagger().EnableMetric().EnableRecordRequestBody().EnableRecordResponseBody()
 }
 
 // ReleaseOptions 返回一个仅启用了 metric 功能的 Options 实例，用于生产环境
@@ -83,7 +90,7 @@ func EmptyOptions() *Options {
 // isOptionsValid 检查选项是否有效，并在必要时应用默认值
 func isOptionsValid(opts *Options) *Options {
 	if opts == nil {
-		opts = DebugOptions()
+		opts = NewOptions()
 	}
 	return opts
 }

@@ -71,7 +71,6 @@ func BenchmarkEngineMainPath(b *testing.B) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		b.Run(tc.name, func(b *testing.B) {
 			engine := newBenchmarkEngine(b, tc.enableMetric)
 
@@ -87,6 +86,38 @@ func BenchmarkEngineMainPath(b *testing.B) {
 					resp := httptest.NewRecorder()
 					engine.ginSvr.ServeHTTP(resp, req)
 					if resp.Code != http.StatusOK {
+						b.Fatalf("unexpected status code: %d, body: %s", resp.Code, resp.Body.String())
+					}
+				}
+			})
+		})
+	}
+}
+
+func BenchmarkEngineMainPathMiss(b *testing.B) {
+	cases := []struct {
+		name       string
+		method     string
+		path       string
+		expectCode int
+	}{
+		{name: "NotFound_Metric", method: http.MethodGet, path: "/not-found?foo=bar", expectCode: http.StatusNotFound},
+		{name: "MethodNotAllowed_Metric", method: http.MethodPost, path: "/bench/123", expectCode: http.StatusMethodNotAllowed},
+	}
+
+	for _, tc := range cases {
+		b.Run(tc.name, func(b *testing.B) {
+			engine := newBenchmarkEngine(b, true)
+
+			b.ReportAllocs()
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				req := httptest.NewRequest(tc.method, tc.path, nil)
+
+				for pb.Next() {
+					resp := httptest.NewRecorder()
+					engine.ginSvr.ServeHTTP(resp, req)
+					if resp.Code != tc.expectCode {
 						b.Fatalf("unexpected status code: %d, body: %s", resp.Code, resp.Body.String())
 					}
 				}

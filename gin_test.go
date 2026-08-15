@@ -1,13 +1,18 @@
 package orbit
 
 import (
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus"
 	com "github.com/shengyanli1982/orbit/common"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type emptyBodyService struct{}
@@ -142,6 +147,54 @@ func TestNewEngineNoMethod(t *testing.T) {
 
 	// Assert that the response body matches the expected value
 	assert.Equal(t, "[405] http request method not allowed, method: POST, path: /ping", recorder.Body.String())
+}
+
+func TestEngineNoRouteAndNoMethodBodies(t *testing.T) {
+	config := &Config{
+		Address:     "localhost",
+		Port:        8080,
+		ReleaseMode: true,
+	}
+	engine := NewEngine(config, NewOptions())
+	engine.root.POST("/only-post", func(c *gin.Context) {
+		c.String(http.StatusOK, "ok")
+	})
+	engine.Run()
+	defer engine.Stop()
+
+	cases := []struct {
+		method     string
+		path       string
+		expectCode int
+		expectBody string
+	}{
+		{
+			method:     http.MethodDelete,
+			path:       "/missing/deep/path",
+			expectCode: http.StatusNotFound,
+			expectBody: "[404] http request route mismatch, method: DELETE, path: /missing/deep/path",
+		},
+		{
+			method:     http.MethodGet,
+			path:       "/only-post",
+			expectCode: http.StatusMethodNotAllowed,
+			expectBody: "[405] http request method not allowed, method: GET, path: /only-post",
+		},
+		{
+			method:     http.MethodPut,
+			path:       com.HealthCheckURLPath,
+			expectCode: http.StatusMethodNotAllowed,
+			expectBody: "[405] http request method not allowed, method: PUT, path: /ping",
+		},
+	}
+
+	for _, tc := range cases {
+		req, _ := http.NewRequest(tc.method, tc.path, nil)
+		recorder := httptest.NewRecorder()
+		engine.ginSvr.ServeHTTP(recorder, req)
+		assert.Equal(t, tc.expectCode, recorder.Code, "method=%s path=%s", tc.method, tc.path)
+		assert.Equal(t, tc.expectBody, recorder.Body.String(), "method=%s path=%s", tc.method, tc.path)
+	}
 }
 
 func TestNewEngineHealthCheck(t *testing.T) {
@@ -412,4 +465,159 @@ func TestRunNotFailWhenForwardedDisabledEvenIfTrustedProxiesInvalid(t *testing.T
 	defer engine.Stop()
 
 	assert.True(t, engine.IsRunning())
+}
+
+func getFreePort(t *testing.T) uint16 {
+	t.Helper()
+
+	listener, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("failed to allocate a free port: %v", err)
+	}
+	port := uint16(listener.Addr().(*net.TCPAddr).Port)
+	if err := listener.Close(); err != nil {
+		t.Fatalf("failed to close the probe listener: %v", err)
+	}
+	return port
+}
+
+func TestEngineConcurrentRunSingleWinner(t *testing.T) {
+	engine := NewEngine(NewConfig().WithRelease().WithPort(getFreePort(t)), NewOptions())
+	engine.RegisterService(&emptyBodyService{})
+
+	const workers = 10
+	start := make(chan struct{})
+	var runWG sync.WaitGroup
+	for i := 0; i < workers; i++ {
+		runWG.Add(1)
+		go func() {
+			defer runWG.Done()
+			<-start
+			engine.Run()
+		}()
+	}
+	close(start)
+	runWG.Wait()
+
+	time.Sleep(200 * time.Millisecond)
+
+	assert.True(t, engine.IsRunning())
+	assert.Nil(t, engine.GetRunError())
+
+	engine.Stop()
+	assert.False(t, engine.IsRunning())
+}
+
+func TestEngineRunAfterStopRejected(t *testing.T) {
+	engine := NewEngine(NewConfig().WithRelease().WithPort(getFreePort(t)), NewOptions())
+
+	engine.Run()
+	assert.True(t, engine.IsRunning())
+	engine.Stop()
+	assert.False(t, engine.IsRunning())
+
+	done := make(chan struct{})
+	go func() {
+		engine.Run()
+		engine.Stop()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Run/Stop after stop timed out, possible deadlock")
+	}
+
+	assert.False(t, engine.IsRunning())
+	assert.Nil(t, engine.GetRunError())
+}
+
+func TestEngineStopBeforeRun(t *testing.T) {
+	engine := NewEngine(NewConfig().WithRelease().WithPort(getFreePort(t)), NewOptions())
+
+	engine.Stop()
+	assert.False(t, engine.IsRunning())
+
+	engine.Run()
+	assert.False(t, engine.IsRunning())
+	assert.Nil(t, engine.GetRunError())
+}
+
+func TestEngineDoubleStopIsIdempotent(t *testing.T) {
+	engine := NewEngine(NewConfig().WithRelease().WithPort(getFreePort(t)), NewOptions())
+
+	engine.Run()
+	assert.True(t, engine.IsRunning())
+
+	engine.Stop()
+	assert.False(t, engine.IsRunning())
+	engine.Stop()
+	assert.False(t, engine.IsRunning())
+}
+
+func TestEngineListenFailureReachesTerminalState(t *testing.T) {
+	listener, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("failed to occupy a port: %v", err)
+	}
+	defer listener.Close()
+	port := uint16(listener.Addr().(*net.TCPAddr).Port)
+
+	engine := NewEngine(NewConfig().WithRelease().WithPort(port), NewOptions())
+	engine.Run()
+
+	deadline := time.Now().Add(5 * time.Second)
+	for engine.GetRunError() == nil && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	assert.Error(t, engine.GetRunError())
+	assert.False(t, engine.IsRunning())
+
+	engine.Run()
+	assert.False(t, engine.IsRunning())
+}
+
+func TestEngineListenFailureUnregistersMetrics(t *testing.T) {
+	registry := prometheus.NewRegistry()
+
+	listener, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("failed to occupy a port: %v", err)
+	}
+	defer listener.Close()
+	port := uint16(listener.Addr().(*net.TCPAddr).Port)
+
+	engine := NewEngine(NewConfig().WithRelease().WithPort(port).WithPrometheusRegistry(registry), NewOptions().EnableMetric())
+	require.NoError(t, engine.initErr)
+	require.True(t, engine.IsMetricEnabled())
+
+	engine.metric.IncRequestCount(http.MethodGet, "/probe", "200")
+	require.True(t, hasMetricFamily(registry, "orbit_http_requests_total"))
+
+	engine.Run()
+
+	deadline := time.Now().Add(5 * time.Second)
+	for engine.GetRunError() == nil && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	assert.Error(t, engine.GetRunError())
+	assert.False(t, engine.IsRunning())
+	assert.False(t, hasMetricFamily(registry, "orbit_http_requests_total"))
+}
+
+func TestEngineRegisterAfterRunRejected(t *testing.T) {
+	engine := NewEngine(NewConfig().WithRelease().WithPort(getFreePort(t)), NewOptions())
+
+	engine.Run()
+	defer engine.Stop()
+	assert.True(t, engine.IsRunning())
+
+	engine.RegisterService(&emptyBodyService{})
+	engine.RegisterMiddleware(func(c *gin.Context) { c.Next() })
+
+	assert.Empty(t, engine.services)
+	assert.Empty(t, engine.handlers)
 }

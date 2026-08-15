@@ -19,6 +19,7 @@
 
 # Go workspace file
 go.work
+go.work.sum
 
 .idea
 .serena
@@ -26,6 +27,7 @@ go.work
 .DS_Store
 .cursorrules
 .tmp/
+.agent-work-b652f803/
 
 # Keep docs ignored by default, but track plan/report markdowns.
 docs/*
