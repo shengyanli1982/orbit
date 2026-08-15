@@ -24,7 +24,7 @@ func TestGenerateRequestBody(t *testing.T) {
 	context.Request = request
 
 	// Repeat read the request body 100 times
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		// Call the GenerateRequestBody function
 		body, err := GenerateRequestBody(context)
 

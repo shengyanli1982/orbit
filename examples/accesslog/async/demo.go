@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-logr/zapr"
 	"github.com/shengyanli1982/law"
 	"github.com/shengyanli1982/orbit"
 	"go.uber.org/zap"
@@ -62,7 +63,8 @@ func main() {
 
 	// 创建一个新的 Orbit 配置，并设置访问日志事件函数
 	// Create a new Orbit configuration and set the access log event function
-	config := orbit.NewConfig().WithLogger(zapLogger)
+	logrLogger := zapr.NewLogger(zapLogger)
+	config := orbit.NewConfig().WithLogger(&logrLogger)
 
 	// 创建一个新的 Orbit 功能选项
 	// Create a new Orbit feature options

@@ -3,8 +3,10 @@ package middleware
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"sync"
 	"testing"
 
@@ -43,14 +45,14 @@ func TestCors(t *testing.T) {
 	// Assert that the response status code is 200
 	assert.Equal(t, http.StatusOK, recorder.Code)
 
-	// Assert that the response body contains the expected message
 	header := recorder.Header()
-	assert.Equal(t, header.Get("Access-Control-Allow-Origin"), "*")
-	assert.Equal(t, header.Get("Access-Control-Allow-Methods"), "POST, GET, OPTIONS, PUT, DELETE, UPDATE")
-	assert.Equal(t, header.Get("Access-Control-Allow-Headers"), "*")
-	assert.Equal(t, header.Get("Access-Control-Expose-Headers"), "Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Cache-Control, Content-Language, Content-Type")
-	assert.Equal(t, header.Get("Access-Control-Allow-Credentials"), "true")
-	assert.Equal(t, header.Get("Access-Control-Max-Age"), "172800")
+	assert.Empty(t, header.Get("Access-Control-Allow-Origin"))
+	assert.Empty(t, header.Get("Access-Control-Allow-Methods"))
+	assert.Empty(t, header.Get("Access-Control-Allow-Headers"))
+	assert.Empty(t, header.Get("Access-Control-Expose-Headers"))
+	assert.Empty(t, header.Get("Access-Control-Allow-Credentials"))
+	assert.Empty(t, header.Get("Access-Control-Max-Age"))
+	assert.Equal(t, "{\"message\":\"OK\"}", recorder.Body.String())
 }
 
 func TestCorsWithPolicyDisabled(t *testing.T) {
@@ -202,6 +204,50 @@ func TestCors_PreflightAndEdgeCases(t *testing.T) {
 		assert.Empty(t, recorder.Header().Get("Access-Control-Max-Age"), "MaxAge 0 should not emit header")
 	})
 
+	t.Run("AllowAllOrigins_NoOrigin", func(t *testing.T) {
+		router := gin.New()
+		router.Use(CorsWithPolicy(com.CORSPolicy{
+			Enabled:         true,
+			AllowAllOrigins: true,
+			AllowedMethods:  []string{"GET"},
+		}))
+		router.GET("/test", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"message": "OK"}) })
+
+		req, _ := http.NewRequest(http.MethodGet, "/test", nil)
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, req)
+
+		assert.Equal(t, http.StatusOK, recorder.Code)
+		assert.Equal(t, "{\"message\":\"OK\"}", recorder.Body.String())
+		assert.Empty(t, recorder.Header().Get("Access-Control-Allow-Origin"))
+		assert.Empty(t, recorder.Header().Get("Access-Control-Allow-Methods"))
+		assert.Empty(t, recorder.Header().Get("Access-Control-Allow-Headers"))
+		assert.Empty(t, recorder.Header().Get("Access-Control-Expose-Headers"))
+		assert.Empty(t, recorder.Header().Get("Access-Control-Allow-Credentials"))
+		assert.Empty(t, recorder.Header().Get("Access-Control-Max-Age"))
+		assert.Empty(t, recorder.Header().Get("Vary"))
+	})
+
+	t.Run("AllowAllOrigins_NoOrigin_OPTIONS", func(t *testing.T) {
+		router := gin.New()
+		router.Use(CorsWithPolicy(com.CORSPolicy{
+			Enabled:         true,
+			AllowAllOrigins: true,
+		}))
+		router.GET("/test", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"message": "OK"}) })
+
+		req, _ := http.NewRequest(http.MethodOptions, "/test", nil)
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, req)
+
+		assert.Equal(t, http.StatusNoContent, recorder.Code)
+		assert.Empty(t, recorder.Body.String())
+		assert.Empty(t, recorder.Header().Get("Access-Control-Allow-Origin"))
+		assert.Empty(t, recorder.Header().Get("Access-Control-Allow-Methods"))
+		assert.Empty(t, recorder.Header().Get("Access-Control-Allow-Headers"))
+		assert.Empty(t, recorder.Header().Get("Access-Control-Allow-Credentials"))
+	})
+
 	t.Run("FastPath_NoOrigin_NotAllowAll", func(t *testing.T) {
 		router := gin.New()
 		router.Use(CorsWithPolicy(com.CORSPolicy{
@@ -264,10 +310,10 @@ func TestCors_PreflightAndEdgeCases(t *testing.T) {
 		var wg sync.WaitGroup
 		wg.Add(goroutines)
 		errCh := make(chan string, goroutines*iterations)
-		for g := 0; g < goroutines; g++ {
+		for range goroutines {
 			go func() {
 				defer wg.Done()
-				for i := 0; i < iterations; i++ {
+				for i := range iterations {
 					method := http.MethodGet
 					if i%5 == 0 {
 						method = http.MethodOptions
@@ -289,6 +335,29 @@ func TestCors_PreflightAndEdgeCases(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
+}
+
+func TestFormatDurationMs(t *testing.T) {
+	baseline := func(ns int64) string {
+		ms := float64(ns) / 1e6
+		return strconv.FormatFloat(math.Round(ms*100)/100, 'f', -1, 64) + "ms"
+	}
+
+	cases := []int64{
+		0,
+		1,
+		500_000,
+		999_999,
+		1_000_000,
+		1_234_567,
+		1_500_000,
+		123_456_789,
+		1_234_567_890_123,
+		math.MaxInt64 / 4,
+	}
+	for _, ns := range cases {
+		assert.Equal(t, baseline(ns), formatDurationMs(ns), "ns=%d", ns)
+	}
 }
 
 func TestAccessLogger(t *testing.T) {
@@ -379,6 +448,40 @@ func TestLogrAccessLogger(t *testing.T) {
 	assert.Contains(t, buff.String(), "http server access log", "buffer should contain the message")
 }
 
+func TestAccessLoggerSkipsInternalResources(t *testing.T) {
+	router := gin.New()
+
+	handler := func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"message": "OK"})
+	}
+
+	buff := bytes.NewBuffer(make([]byte, 0, 1024))
+	logger := log.NewZapLogger(zapcore.AddSync(buff), false).GetLogrLogger()
+
+	loggedPaths := make([]string, 0, 2)
+	logEventFunc := func(logger *logr.Logger, event *log.LogEvent) {
+		loggedPaths = append(loggedPaths, event.Path)
+		logger.Info(event.Message, "path", event.Path)
+	}
+
+	router.Use(AccessLogger(logger, logEventFunc, true))
+	router.GET(com.HealthCheckURLPath, handler)
+	router.GET("/test", handler)
+
+	req, _ := http.NewRequest(http.MethodGet, com.HealthCheckURLPath, nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	assert.Empty(t, loggedPaths, "internal resource path must not emit access log event")
+
+	req, _ = http.NewRequest(http.MethodGet, "/test", nil)
+	recorder = httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	assert.Equal(t, []string{"/test"}, loggedPaths)
+	assert.Contains(t, buff.String(), "http server access log", "buffer should contain the message")
+}
+
 func TestRecovery(t *testing.T) {
 	// Create a new Gin router
 	router := gin.New()
@@ -455,4 +558,89 @@ func TestLogrRecovery(t *testing.T) {
 
 	// Assert that the log buffer contains the expected message
 	assert.Contains(t, buff.String(), "http server recovery from panic", "buffer should contain the message")
+}
+
+func TestHeaderFirstValue(t *testing.T) {
+	tests := []struct {
+		name   string
+		header http.Header
+		key    string
+		want   string
+	}{
+		{
+			name:   "present single value",
+			header: http.Header{com.HttpHeaderContentType: []string{"application/json"}},
+			key:    com.HttpHeaderContentType,
+			want:   "application/json",
+		},
+		{
+			name:   "missing key",
+			header: http.Header{},
+			key:    com.HttpHeaderRequestID,
+			want:   "",
+		},
+		{
+			name:   "multiple values takes first",
+			header: http.Header{com.HttpHeaderForwardedFor: []string{"10.0.0.1", "10.0.0.2"}},
+			key:    com.HttpHeaderForwardedFor,
+			want:   "10.0.0.1",
+		},
+		{
+			name:   "empty slice",
+			header: http.Header{com.HttpHeaderRequestID: {}},
+			key:    com.HttpHeaderRequestID,
+			want:   "",
+		},
+		{
+			name:   "nil header",
+			header: nil,
+			key:    "Origin",
+			want:   "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := headerFirstValue(tt.header, tt.key)
+			assert.Equal(t, tt.want, got)
+			if tt.header != nil {
+				assert.Equal(t, tt.header.Get(tt.key), got)
+			}
+		})
+	}
+}
+
+func TestAccessLoggerMultiValueHeaders(t *testing.T) {
+	var gotID, gotAgent, gotForwarded, gotContentType string
+
+	logEventFunc := func(_ *logr.Logger, event *log.LogEvent) {
+		gotID = event.ID
+		gotAgent = event.Agent
+		gotForwarded = event.ForwardedFor
+		gotContentType = event.ReqContentType
+	}
+
+	logger := logr.Discard()
+
+	router := gin.New()
+	router.Use(AccessLogger(&logger, logEventFunc, false))
+	router.GET("/test", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	req, _ := http.NewRequest(http.MethodGet, "/test", nil)
+	req.Header[com.HttpHeaderForwardedFor] = []string{"10.0.0.1", "10.0.0.2"}
+	req.Header[com.HttpHeaderRequestID] = []string{"req-first", "req-second"}
+	req.Header["User-Agent"] = []string{"orbit-agent", "orbit-agent-2"}
+	req.Header[com.HttpHeaderContentType] = []string{"application/json", "text/plain"}
+
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	assert.Equal(t, "10.0.0.1", gotForwarded)
+	assert.Equal(t, req.Header.Get(com.HttpHeaderForwardedFor), gotForwarded)
+	assert.Equal(t, "req-first", gotID)
+	assert.Equal(t, "orbit-agent", gotAgent)
+	assert.Equal(t, "application/json", gotContentType)
 }

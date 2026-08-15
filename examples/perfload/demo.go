@@ -68,7 +68,7 @@ func main() {
 
 	var wg sync.WaitGroup
 	wg.Add(*concurrency)
-	for i := 0; i < *concurrency; i++ {
+	for range *concurrency {
 		go func() {
 			defer wg.Done()
 			for time.Now().Before(end) {

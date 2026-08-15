@@ -24,7 +24,7 @@ func (s *service) RegisterGroup(g *gin.RouterGroup) {
 	g.POST("/demo", func(c *gin.Context) {
 		// 重复读取请求体内容 20 次
 		// Repeat the read request body content 20 times
-		for i := 0; i < 20; i++ {
+		for i := range 20 {
 			// 生成请求体
 			// Generate the request body
 			if body, err := httptool.GenerateRequestBody(c); err != nil {

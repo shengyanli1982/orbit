@@ -132,10 +132,10 @@ func TestBodyBufferConcurrentSafety(t *testing.T) {
 	errCh := make(chan string, goroutines*iterations)
 
 	wg.Add(goroutines)
-	for g := 0; g < goroutines; g++ {
+	for range goroutines {
 		go func() {
 			defer wg.Done()
-			for i := 0; i < iterations; i++ {
+			for range iterations {
 				func() {
 					defer func() {
 						if r := recover(); r != nil {

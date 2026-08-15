@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"bytes"
 	"fmt"
 	"math"
 	"net"
@@ -16,11 +17,15 @@ import (
 	com "github.com/shengyanli1982/orbit/common"
 	"github.com/shengyanli1982/orbit/internal/conver"
 	"github.com/shengyanli1982/orbit/utils/httptool"
+	"github.com/shengyanli1982/orbit/utils/middleware"
 )
 
 func formatDurationMs(ns int64) string {
 	ms := float64(ns) / 1e6
-	return strconv.FormatFloat(math.Round(ms*100)/100, 'f', -1, 64) + "ms"
+	var buf [32]byte
+	b := strconv.AppendFloat(buf[:0], math.Round(ms*100)/100, 'f', -1, 64)
+	b = append(b, "ms"...)
+	return string(b)
 }
 
 // Pre-computed canonical CORS header keys (already in textproto canonical form)
@@ -43,6 +48,13 @@ var (
 	corsBoolTrue       = []string{"true"}
 	corsBoolFalse      = []string{"false"}
 )
+
+func headerFirstValue(h http.Header, key string) string {
+	if v := h[key]; len(v) > 0 {
+		return v[0]
+	}
+	return ""
+}
 
 // 返回一个处理跨域请求的 Gin 中间件
 func Cors() gin.HandlerFunc {
@@ -89,9 +101,9 @@ func CorsWithPolicy(policy com.CORSPolicy) gin.HandlerFunc {
 			return
 		}
 
-		origin := context.GetHeader("Origin")
-		// Fast path: non-browser requests without Origin do not need CORS headers.
-		if origin == "" && !policy.AllowAllOrigins {
+		origin := headerFirstValue(context.Request.Header, com.HttpHeaderOrigin)
+		// Fast path: requests without Origin do not need CORS headers.
+		if origin == "" {
 			if context.Request.Method == "OPTIONS" {
 				context.AbortWithStatus(http.StatusNoContent)
 				return
@@ -156,15 +168,20 @@ func isOriginAllowed(origin string, allowed []string) bool {
 // 返回一个用于记录访问日志的 Gin 中间件
 func AccessLogger(logger *logr.Logger, logEventFunc com.LogEventFunc, record bool) gin.HandlerFunc {
 	return func(context *gin.Context) {
+		if middleware.SkipResources(context) {
+			context.Next()
+			return
+		}
+
 		// 预先获取所有需要的值，避免重复获取
 		req := context.Request
 		header := req.Header
 		method := req.Method
 		path := httptool.GenerateRequestPath(context)
-		requestContentType := httptool.StringFilterFlags(header.Get(com.HttpHeaderContentType))
-		requestID := header.Get(com.HttpHeaderRequestID)
-		forwardedFor := header.Get(com.HttpHeaderForwardedFor)
-		userAgent := req.UserAgent()
+		requestContentType := httptool.StringFilterFlags(headerFirstValue(header, com.HttpHeaderContentType))
+		requestID := headerFirstValue(header, com.HttpHeaderRequestID)
+		forwardedFor := headerFirstValue(header, com.HttpHeaderForwardedFor)
+		userAgent := headerFirstValue(header, "User-Agent")
 		remoteAddr := req.RemoteAddr
 		rawQuery := req.URL.RawQuery
 
@@ -208,6 +225,12 @@ func AccessLogger(logger *logr.Logger, logEventFunc com.LogEventFunc, record boo
 		event.ReqBody = conver.BytesToString(requestBody)
 
 		logEventFunc(logger, event)
+
+		if buffer, exists := context.Get(com.RequestBodyBufferKey); exists {
+			if buf, ok := buffer.(*bytes.Buffer); ok {
+				com.RequestBodyBufferPool.Put(buf)
+			}
+		}
 	}
 }
 

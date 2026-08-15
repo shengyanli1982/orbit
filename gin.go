@@ -2,9 +2,9 @@ package orbit
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -24,6 +24,16 @@ var defaultShutdownTimeout = time.Second * com.DefaultShutdownTimeoutSeconds
 // HTTP 连接的默认空闲超时时间（秒）
 const defaultHttpIdleTimeoutSeconds = int(com.DefaultHttpIdleTimeoutMillis / 1000)
 
+// Engine 生命周期状态：new -> running -> stopped，stopped 为终态（单次使用语义）
+const (
+	stateNew = iota
+	stateRunning
+	stateStopped
+)
+
+// 引擎不处于 stateNew 状态时拒绝注册服务或中间件返回的错误
+var errRegistrationRejected = errors.New("registration rejected: engine is not in new state")
+
 // Service 接口定义了注册路由组的方法
 type Service interface {
 	RegisterGroup(routerGroup *gin.RouterGroup)
@@ -37,9 +47,8 @@ type Engine struct {
 	root     *gin.RouterGroup
 	config   *Config
 	opts     *Options
-	running  atomic.Bool
+	state    atomic.Int32
 	wg       sync.WaitGroup
-	once     sync.Once
 	ctx      context.Context
 	cancel   context.CancelFunc
 	handlers []gin.HandlerFunc
@@ -110,30 +119,20 @@ func (e *Engine) initGinEngine(options *Options) error {
 func (e *Engine) setupBaseHandlers() {
 	// 设置 404 路由未匹配的处理函数
 	e.ginSvr.NoRoute(func(c *gin.Context) {
-		var sb strings.Builder
-		sb.WriteString("[404] http request route mismatch, method: ")
-		sb.WriteString(c.Request.Method)
-		sb.WriteString(", path: ")
-		sb.WriteString(c.Request.URL.Path)
-		c.String(http.StatusNotFound, sb.String())
+		c.String(http.StatusNotFound, "[404] http request route mismatch, method: "+c.Request.Method+", path: "+c.Request.URL.Path)
 	})
 
 	// 设置 405 方法不允许的处理函数
 	e.ginSvr.NoMethod(func(c *gin.Context) {
-		var sb strings.Builder
-		sb.WriteString("[405] http request method not allowed, method: ")
-		sb.WriteString(c.Request.Method)
-		sb.WriteString(", path: ")
-		sb.WriteString(c.Request.URL.Path)
-		c.String(http.StatusMethodNotAllowed, sb.String())
+		c.String(http.StatusMethodNotAllowed, "[405] http request method not allowed, method: "+c.Request.Method+", path: "+c.Request.URL.Path)
 	})
 
 	// 注册基本中间件
-	e.ginSvr.Use(
-		mid.Recovery(e.config.logger, e.config.recoveryLogEventFunc), // 恢复中间件
-		mid.BodyBuffer(),                         // 请求体缓冲中间件
-		mid.CorsWithPolicy(*e.config.CORSPolicy), // CORS 中间件
-	)
+	e.ginSvr.Use(mid.Recovery(e.config.logger, e.config.recoveryLogEventFunc)) // 恢复中间件
+	if e.opts.recRespBody {
+		e.ginSvr.Use(mid.BodyBuffer()) // 响应体缓冲中间件
+	}
+	e.ginSvr.Use(mid.CorsWithPolicy(*e.config.CORSPolicy)) // CORS 中间件
 }
 
 // 注册内置的服务，包括健康检查、Swagger、pprof 和指标收集等
@@ -167,24 +166,23 @@ func (e *Engine) Run() {
 		return
 	}
 
-	// 检查服务器是否已经在运行
-	if e.IsRunning() {
+	// 并发守卫：仅允许首个调用者将状态从 stateNew 迁移到 stateRunning，引擎为单次使用语义
+	if !e.state.CompareAndSwap(stateNew, stateRunning) {
 		return
 	}
 
 	// 注册用户中间件和服务
-	e.registerUserMiddlewares()
+	e.ginSvr.Use(e.handlers...)
 	e.ginSvr.Use(mid.AccessLogger(e.config.logger, e.config.accessLogEventFunc, e.opts.recReqBody))
-	e.registerUserServices()
+	for _, service := range e.services {
+		service.RegisterGroup(e.root)
+	}
 
 	// 创建并启动 HTTP 服务器
 	e.httpSvr = e.createHTTPServer()
 	e.wg.Add(1)
 
 	go e.startHTTPServer()
-
-	// 更新服务器状态
-	e.updateRunningState(true)
 }
 
 // 创建并配置 HTTP 服务器实例
@@ -223,30 +221,35 @@ func (e *Engine) startHTTPServer() {
 		e.runErrMu.Lock()
 		e.runErr = err
 		e.runErrMu.Unlock()
+		e.state.Store(stateStopped)
+		e.cancel()
+		if e.opts.metric {
+			e.metric.Unregister()
+		}
 	}
 }
 
 // 优雅地停止 HTTP 服务器
 func (e *Engine) Stop() {
-	e.once.Do(func() {
-		// 更新服务器状态为停止
-		e.updateRunningState(false)
+	// running->stopped 为正常关闭；new->stopped 为 Stop-before-Run；已处于 stopped 时直接返回，保证幂等
+	if !e.state.CompareAndSwap(stateRunning, stateStopped) && !e.state.CompareAndSwap(stateNew, stateStopped) {
+		return
+	}
 
-		shutdownCtx, shutdownCancel := context.WithTimeout(e.ctx, defaultShutdownTimeout)
-		defer shutdownCancel()
+	shutdownCtx, shutdownCancel := context.WithTimeout(e.ctx, defaultShutdownTimeout)
+	defer shutdownCancel()
 
-		// 关闭 HTTP 服务器
-		e.shutdownHTTPServer(shutdownCtx)
+	// 关闭 HTTP 服务器
+	e.shutdownHTTPServer(shutdownCtx)
 
-		// 取消上下文并等待所有协程完成
-		e.cancel()
-		e.wg.Wait()
+	// 取消上下文并等待所有协程完成
+	e.cancel()
+	e.wg.Wait()
 
-		// 如果启用了指标收集，注销指标收集器
-		if e.opts.metric {
-			e.metric.Unregister()
-		}
-	})
+	// 如果启用了指标收集，注销指标收集器
+	if e.opts.metric {
+		e.metric.Unregister()
+	}
 }
 
 // 优雅地关闭 HTTP 服务器
@@ -262,42 +265,47 @@ func (e *Engine) shutdownHTTPServer(ctx context.Context) {
 
 // 返回服务器的运行状态
 func (e *Engine) IsRunning() bool {
-	return e.running.Load()
-}
-
-// 更新服务器的运行状态
-func (e *Engine) updateRunningState(status bool) {
-	e.running.Store(status)
+	return e.state.Load() == stateRunning
 }
 
 // 注册用户定义的服务
 func (e *Engine) registerUserServices() {
-	// 只在服务器未运行时注册服务
-	if !e.running.Load() {
-		for i := 0; i < len(e.services); i++ {
-			e.services[i].RegisterGroup(e.root)
+	// 只在引擎尚未启动时注册服务
+	if e.state.Load() == stateNew {
+		for _, service := range e.services {
+			service.RegisterGroup(e.root)
 		}
 	}
 }
 
 // 添加用户定义的服务到服务列表中
 func (e *Engine) RegisterService(service Service) {
-	if !e.running.Load() && service != nil {
-		e.services = append(e.services, service)
+	if service == nil {
+		return
 	}
+	if e.state.Load() != stateNew {
+		e.config.logger.Error(errRegistrationRejected, "register service rejected", "service", fmt.Sprintf("%T", service))
+		return
+	}
+	e.services = append(e.services, service)
 }
 
 // 添加中间件到处理器列表中
 func (e *Engine) RegisterMiddleware(handler gin.HandlerFunc) {
-	if !e.running.Load() && handler != nil {
-		e.handlers = append(e.handlers, handler)
+	if handler == nil {
+		return
 	}
+	if e.state.Load() != stateNew {
+		e.config.logger.Error(errRegistrationRejected, "register middleware rejected", "handler", fmt.Sprintf("%T", handler))
+		return
+	}
+	e.handlers = append(e.handlers, handler)
 }
 
 // 注册用户定义的中间件
 func (e *Engine) registerUserMiddlewares() {
-	// 只在服务器未运行时注册中间件
-	if !e.running.Load() {
+	// 只在引擎尚未启动时注册中间件
+	if e.state.Load() == stateNew {
 		e.ginSvr.Use(e.handlers...)
 	}
 }

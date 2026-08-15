@@ -3,6 +3,7 @@ package metric
 import (
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -197,4 +198,143 @@ func TestSetPathNormalizer(t *testing.T) {
 		_ = metrics.requestCount.WithLabelValues("GET", "not_found", "404").Write(m)
 		assert.Equal(t, 1, int(m.Counter.GetValue()), "Should use custom normalizer")
 	})
+}
+
+func TestServerMetricsIdempotentRegisterSharedRegistry(t *testing.T) {
+	registry := prometheus.NewRegistry()
+
+	// 第一个实例完成全新注册，拥有注册所有权
+	first := NewServerMetrics(registry)
+	first.Register()
+
+	first.IncRequestCount("GET", "/test", "200")
+	require.True(t, registryHasMetricFamily(registry, "orbit_http_requests_total"))
+
+	// 第二个实例共享同一注册表，Register 必须幂等而不是 panic
+	second := NewServerMetrics(registry)
+	require.NotPanics(t, func() {
+		second.Register()
+	})
+
+	// 第二个实例不拥有注册表，Unregister 不应移除共享的收集器
+	second.Unregister()
+	require.True(t, registryHasMetricFamily(registry, "orbit_http_requests_total"))
+
+	// 拥有所有权的实例注销后，收集器从注册表移除
+	first.Unregister()
+	assert.False(t, registryHasMetricFamily(registry, "orbit_http_requests_total"))
+}
+
+func gatherRequestCounterValue(t *testing.T, registry *prometheus.Registry, method, path, status string) float64 {
+	t.Helper()
+	families, err := registry.Gather()
+	require.NoError(t, err)
+	for _, family := range families {
+		if family.GetName() != "orbit_http_requests_total" {
+			continue
+		}
+		for _, pm := range family.GetMetric() {
+			var gotMethod, gotPath, gotStatus string
+			for _, lp := range pm.GetLabel() {
+				switch lp.GetName() {
+				case "method":
+					gotMethod = lp.GetValue()
+				case "path":
+					gotPath = lp.GetValue()
+				case "status":
+					gotStatus = lp.GetValue()
+				}
+			}
+			if gotMethod == method && gotPath == path && gotStatus == status {
+				return pm.GetCounter().GetValue()
+			}
+		}
+	}
+	t.Fatalf("counter with labels (%s,%s,%s) not found", method, path, status)
+	return 0
+}
+
+func TestServerMetricsHandlerFuncCache(t *testing.T) {
+	registry := prometheus.NewRegistry()
+	metrics := NewServerMetrics(registry)
+	metrics.Register()
+	defer metrics.Unregister()
+	logger := zapr.NewLogger(zap.NewExample())
+
+	router := gin.New()
+	router.Use(metrics.HandlerFunc(&logger))
+	router.GET("/test", func(c *gin.Context) {
+		c.String(http.StatusOK, "ok")
+	})
+	router.GET("/users/:id", func(c *gin.Context) {
+		c.String(http.StatusOK, "ok")
+	})
+
+	for i := 1; i <= 3; i++ {
+		req, _ := http.NewRequest("GET", "/test", nil)
+		resp := httptest.NewRecorder()
+		router.ServeHTTP(resp, req)
+		require.Equal(t, http.StatusOK, resp.Code)
+		require.Equal(t, float64(i), gatherRequestCounterValue(t, registry, "GET", "/test", "200"))
+	}
+
+	req, _ := http.NewRequest("GET", "/users/42", nil)
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+	require.Equal(t, http.StatusOK, resp.Code)
+	require.Equal(t, float64(1), gatherRequestCounterValue(t, registry, "GET", "/users/:id", "200"))
+	require.Equal(t, float64(3), gatherRequestCounterValue(t, registry, "GET", "/test", "200"))
+
+	for range 2 {
+		req, _ = http.NewRequest("GET", "/users/7", nil)
+		resp = httptest.NewRecorder()
+		router.ServeHTTP(resp, req)
+		require.Equal(t, http.StatusOK, resp.Code)
+	}
+	require.Equal(t, float64(3), gatherRequestCounterValue(t, registry, "GET", "/users/:id", "200"))
+}
+
+func TestServerMetricsHandlerFuncCacheConcurrent(t *testing.T) {
+	registry := prometheus.NewRegistry()
+	metrics := NewServerMetrics(registry)
+	metrics.Register()
+	defer metrics.Unregister()
+	logger := zapr.NewLogger(zap.NewExample())
+
+	router := gin.New()
+	router.Use(metrics.HandlerFunc(&logger))
+	router.GET("/test", func(c *gin.Context) {
+		c.String(http.StatusOK, "ok")
+	})
+
+	const goroutines = 16
+	const perGoroutine = 50
+	var wg sync.WaitGroup
+	wg.Add(goroutines)
+	for range goroutines {
+		go func() {
+			defer wg.Done()
+			for range perGoroutine {
+				req, _ := http.NewRequest("GET", "/test", nil)
+				resp := httptest.NewRecorder()
+				router.ServeHTTP(resp, req)
+			}
+		}()
+	}
+	wg.Wait()
+
+	require.Equal(t, float64(goroutines*perGoroutine), gatherRequestCounterValue(t, registry, "GET", "/test", "200"))
+}
+
+func registryHasMetricFamily(registry *prometheus.Registry, name string) bool {
+	families, err := registry.Gather()
+	if err != nil {
+		return false
+	}
+	for _, family := range families {
+		if family.GetName() == name {
+			return true
+		}
+	}
+	return false
 }

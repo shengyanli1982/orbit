@@ -142,7 +142,7 @@ func BenchmarkMemoryAllocation(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		resp := httptest.NewRecorder()
 		router.ServeHTTP(resp, req)
 	}
@@ -158,7 +158,7 @@ func TestConcurrentSafety(t *testing.T) {
 	router.Use(metrics.HandlerFunc(&logger))
 
 	// 注册多个路由
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		path := fmt.Sprintf("/api/endpoint_%d", i)
 		router.GET(path, func(c *gin.Context) {
 			c.String(http.StatusOK, "OK")
@@ -175,10 +175,10 @@ func TestConcurrentSafety(t *testing.T) {
 	wg.Add(goroutines)
 
 	// 启动多个goroutine并发访问
-	for g := 0; g < goroutines; g++ {
+	for g := range goroutines {
 		go func(id int) {
 			defer wg.Done()
-			for i := 0; i < iterations; i++ {
+			for i := range iterations {
 				path := fmt.Sprintf("/api/endpoint_%d", i%20)
 				req, _ := http.NewRequest("GET", path, nil)
 				resp := httptest.NewRecorder()
