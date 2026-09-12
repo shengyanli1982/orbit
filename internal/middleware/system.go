@@ -174,13 +174,14 @@ func AccessLogger(logger *logr.Logger, logEventFunc com.LogEventFunc, record boo
 			return
 		}
 
-		// 预先获取所有需要的值，避免重复获取
+		// 预先获取需要的值，避免重复获取
+		// 注意: requestID 必须在 context.Next() 之后读取，否则用户中间件（如 requestid bridge）
+		// 通过回写请求头注入的请求 ID 无法被感知（P0-1 缺陷修复）
 		req := context.Request
 		header := req.Header
 		method := req.Method
 		path := httptool.GenerateRequestPath(context)
 		requestContentType := httptool.StringFilterFlags(headerFirstValue(header, com.HttpHeaderContentType))
-		requestID := headerFirstValue(header, com.HttpHeaderRequestID)
 		forwardedFor := headerFirstValue(header, com.HttpHeaderForwardedFor)
 		userAgent := headerFirstValue(header, "User-Agent")
 		remoteAddr := req.RemoteAddr
@@ -200,6 +201,11 @@ func AccessLogger(logger *logr.Logger, logEventFunc com.LogEventFunc, record boo
 		}
 
 		context.Next()
+
+		// requestID 在 context.Next() 之后读取，以确保用户中间件（如 requestid bridge）
+		// 通过回写请求头注入的请求 ID 可被正确捕获；header 是 req.Header 的引用，
+		// context.Next() 期间用户中间件对请求头的修改在此可见（P0-1 修复）
+		requestID := headerFirstValue(header, com.HttpHeaderRequestID)
 
 		// 错误处理优化
 		if errs := context.Errors; len(errs) > 0 {
