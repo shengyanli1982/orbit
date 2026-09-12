@@ -12,7 +12,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/prometheus/client_golang/prometheus"
 	com "github.com/shengyanli1982/orbit/common"
-	mid "github.com/shengyanli1982/orbit/internal/middleware"
 	uhttptool "github.com/shengyanli1982/orbit/utils/httptool"
 	ulog "github.com/shengyanli1982/orbit/utils/log"
 	"github.com/stretchr/testify/assert"
@@ -153,6 +152,7 @@ func newOptionsProbeEngine(tb testing.TB, options *Options, service Service, mid
 
 	config := NewConfig().
 		WithRelease().
+		WithPort(getFreePort(tb)).
 		WithAccessLogEventFunc(benchmarkNoopLogEvent).
 		WithRecoveryLogEventFunc(benchmarkNoopLogEvent).
 		WithPrometheusRegistry(prometheus.NewRegistry())
@@ -166,9 +166,8 @@ func newOptionsProbeEngine(tb testing.TB, options *Options, service Service, mid
 	for _, middleware := range middlewares {
 		engine.RegisterMiddleware(middleware)
 	}
-	engine.registerUserMiddlewares()
-	engine.ginSvr.Use(mid.AccessLogger(engine.config.logger, engine.config.accessLogEventFunc, engine.opts.recReqBody))
-	engine.registerUserServices()
+	engine.Run()
+	tb.Cleanup(engine.Stop)
 	return engine
 }
 
@@ -183,7 +182,7 @@ func TestResponseBodyRecordOptIn(t *testing.T) {
 
 		assert.Equal(t, http.StatusOK, resp.Code)
 		assert.Equal(t, "hello orbit", resp.Body.String())
-		assert.Equal(t, uhttptool.ErrorRequestBodyBufferNotFound, probe.gotErr)
+		assert.Equal(t, uhttptool.ErrorResponseBodyBufferNotFound, probe.gotErr)
 		assert.Nil(t, probe.gotBody)
 	})
 
@@ -269,6 +268,7 @@ func TestRecordRequestBodyAcrossConsecutiveRequests(t *testing.T) {
 
 	config := NewConfig().
 		WithRelease().
+		WithPort(getFreePort(t)).
 		WithAccessLogEventFunc(func(_ *logr.Logger, event *ulog.LogEvent) {
 			mu.Lock()
 			recordedBodies = append(recordedBodies, strings.Clone(event.ReqBody))
@@ -281,9 +281,8 @@ func TestRecordRequestBodyAcrossConsecutiveRequests(t *testing.T) {
 	require.NoError(t, engine.initErr)
 
 	engine.RegisterService(&reqBodyEchoService{})
-	engine.registerUserMiddlewares()
-	engine.ginSvr.Use(mid.AccessLogger(engine.config.logger, engine.config.accessLogEventFunc, engine.opts.recReqBody))
-	engine.registerUserServices()
+	engine.Run()
+	t.Cleanup(engine.Stop)
 
 	first := `{"seq":1,"data":"first"}`
 	second := `{"seq":2,"data":"second"}`

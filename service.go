@@ -3,6 +3,7 @@ package orbit
 import (
 	"net/http"
 	"net/http/pprof"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-logr/logr"
@@ -32,7 +33,7 @@ var pprofHandlers = map[string]http.HandlerFunc{
 }
 
 // pprofService 将 pprof 处理器注册到给定的路由组
-func pprofService(group *gin.RouterGroup) {
+func pprofService(group *gin.RouterGroup, logger *logr.Logger) {
 	if group == nil {
 		return
 	}
@@ -42,11 +43,28 @@ func pprofService(group *gin.RouterGroup) {
 
 	// 统一注册所有 GET 处理器
 	for path, handler := range pprofHandlers {
-		pprofGroup.GET(path, wrap.WrapHandlerFuncToGin(handler))
+		pprofGroup.GET(path, wrapPprofHandler(handler, logger))
 	}
 
 	// 单独注册 POST 处理器
-	pprofGroup.POST("/symbol", wrap.WrapHandlerFuncToGin(pprof.Symbol))
+	pprofGroup.POST("/symbol", wrapPprofHandler(pprof.Symbol, logger))
+}
+
+// wrapPprofHandler 包装 pprof 处理器并清除该连接的写截止时间。
+// /profile（默认 30s）、/trace 等长耗时路由的响应会被服务器 WriteTimeout（默认 15s）截断，
+// 此处仅解除 pprof 路由所在连接的写截止，不改变全局 WriteTimeout 配置。
+// 注：Go >= 1.23 的标准库 pprof 会对 seconds 类路由（profile/trace/delta）重新设置
+// 有界截止（WriteTimeout+seconds），两者组合安全；本包装层的清除同时覆盖
+// heap/goroutine 等全量 dump 的大响应慢客户端写出场景。
+func wrapPprofHandler(fn http.HandlerFunc, logger *logr.Logger) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// 零值时间表示移除该连接的写截止时间
+		if err := http.NewResponseController(c.Writer).SetWriteDeadline(time.Time{}); err != nil {
+			// 响应写入器不支持截止调整时（如被响应体缓冲中间件包装）仅记录日志，不影响处理器执行
+			logger.Error(err, "failed to clear write deadline for pprof route", "path", c.Request.URL.Path)
+		}
+		fn(c.Writer, c.Request)
+	}
 }
 
 // metricService 将 prometheus 指标处理器注册到给定的路由组

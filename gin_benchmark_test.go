@@ -1,3 +1,9 @@
+// 基准测量口径说明：httptest.ResponseRecorder.WriteHeader 每次都会克隆响应头
+// （约 3 allocs / 488B per op，头数量越多成本越高），属测试夹具伪影——生产环境
+// net/http 服务端不做该克隆。因此本文件各基准的绝对值系统性高于生产等效值，
+// 不可直接当作生产数字；但夹具成本恒定，基准之间的差分对比仍然有效。
+// 详见 .agent-work-b652f803/reports/pprof-analysis-round1.md §3.1。
+
 package orbit
 
 import (
@@ -7,8 +13,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-logr/logr"
-	"github.com/prometheus/client_golang/prometheus"
-	mid "github.com/shengyanli1982/orbit/internal/middleware"
 	ulog "github.com/shengyanli1982/orbit/utils/log"
 )
 
@@ -25,27 +29,15 @@ func benchmarkNoopLogEvent(_ *logr.Logger, _ *ulog.LogEvent) {}
 func newBenchmarkEngine(tb testing.TB, enableMetric bool) *Engine {
 	tb.Helper()
 
-	config := NewConfig().
-		WithRelease().
-		WithAccessLogEventFunc(benchmarkNoopLogEvent).
-		WithRecoveryLogEventFunc(benchmarkNoopLogEvent).
-		WithPrometheusRegistry(prometheus.NewRegistry())
-
 	options := NewOptions()
 	if enableMetric {
 		options = options.EnableMetric()
 	}
 
-	engine := NewEngine(config, options)
-	if engine.initErr != nil {
-		tb.Fatalf("engine init failed: %v", engine.initErr)
-	}
-
-	engine.RegisterService(&benchmarkService{})
-	engine.registerUserMiddlewares()
-	engine.ginSvr.Use(mid.AccessLogger(engine.config.logger, engine.config.accessLogEventFunc, engine.opts.recReqBody))
-	engine.registerUserServices()
-	return engine
+	// 复用静音配置（日志导向 io.Discard）：消除 engine.Run 生命周期 INFO 日志
+	// （http server is ready/shutdown）对 bench 输出行的撕裂与噪声抬升；
+	// 测量语义不变——仍走真实 Run() 装配路径 + httptest 进程内请求
+	return newBenchmarkEngineWith(tb, newQuietBenchmarkConfig(), options, &benchmarkService{})
 }
 
 func TestBenchmarkEngineMainPathSetup(t *testing.T) {

@@ -43,7 +43,6 @@ type Service interface {
 type Engine struct {
 	endpoint string
 	ginSvr   *gin.Engine
-	httpSvr  *http.Server
 	root     *gin.RouterGroup
 	config   *Config
 	opts     *Options
@@ -57,9 +56,19 @@ type Engine struct {
 	initErr  error
 	runErrMu sync.Mutex
 	runErr   error
+
+	// mu 守护生命周期装配段与注册列表：Run 的 state 复查、httpSvr 赋值与 wg.Add，
+	// Stop 的 httpSvr 快照，以及 RegisterService/RegisterMiddleware 的 state 检查与 append，
+	// 消除并发 Run/Stop/Register* 之间的竞态窗口（httpSvr 无同步读写、wg.Add 与 wg.Wait 并发、check-then-act）
+	mu      sync.Mutex
+	httpSvr *http.Server
 }
 
-// NewEngine 创建并返回一个新的引擎实例
+// NewEngine 创建并返回一个新的引擎实例。
+//
+// 注意：本函数具有进程级全局副作用——config.ReleaseMode 为 true 时调用
+// gin.SetMode(gin.ReleaseMode)，且无条件调用 gin.DisableConsoleColor()。
+// 以不同 ReleaseMode 创建多个 Engine 时，后创建的实例会静默覆盖先前的 gin 全局模式。
 func NewEngine(config *Config, options *Options) *Engine {
 	// 验证配置和选项的有效性
 	config = isConfigValid(config)
@@ -100,9 +109,9 @@ func (e *Engine) initGinEngine(options *Options) error {
 	e.ginSvr = gin.New()
 	e.root = &e.ginSvr.RouterGroup
 
-	e.ginSvr.ForwardedByClientIP = options.forwordByClientIp
+	e.ginSvr.ForwardedByClientIP = options.forwardByClientIp
 	e.ginSvr.RemoteIPHeaders = cloneStringSlice(e.config.RemoteIPHeaders)
-	if options.forwordByClientIp {
+	if options.forwardByClientIp {
 		if err := e.ginSvr.SetTrustedProxies(cloneStringSlice(e.config.TrustedProxies)); err != nil {
 			return fmt.Errorf("failed to set trusted proxies %v: %w", e.config.TrustedProxies, err)
 		}
@@ -128,7 +137,9 @@ func (e *Engine) setupBaseHandlers() {
 	})
 
 	// 注册基本中间件
-	e.ginSvr.Use(mid.Recovery(e.config.logger, e.config.recoveryLogEventFunc)) // 恢复中间件
+	e.ginSvr.Use(mid.Recovery(e.config.logger, e.config.recoveryLogEventFunc, e.opts.recReqBody)) // 恢复中间件
+	// 访问日志中间件：紧随 Recovery 注册，先于用户中间件，保证被用户中间件 Abort 的请求仍产生访问日志
+	e.ginSvr.Use(mid.AccessLogger(e.config.logger, e.config.accessLogEventFunc, e.opts.recReqBody))
 	if e.opts.recRespBody {
 		e.ginSvr.Use(mid.BodyBuffer()) // 响应体缓冲中间件
 	}
@@ -145,7 +156,7 @@ func (e *Engine) registerBuiltinServices() {
 		swaggerService(e.root.Group(com.SwaggerURLPath)) // 注册 Swagger 服务
 	}
 	if e.opts.pprof {
-		pprofService(e.root.Group(com.PprofURLPath)) // 注册 pprof 服务
+		pprofService(e.root.Group(com.PprofURLPath), e.config.logger) // 注册 pprof 服务
 	}
 	if e.opts.metric {
 		e.setupMetricService() // 注册指标收集服务
@@ -171,18 +182,40 @@ func (e *Engine) Run() {
 		return
 	}
 
-	// 注册用户中间件和服务
-	e.ginSvr.Use(e.handlers...)
-	e.ginSvr.Use(mid.AccessLogger(e.config.logger, e.config.accessLogEventFunc, e.opts.recReqBody))
-	for _, service := range e.services {
+	// 装配段在 mu 内复查 state 消除与并发 Stop 的竞态窗口，并取注册列表快照。
+	// 用户代码（RegisterGroup/ginSvr.Use）在锁外执行：避免用户在注册回调内
+	// 重入 RegisterService/RegisterMiddleware/Stop 时因 mu 不可重入而死锁。
+	// 快照安全性：CAS 成功后 state != new，Register* 的锁内检查必拒绝 append，
+	// 快照切片事实不可变，锁外迭代无竞态
+	e.mu.Lock()
+	if e.state.Load() != stateRunning {
+		e.mu.Unlock()
+		return
+	}
+	services := e.services
+	handlers := e.handlers
+	e.mu.Unlock()
+
+	// 注册用户中间件和服务（锁外迭代快照）
+	e.ginSvr.Use(handlers...)
+	for _, service := range services {
 		service.RegisterGroup(e.root)
 	}
 
-	// 创建并启动 HTTP 服务器
+	// 二次锁段：复查 state（并发 Stop 可能在用户代码执行期间完成关闭）后，
+	// httpSvr 赋值与 wg.Add 仍在 mu 内原子完成，
+	// 保证二者先于任何 Stop 调用者取得快照（wg.Add 不与 wg.Wait 并发）
+	e.mu.Lock()
+	if e.state.Load() != stateRunning {
+		e.mu.Unlock()
+		return
+	}
 	e.httpSvr = e.createHTTPServer()
+	svr := e.httpSvr
 	e.wg.Add(1)
+	e.mu.Unlock()
 
-	go e.startHTTPServer()
+	go e.startHTTPServer(svr)
 }
 
 // 创建并配置 HTTP 服务器实例
@@ -211,12 +244,13 @@ func (e *Engine) createHTTPServer() *http.Server {
 	}
 }
 
-// 启动 HTTP 服务器并处理可能的错误
-func (e *Engine) startHTTPServer() {
+// 启动 HTTP 服务器并处理可能的错误。
+// svr 由 Run 在 mu 锁内的装配段传入，避免 goroutine 无锁读取 e.httpSvr
+func (e *Engine) startHTTPServer(svr *http.Server) {
 	defer e.wg.Done()
-	e.httpSvr.SetKeepAlivesEnabled(true)
+	svr.SetKeepAlivesEnabled(true)
 	e.config.logger.Info("http server is ready", "address", e.endpoint)
-	if err := e.httpSvr.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+	if err := svr.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		e.config.logger.Error(err, "failed to start http server", "address", e.endpoint)
 		e.runErrMu.Lock()
 		e.runErr = err
@@ -231,16 +265,28 @@ func (e *Engine) startHTTPServer() {
 
 // 优雅地停止 HTTP 服务器
 func (e *Engine) Stop() {
-	// running->stopped 为正常关闭；new->stopped 为 Stop-before-Run；已处于 stopped 时直接返回，保证幂等
-	if !e.state.CompareAndSwap(stateRunning, stateStopped) && !e.state.CompareAndSwap(stateNew, stateStopped) {
-		return
+	// running->stopped 为正常关闭；new->stopped 为 Stop-before-Run；保证幂等。
+	// 并发 Run 可能在两次 CAS 之间将 state 从 new 迁移到 running（两次 CAS 均失败但引擎在运行），
+	// 此时重试 CAS；状态机单调迁移（stopped 为终态），循环最多两次迭代即收敛
+	for {
+		if e.state.CompareAndSwap(stateRunning, stateStopped) || e.state.CompareAndSwap(stateNew, stateStopped) {
+			break
+		}
+		if e.state.Load() == stateStopped {
+			// 后到的 Stop 调用者：等待首个 Stop 完成排水后再返回，保证 Stop 返回即"已停止"
+			e.waitForStopped()
+			return
+		}
 	}
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(e.ctx, defaultShutdownTimeout)
 	defer shutdownCancel()
 
-	// 关闭 HTTP 服务器
-	e.shutdownHTTPServer(shutdownCtx)
+	// 锁内取 httpSvr 快照后关闭 HTTP 服务器（与 Run 的装配段互斥，消除无同步读写）
+	e.mu.Lock()
+	svr := e.httpSvr
+	e.mu.Unlock()
+	e.shutdownHTTPServer(shutdownCtx, svr)
 
 	// 取消上下文并等待所有协程完成
 	e.cancel()
@@ -252,12 +298,27 @@ func (e *Engine) Stop() {
 	}
 }
 
+// waitForStopped 使后到的 Stop 调用者等待首个 Stop 调用者完成在途请求排水与服务协程退出。
+// 先取得 mu 确保 Run 的装配段（httpSvr 赋值与 wg.Add）已结束，避免 wg.Add 与 wg.Wait 并发；
+// http.Server.Shutdown 可安全重复调用：排水未完成时等待同一批在途请求，已完成时立即返回
+func (e *Engine) waitForStopped() {
+	e.mu.Lock()
+	svr := e.httpSvr
+	e.mu.Unlock()
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(e.ctx, defaultShutdownTimeout)
+	defer shutdownCancel()
+	e.shutdownHTTPServer(shutdownCtx, svr)
+
+	e.wg.Wait()
+}
+
 // 优雅地关闭 HTTP 服务器
-func (e *Engine) shutdownHTTPServer(ctx context.Context) {
-	if e.httpSvr == nil {
+func (e *Engine) shutdownHTTPServer(ctx context.Context, svr *http.Server) {
+	if svr == nil {
 		return
 	}
-	if err := e.httpSvr.Shutdown(ctx); err != nil {
+	if err := svr.Shutdown(ctx); err != nil {
 		e.config.logger.Error(err, "http server forced to shutdown", "address", e.endpoint)
 	}
 	e.config.logger.Info("http server is shutdown", "address", e.endpoint)
@@ -268,21 +329,14 @@ func (e *Engine) IsRunning() bool {
 	return e.state.Load() == stateRunning
 }
 
-// 注册用户定义的服务
-func (e *Engine) registerUserServices() {
-	// 只在引擎尚未启动时注册服务
-	if e.state.Load() == stateNew {
-		for _, service := range e.services {
-			service.RegisterGroup(e.root)
-		}
-	}
-}
-
-// 添加用户定义的服务到服务列表中
+// 添加用户定义的服务到服务列表中。
+// state 检查与 append 在 mu 内原子完成，与 Run 的装配段互斥，消除 check-then-act 竞态
 func (e *Engine) RegisterService(service Service) {
 	if service == nil {
 		return
 	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	if e.state.Load() != stateNew {
 		e.config.logger.Error(errRegistrationRejected, "register service rejected", "service", fmt.Sprintf("%T", service))
 		return
@@ -290,24 +344,19 @@ func (e *Engine) RegisterService(service Service) {
 	e.services = append(e.services, service)
 }
 
-// 添加中间件到处理器列表中
+// 添加中间件到处理器列表中。
+// state 检查与 append 在 mu 内原子完成，与 Run 的装配段互斥，消除 check-then-act 竞态
 func (e *Engine) RegisterMiddleware(handler gin.HandlerFunc) {
 	if handler == nil {
 		return
 	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	if e.state.Load() != stateNew {
 		e.config.logger.Error(errRegistrationRejected, "register middleware rejected", "handler", fmt.Sprintf("%T", handler))
 		return
 	}
 	e.handlers = append(e.handlers, handler)
-}
-
-// 注册用户定义的中间件
-func (e *Engine) registerUserMiddlewares() {
-	// 只在引擎尚未启动时注册中间件
-	if e.state.Load() == stateNew {
-		e.ginSvr.Use(e.handlers...)
-	}
 }
 
 // 返回是否启用了指标收集功能
@@ -335,12 +384,20 @@ func (e *Engine) GetListenEndpoint() string {
 	return e.endpoint
 }
 
+// GetRunError 返回服务器监听启动失败的错误，未发生错误时返回 nil
 func (e *Engine) GetRunError() error {
 	e.runErrMu.Lock()
 	defer e.runErrMu.Unlock()
 	return e.runErr
 }
 
+// GetInitError 返回引擎初始化阶段（NewEngine）遇到的错误，初始化成功时返回 nil。
+// 初始化失败时 Run 会拒绝启动，调用方可通过本方法程序化观测失败原因
+func (e *Engine) GetInitError() error {
+	return e.initErr
+}
+
+// GetGinEngine 返回底层的 Gin 引擎实例
 func (e *Engine) GetGinEngine() *gin.Engine {
 	return e.ginSvr
 }

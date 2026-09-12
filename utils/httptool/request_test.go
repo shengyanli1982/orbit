@@ -3,15 +3,32 @@ package httptool
 import (
 	"bytes"
 	"encoding/xml"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/stretchr/testify/assert"
 )
+
+// errReader 先返回部分数据再返回错误，用于模拟 io.Copy 读取请求体失败的场景
+type errReader struct {
+	data []byte
+	err  error
+}
+
+func (r *errReader) Read(p []byte) (int, error) {
+	if len(r.data) > 0 {
+		n := copy(p, r.data)
+		r.data = r.data[n:]
+		return n, nil
+	}
+	return 0, r.err
+}
 
 func TestGenerateRequestBody(t *testing.T) {
 	// Create a new Gin context
@@ -270,4 +287,40 @@ func TestCalcRequestSize(t *testing.T) {
 
 	// Assert that the size is correct
 	assert.Equal(t, int64(16), size)
+}
+
+func TestGenerateRequestBodyCopyFailureDoesNotLeakPartialBody(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	context, _ := gin.CreateTestContext(httptest.NewRecorder())
+	request := httptest.NewRequest(http.MethodPost, "/test", nil)
+	// 注入读取失败的 Body：io.Copy 先拷入 "partial" 再报错
+	request.Body = io.NopCloser(&errReader{data: []byte("partial"), err: errors.New("read failure")})
+	context.Request = request
+
+	// 第一次调用：io.Copy 失败，返回错误
+	body, err := GenerateRequestBody(context)
+	assert.Error(t, err)
+	assert.Equal(t, []byte("failed to get request body"), body)
+
+	// 第二次调用：换上正常请求体，不得把上次失败的残缺数据当作完整请求体返回
+	request.Body = io.NopCloser(strings.NewReader("complete"))
+	body, err = GenerateRequestBody(context)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte("complete"), body)
+}
+
+func TestGenerateRequestBodyErrorPathReturnsWritableBytes(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	context, _ := gin.CreateTestContext(httptest.NewRecorder())
+	request := httptest.NewRequest(http.MethodPost, "/test", nil)
+	request.Body = nil
+	context.Request = request
+
+	body, err := GenerateRequestBody(context)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte("request body is nil"), body)
+
+	// 返回的切片必须可写：若别名字符串常量的只读数据段，此处写入会 segfault
+	body[0] = 'x'
+	assert.Equal(t, byte('x'), body[0])
 }

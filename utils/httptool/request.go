@@ -9,7 +9,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	com "github.com/shengyanli1982/orbit/common"
-	"github.com/shengyanli1982/orbit/internal/conver"
 )
 
 // 定义错误变量
@@ -100,7 +99,8 @@ func GenerateRequestPath(context *gin.Context) string {
 // 生成请求体
 func GenerateRequestBody(context *gin.Context) ([]byte, error) {
 	if context.Request.Body == nil {
-		return conver.StringToBytes("request body is nil"), nil
+		// 返回字面量拷贝而非字符串常量的只读别名，保证调用方可安全写入
+		return []byte("request body is nil"), nil
 	}
 
 	// 尝试从上下文获取已存在的缓冲区
@@ -127,7 +127,9 @@ func GenerateRequestBody(context *gin.Context) ([]byte, error) {
 	// 读取请求体
 	_, err := io.Copy(reqBodyBuffer, context.Request.Body)
 	if err != nil {
-		return conver.StringToBytes("failed to get request body"), err
+		// 读取失败时重置缓冲区，避免残缺数据被后续调用当作完整请求体
+		reqBodyBuffer.Reset()
+		return []byte("failed to get request body"), err
 	}
 
 	// 重置请求体以供后续读取

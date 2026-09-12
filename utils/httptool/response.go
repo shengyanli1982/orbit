@@ -14,13 +14,16 @@ var ErrorResponseBodyBufferEmpty = errors.New("response body buffer is empty")
 // 表示未找到请求体缓冲区的错误
 var ErrorRequestBodyBufferNotFound = errors.New("request body buffer not found")
 
+// 表示未找到响应体缓冲区的错误
+var ErrorResponseBodyBufferNotFound = errors.New("response body buffer not found")
+
 // 从 gin.Context 中生成响应体
 func GenerateResponseBody(context *gin.Context) ([]byte, error) {
 	// 从上下文中获取响应体缓冲区
 	if buffer, ok := context.Get(com.ResponseBodyBufferKey); ok {
 		respBodyBuffer, ok := buffer.(*bytes.Buffer)
 		if !ok {
-			return nil, ErrorRequestBodyBufferNotFound
+			return nil, ErrorResponseBodyBufferNotFound
 		}
 
 		// 检查缓冲区是否为空
@@ -32,6 +35,6 @@ func GenerateResponseBody(context *gin.Context) ([]byte, error) {
 		return respBodyBuffer.Bytes(), nil
 	} else {
 		// 如果未找到缓冲区，返回错误
-		return nil, ErrorRequestBodyBufferNotFound
+		return nil, ErrorResponseBodyBufferNotFound
 	}
 }
