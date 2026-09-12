@@ -513,6 +513,40 @@ func TestAccessLoggerSkipsInternalResources(t *testing.T) {
 	assert.Contains(t, buff.String(), "http server access log", "buffer should contain the message")
 }
 
+// TestAccessLogger_RequestIDReadAfterNext 验证 P0-1 缺陷修复：AccessLogger 必须在
+// context.Next() 之后读取 requestID，使用户中间件（如 requestid bridge）通过回写请求头
+// 注入的请求 ID 可被正确捕获。
+func TestAccessLogger_RequestIDReadAfterNext(t *testing.T) {
+	var capturedID string
+	logEventFunc := func(_ *logr.Logger, event *log.LogEvent) {
+		capturedID = event.ID
+	}
+
+	logger := logr.Discard()
+
+	router := gin.New()
+	router.Use(AccessLogger(&logger, logEventFunc, false))
+
+	// 用户中间件：在 context.Next() 之前（即 AccessLogger 调用 Next 后进入此处）
+	// 回写 X-Request-Id 到请求头，模拟 requestid bridge 行为
+	router.Use(func(c *gin.Context) {
+		c.Request.Header.Set("X-Request-Id", "test-bridge-id")
+		c.Next()
+	})
+
+	router.GET("/test", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	req, _ := http.NewRequest(http.MethodGet, "/test", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	assert.Equal(t, "test-bridge-id", capturedID,
+		"AccessLogger must read requestID after context.Next() to capture user-middleware injected ID")
+}
+
 func TestRecovery(t *testing.T) {
 	// Create a new Gin router
 	router := gin.New()
