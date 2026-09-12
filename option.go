@@ -8,7 +8,7 @@ type Options struct {
 	metric            bool // 启用度量收集
 	trailingSlash     bool // 启用尾部斜杠重定向
 	fixedPath         bool // 启用固定路径重定向
-	forwordByClientIp bool // 启用客户端 IP 转发
+	forwardByClientIp bool // 启用客户端 IP 转发
 	recReqBody        bool // 启用请求体记录
 	recRespBody       bool // 启用响应体记录
 }
@@ -56,7 +56,7 @@ func (o *Options) EnableRedirectFixedPath() *Options {
 
 // EnableForwardedByClientIp 启用客户端 IP 转发
 func (o *Options) EnableForwardedByClientIp() *Options {
-	o.forwordByClientIp = true
+	o.forwardByClientIp = true
 	return o
 }
 

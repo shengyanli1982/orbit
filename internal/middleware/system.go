@@ -102,12 +102,10 @@ func CorsWithPolicy(policy com.CORSPolicy) gin.HandlerFunc {
 		}
 
 		origin := headerFirstValue(context.Request.Header, com.HttpHeaderOrigin)
-		// Fast path: requests without Origin do not need CORS headers.
+		// 快路径：无 Origin 的请求不需要 CORS 头。CORS 预检必带 Origin，
+		// 无 Origin 的 OPTIONS 属普通流量，一律放行（用户显式注册的 OPTIONS 路由可达），
+		// 与 gin-contrib/cors 行为一致
 		if origin == "" {
-			if context.Request.Method == "OPTIONS" {
-				context.AbortWithStatus(http.StatusNoContent)
-				return
-			}
 			context.Next()
 			return
 		}
@@ -115,15 +113,18 @@ func CorsWithPolicy(policy com.CORSPolicy) gin.HandlerFunc {
 		// Write headers directly to the map to bypass CanonicalMIMEHeaderKey allocations.
 		h := context.Writer.Header()
 
+		// 快路径已保证此处 origin 非空，无需重复判断
 		if policy.AllowAllOrigins {
 			h[corsHeaderAllowOrigin] = corsAllowOriginAll
-		} else if origin != "" && isOriginAllowed(origin, policy.AllowedOrigins) {
+		} else if isOriginAllowed(origin, policy.AllowedOrigins) {
 			h[corsHeaderAllowOrigin] = []string{origin}
 			h[corsHeaderVary] = corsVaryOrigin
-		} else if origin != "" {
+		} else {
 			// Keep behavior explicit for disallowed origins: no CORS headers returned.
+			// 预检返回 403（对齐 gin-contrib/cors），避免服务端观测为"成功 204"
+			// 而浏览器侧表现为 CORS 失败的口径错位
 			if context.Request.Method == "OPTIONS" {
-				context.AbortWithStatus(http.StatusNoContent)
+				context.AbortWithStatus(http.StatusForbidden)
 				return
 			}
 			context.Next()
@@ -183,6 +184,9 @@ func AccessLogger(logger *logr.Logger, logEventFunc com.LogEventFunc, record boo
 		forwardedFor := headerFirstValue(header, com.HttpHeaderForwardedFor)
 		userAgent := headerFirstValue(header, "User-Agent")
 		remoteAddr := req.RemoteAddr
+		// IP 口径与 Recovery 对齐：ClientIP() 经 TrustedProxies 解析转发头，
+		// ForwardedByClientIP=false 时退化为 RemoteAddr 的 IP 部分，行为安全
+		clientIP := context.ClientIP()
 		rawQuery := req.URL.RawQuery
 
 		// 设置请求日志记录器
@@ -211,7 +215,7 @@ func AccessLogger(logger *logr.Logger, logEventFunc com.LogEventFunc, record boo
 		// 一次性设置所有字段
 		event.Message = "http server access log"
 		event.ID = requestID
-		event.IP = remoteAddr
+		event.IP = clientIP
 		event.EndPoint = remoteAddr
 		event.Path = path
 		event.Method = method
@@ -234,8 +238,11 @@ func AccessLogger(logger *logr.Logger, logEventFunc com.LogEventFunc, record boo
 	}
 }
 
-// 返回一个用于处理 panic 恢复的 Gin 中间件
-func Recovery(logger *logr.Logger, logEventFunc com.LogEventFunc) gin.HandlerFunc {
+// 返回一个用于处理 panic 恢复的 Gin 中间件。
+// record 控制 panic 日志事件是否读取请求体：仅当 record 为 true 且内容类型通过
+// httptool.CanRecordContextBody 过滤时才记录（与 AccessLogger 的门控一致），
+// 避免默认配置下 panic 日志泄露敏感请求体
+func Recovery(logger *logr.Logger, logEventFunc com.LogEventFunc, record bool) gin.HandlerFunc {
 	return func(context *gin.Context) {
 		defer func() {
 			if err := recover(); err != nil {
@@ -299,9 +306,11 @@ func Recovery(logger *logr.Logger, logEventFunc com.LogEventFunc) gin.HandlerFun
 				event.ReqContentType = requestContentType
 				event.ReqQuery = rawQuery
 
-				// 只在需要时才生成请求体
-				if body, err := httptool.GenerateRequestBody(context); err == nil {
-					event.ReqBody = conver.BytesToString(body)
+				// 只在记录开关开启且内容类型通过过滤时才读取请求体
+				if record && httptool.CanRecordContextBody(req.Header) {
+					if body, err := httptool.GenerateRequestBody(context); err == nil {
+						event.ReqBody = conver.BytesToString(body)
+					}
 				}
 
 				event.Error = errObj
@@ -316,8 +325,10 @@ func Recovery(logger *logr.Logger, logEventFunc com.LogEventFunc) gin.HandlerFun
 				sb.WriteString(", path: ")
 				sb.WriteString(req.URL.Path)
 
-				context.AbortWithStatus(statusCode)
+				// 单次 String 即完成状态码与响应体写入（AbortWithStatus 后再 String 属双写），
+				// Abort 保持中止后续处理链的语义不变
 				context.String(statusCode, sb.String())
+				context.Abort()
 			}
 		}()
 

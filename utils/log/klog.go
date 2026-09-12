@@ -16,6 +16,10 @@ import (
 var once sync.Once
 
 // 初始化 klog 的标志配置
+//
+// 注意：klog 是进程级全局单例，本函数经 sync.Once 只执行一次，
+// 首个调用者的 isRelease 将永久决定全局 verbosity（v=0 或 v=2），
+// 后续以不同 mode 调用不会生效，也不会产生任何提示。
 func initKlogFlags(isRelease bool) {
 	once.Do(func() {
 		// 创建一个新的标志集，用于 klog 配置
@@ -51,6 +55,11 @@ type LogrLogger struct {
 }
 
 // 创建并返回一个新的 LogrLogger 实例
+//
+// 注意：klog 为进程级全局单例——klog.SetOutput 会覆盖此前所有实例的输出目标，
+// 即后创建的 LogrLogger 将接管整个进程的 klog 输出；isRelease 决定的全局
+// verbosity 也仅以首个调用者为准（见 initKlogFlags）。多实例/多模式并存时
+// 只有最后设置的输出与最先设置的 verbosity 生效。
 func NewLogrLogger(w io.Writer, isRelease bool) *LogrLogger {
 	// 初始化 klog 标志
 	initKlogFlags(isRelease)

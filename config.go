@@ -145,12 +145,20 @@ func (c *Config) WithCORSPolicy(policy com.CORSPolicy) *Config {
 }
 
 // 设置访问日志事件处理函数
+//
+// 同步契约：fn 必须同步消费 event，不得滞留 event 或 event.ReqBody 的引用——
+// event 来自对象池，fn 返回后会立即被 Reset 并回池；ReqBody 是池化请求体缓冲区的
+// 零拷贝别名，缓冲区同样在 fn 返回后立即回池。滞留引用会导致跨请求数据竞争与内容串改。
 func (c *Config) WithAccessLogEventFunc(fn com.LogEventFunc) *Config {
 	c.accessLogEventFunc = fn
 	return c
 }
 
 // 设置恢复日志事件处理函数
+//
+// 同步契约：fn 必须同步消费 event，不得滞留 event 或 event.ReqBody 的引用——
+// event 来自对象池，fn 返回后会立即被 Reset 并回池；ReqBody 是池化请求体缓冲区的
+// 零拷贝别名，缓冲区同样在 fn 返回后立即回池。滞留引用会导致跨请求数据竞争与内容串改。
 func (c *Config) WithRecoveryLogEventFunc(fn com.LogEventFunc) *Config {
 	c.recoveryLogEventFunc = fn
 	return c

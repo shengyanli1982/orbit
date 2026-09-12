@@ -447,11 +447,19 @@ func TestRunFailFastWhenForwardedEnabledAndTrustedProxiesInvalid(t *testing.T) {
 	engine := NewEngine(config, options)
 
 	assert.Error(t, engine.initErr)
+	assert.Error(t, engine.GetInitError())
+	assert.Equal(t, engine.initErr, engine.GetInitError())
 
 	engine.Run()
 
 	assert.False(t, engine.IsRunning())
 	assert.Nil(t, engine.httpSvr)
+}
+
+func TestGetInitErrorNilWhenInitSucceeds(t *testing.T) {
+	engine := NewEngine(NewConfig().WithRelease().WithPort(getFreePort(t)), NewOptions())
+
+	assert.NoError(t, engine.GetInitError())
 }
 
 func TestRunNotFailWhenForwardedDisabledEvenIfTrustedProxiesInvalid(t *testing.T) {
@@ -467,16 +475,16 @@ func TestRunNotFailWhenForwardedDisabledEvenIfTrustedProxiesInvalid(t *testing.T
 	assert.True(t, engine.IsRunning())
 }
 
-func getFreePort(t *testing.T) uint16 {
-	t.Helper()
+func getFreePort(tb testing.TB) uint16 {
+	tb.Helper()
 
 	listener, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
-		t.Fatalf("failed to allocate a free port: %v", err)
+		tb.Fatalf("failed to allocate a free port: %v", err)
 	}
 	port := uint16(listener.Addr().(*net.TCPAddr).Port)
 	if err := listener.Close(); err != nil {
-		t.Fatalf("failed to close the probe listener: %v", err)
+		tb.Fatalf("failed to close the probe listener: %v", err)
 	}
 	return port
 }

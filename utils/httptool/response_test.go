@@ -64,7 +64,27 @@ func TestGenerateResponseBodyBufferNotFound(t *testing.T) {
 		body, err := GenerateResponseBody(context)
 
 		// Check if the error is as expected
-		assert.Equal(t, ErrorRequestBodyBufferNotFound, err)
+		assert.Equal(t, ErrorResponseBodyBufferNotFound, err)
+
+		// Check if the body is nil
+		assert.Nil(t, body)
+	})
+}
+
+func TestGenerateResponseBodyWrongBufferType(t *testing.T) {
+	// Create a new Gin context
+	gin.SetMode(gin.TestMode)
+	context, _ := gin.CreateTestContext(httptest.NewRecorder())
+
+	t.Run("ResponseBodyBufferWrongType", func(t *testing.T) {
+		// Set a value of the wrong type as the response body buffer in the context
+		context.Set(com.ResponseBodyBufferKey, "not a buffer")
+
+		// Call the GenerateResponseBody function
+		body, err := GenerateResponseBody(context)
+
+		// Check if the error is as expected
+		assert.Equal(t, ErrorResponseBodyBufferNotFound, err)
 
 		// Check if the body is nil
 		assert.Nil(t, body)

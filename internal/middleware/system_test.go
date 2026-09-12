@@ -164,7 +164,9 @@ func TestCors_PreflightAndEdgeCases(t *testing.T) {
 		recorder := httptest.NewRecorder()
 		router.ServeHTTP(recorder, req)
 
-		assert.Equal(t, http.StatusNoContent, recorder.Code)
+		// 不允许 origin 的预检返回 403（对齐 gin-contrib/cors），服务端观测与浏览器侧
+		// CORS 失败口径一致，不再以 204 伪装成功
+		assert.Equal(t, http.StatusForbidden, recorder.Code)
 		assert.Empty(t, recorder.Header().Get("Access-Control-Allow-Origin"))
 	})
 
@@ -235,13 +237,16 @@ func TestCors_PreflightAndEdgeCases(t *testing.T) {
 			AllowAllOrigins: true,
 		}))
 		router.GET("/test", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"message": "OK"}) })
+		router.OPTIONS("/test", func(c *gin.Context) { c.String(http.StatusOK, "user-options") })
 
 		req, _ := http.NewRequest(http.MethodOptions, "/test", nil)
 		recorder := httptest.NewRecorder()
 		router.ServeHTTP(recorder, req)
 
-		assert.Equal(t, http.StatusNoContent, recorder.Code)
-		assert.Empty(t, recorder.Body.String())
+		// 无 Origin 的 OPTIONS 属普通流量（CORS 预检必带 Origin），必须放行至用户路由，
+		// 同时保持"无 Origin 不写 CORS 头"的既定设计
+		assert.Equal(t, http.StatusOK, recorder.Code)
+		assert.Equal(t, "user-options", recorder.Body.String())
 		assert.Empty(t, recorder.Header().Get("Access-Control-Allow-Origin"))
 		assert.Empty(t, recorder.Header().Get("Access-Control-Allow-Methods"))
 		assert.Empty(t, recorder.Header().Get("Access-Control-Allow-Headers"))
@@ -271,12 +276,15 @@ func TestCors_PreflightAndEdgeCases(t *testing.T) {
 			AllowedOrigins: []string{"https://app.example.com"},
 		}))
 		router.GET("/test", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"message": "OK"}) })
+		router.OPTIONS("/test", func(c *gin.Context) { c.String(http.StatusOK, "user-options") })
 
 		req, _ := http.NewRequest(http.MethodOptions, "/test", nil)
 		recorder := httptest.NewRecorder()
 		router.ServeHTTP(recorder, req)
 
-		assert.Equal(t, http.StatusNoContent, recorder.Code)
+		// 无 Origin 快路径与策略无关：一律放行且不写 CORS 头
+		assert.Equal(t, http.StatusOK, recorder.Code)
+		assert.Equal(t, "user-options", recorder.Body.String())
 		assert.Empty(t, recorder.Header().Get("Access-Control-Allow-Origin"))
 	})
 
@@ -335,6 +343,29 @@ func TestCors_PreflightAndEdgeCases(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
+}
+
+// TestCors_NoOrigin_OptionsReachesUserRoute 验证无 Origin 的 OPTIONS 请求不被 CORS
+// 中间件短路为 204：CORS 预检必带 Origin，无 Origin 的请求属普通流量，用户显式注册的
+// OPTIONS 路由必须可达（缺陷 #3），同时保持"无 Origin 不写 CORS 头"的既定设计。
+func TestCors_NoOrigin_OptionsReachesUserRoute(t *testing.T) {
+	router := gin.New()
+	router.Use(Cors())
+
+	reached := false
+	router.OPTIONS("/x", func(c *gin.Context) {
+		reached = true
+		c.String(http.StatusOK, "options-handler")
+	})
+
+	req, _ := http.NewRequest(http.MethodOptions, "/x", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	assert.True(t, reached, "user-registered OPTIONS route must be reachable for requests without Origin")
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	assert.Equal(t, "options-handler", recorder.Body.String())
+	assert.Empty(t, recorder.Header().Get("Access-Control-Allow-Origin"))
 }
 
 func TestFormatDurationMs(t *testing.T) {
@@ -496,7 +527,7 @@ func TestRecovery(t *testing.T) {
 	logger := log.NewZapLogger(zapcore.AddSync(buff), false).GetLogrLogger()
 
 	// Add the Recovery middleware to the router
-	router.Use(Recovery(logger, log.DefaultRecoveryEventFunc))
+	router.Use(Recovery(logger, log.DefaultRecoveryEventFunc, true))
 
 	// Add the test handler to the router
 	router.GET("/test", handler)
@@ -535,7 +566,7 @@ func TestLogrRecovery(t *testing.T) {
 	logger := log.NewLogrLogger(buff, false).GetLogrLogger()
 
 	// Add the Recovery middleware to the router
-	router.Use(Recovery(logger, log.DefaultRecoveryEventFunc))
+	router.Use(Recovery(logger, log.DefaultRecoveryEventFunc, true))
 
 	// Add the test handler to the router
 	router.GET("/test", handler)
@@ -608,6 +639,34 @@ func TestHeaderFirstValue(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestAccessLogger_EventIPUsesClientIP 验证 #21：AccessLogger 的 event.IP 口径与
+// Recovery 对齐——统一使用 context.ClientIP()（ForwardedByClientIP 启用时经
+// X-Forwarded-For/X-Real-IP 与 TrustedProxies 解析）；event.EndPoint 保留原始 RemoteAddr。
+func TestAccessLogger_EventIPUsesClientIP(t *testing.T) {
+	var gotIP, gotEndPoint string
+	logEventFunc := func(_ *logr.Logger, event *log.LogEvent) {
+		gotIP = event.IP
+		gotEndPoint = event.EndPoint
+	}
+
+	logger := logr.Discard()
+
+	router := gin.New()
+	router.Use(AccessLogger(&logger, logEventFunc, false))
+	router.GET("/test", func(c *gin.Context) { c.Status(http.StatusOK) })
+
+	req, _ := http.NewRequest(http.MethodGet, "/test", nil)
+	req.RemoteAddr = "192.0.2.1:1234"
+	req.Header.Set("X-Forwarded-For", "203.0.113.7")
+
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	assert.Equal(t, "203.0.113.7", gotIP, "event.IP must use context.ClientIP() to align with Recovery")
+	assert.Equal(t, "192.0.2.1:1234", gotEndPoint, "event.EndPoint must keep the raw RemoteAddr")
 }
 
 func TestAccessLoggerMultiValueHeaders(t *testing.T) {

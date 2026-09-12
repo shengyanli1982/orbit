@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"sync"
 	"testing"
 
@@ -12,6 +13,14 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
+
+// TestMain 统一将 gin 置为 ReleaseMode 后再运行本包全部测试与基准：
+// debug 模式会输出 [GIN-debug] 路由注册日志污染基准输出，并引入与生产
+// 不一致的额外开销，导致基准数值失真
+func TestMain(m *testing.M) {
+	gin.SetMode(gin.ReleaseMode)
+	os.Exit(m.Run())
+}
 
 // BenchmarkConcurrentRequestsLight 模拟轻负载并发场景
 func BenchmarkConcurrentRequestsLight(b *testing.B) {

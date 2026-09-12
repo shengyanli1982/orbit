@@ -82,6 +82,16 @@ func NewZapLoggerWithMode(ws zapcore.WriteSyncer, isReleaseMode bool, opts ...za
 	return NewZapLogger(ws, isReleaseMode, opts...)
 }
 
+// WithLogCaller 返回控制是否为日志附加调用者信息（caller 字段）的 zap 选项。
+//
+// NewZapLogger 默认附加 caller（与历史行为一致）；传入 WithLogCaller(false)
+// 经 NewZapLogger 的可变选项覆盖该默认并关闭，省去每条日志的调用栈捕获
+// （访问日志路径约 -100ns/op 与 -1 alloc/op）。关闭后 zap 的 EncodeEntry
+// 会自动省略 caller 字段（不会产生空键），日志 schema 变化仅限该字段消失。
+func WithLogCaller(enable bool) zap.Option {
+	return zap.WithCaller(enable)
+}
+
 // 返回原始的 Zap 日志记录器
 func (l *ZapLogger) GetZapLogger() *zap.Logger {
 	return l.l
