@@ -1,10 +1,14 @@
 package orbit
 
 import (
+	"context"
+	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -628,4 +632,105 @@ func TestEngineRegisterAfterRunRejected(t *testing.T) {
 
 	assert.Empty(t, engine.services)
 	assert.Empty(t, engine.handlers)
+}
+
+// TestStopWithContextCustomDeadline 验证 StopWithContext 尊重调用者提供的短超时上下文，
+// 而非使用配置的 ShutdownTimeout（默认 10s）：在有慢请求在途时，ctx 超时后应快速返回。
+func TestStopWithContextCustomDeadline(t *testing.T) {
+	port := getFreePort(t)
+	engine := NewEngine(NewConfig().WithRelease().WithPort(port), NewOptions())
+	require.NoError(t, engine.GetInitError())
+
+	inHandler := make(chan struct{})
+	var handlerDone atomic.Bool
+	engine.RegisterService(NewHttpService(func(g *gin.RouterGroup) {
+		g.GET("/slow", func(c *gin.Context) {
+			close(inHandler)
+			// 模拟慢请求：远长于 ctx 超时
+			time.Sleep(5 * time.Second)
+			handlerDone.Store(true)
+			c.String(http.StatusOK, "done")
+		})
+	}))
+	engine.Run()
+	defer engine.Stop()
+
+	// 等待服务器就绪后发起慢请求
+	client := &http.Client{Timeout: 10 * time.Second}
+	reqDone := make(chan struct{})
+	go func() {
+		defer close(reqDone)
+		resp, err := client.Get(fmt.Sprintf("http://localhost:%d/slow", port))
+		if err != nil {
+			return // ctx 超时后连接会被强制关闭，预期错误
+		}
+		_, _ = io.Copy(io.Discard, resp.Body)
+		resp.Body.Close()
+	}()
+
+	<-inHandler // 确保请求已进入 handler
+
+	// 使用 500ms 短超时调用 StopWithContext
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	start := time.Now()
+	engine.StopWithContext(ctx)
+	elapsed := time.Since(start)
+
+	// StopWithContext 应在 ctx 超时后快速返回（远低于默认 10s）
+	assert.Less(t, elapsed, 3*time.Second,
+		"StopWithContext should return shortly after ctx deadline, took %v", elapsed)
+	assert.False(t, engine.IsRunning())
+
+	<-reqDone
+	_ = handlerDone.Load() // 避免 unused variable
+}
+
+// TestStopWithContextCancelledContext 验证传入已取消的 ctx 时，
+// StopWithContext 不会阻塞，应快速返回。
+func TestStopWithContextCancelledContext(t *testing.T) {
+	port := getFreePort(t)
+	engine := NewEngine(NewConfig().WithRelease().WithPort(port), NewOptions())
+	require.NoError(t, engine.GetInitError())
+
+	engine.Run()
+	defer engine.Stop()
+
+	// 短暂等待确保 Run 的装配段完成
+	time.Sleep(50 * time.Millisecond)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // 立即取消
+
+	start := time.Now()
+	engine.StopWithContext(ctx)
+	elapsed := time.Since(start)
+
+	assert.Less(t, elapsed, 2*time.Second,
+		"StopWithContext with cancelled ctx should return quickly, took %v", elapsed)
+	assert.False(t, engine.IsRunning())
+}
+
+// TestStopWithContextBackground 验证传入 context.Background()（无 deadline）时，
+// 在无活跃连接的正常情况下，StopWithContext 应快速完成关闭。
+func TestStopWithContextBackground(t *testing.T) {
+	port := getFreePort(t)
+	engine := NewEngine(NewConfig().WithRelease().WithPort(port), NewOptions())
+	require.NoError(t, engine.GetInitError())
+
+	engine.RegisterService(&emptyBodyService{})
+	engine.Run()
+	defer engine.Stop()
+
+	// 短暂等待确保 Run 的装配段完成
+	time.Sleep(50 * time.Millisecond)
+
+	start := time.Now()
+	engine.StopWithContext(context.Background())
+	elapsed := time.Since(start)
+
+	assert.Less(t, elapsed, 3*time.Second,
+		"StopWithContext with background ctx and no active connections should return quickly, took %v", elapsed)
+	assert.False(t, engine.IsRunning())
 }

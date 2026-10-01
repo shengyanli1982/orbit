@@ -18,9 +18,6 @@ import (
 	mid "github.com/shengyanli1982/orbit/internal/middleware"
 )
 
-// 默认的服务器关闭超时时间
-var defaultShutdownTimeout = time.Second * com.DefaultShutdownTimeoutSeconds
-
 // HTTP 连接的默认空闲超时时间（秒）
 const defaultHttpIdleTimeoutSeconds = int(com.DefaultHttpIdleTimeoutMillis / 1000)
 
@@ -263,8 +260,18 @@ func (e *Engine) startHTTPServer(svr *http.Server) {
 	}
 }
 
-// 优雅地停止 HTTP 服务器
+// Stop 使用配置的 ShutdownTimeout 超时上下文优雅地停止 HTTP 服务器。
+// 它是 StopWithContext 的薄封装，使用 context.Background() 与 ShutdownTimeout 构建关闭上下文。
 func (e *Engine) Stop() {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(e.config.ShutdownTimeout)*time.Millisecond)
+	defer cancel()
+	e.StopWithContext(ctx)
+}
+
+// StopWithContext 使用传入的上下文优雅地停止 HTTP 服务器。
+// 调用者负责提供有效的 ctx（不可为 nil），关闭超时由调用者通过 ctx 控制；
+// Stop() 封装提供 ShutdownTimeout 默认超时。
+func (e *Engine) StopWithContext(ctx context.Context) {
 	// running->stopped 为正常关闭；new->stopped 为 Stop-before-Run；保证幂等。
 	// 并发 Run 可能在两次 CAS 之间将 state 从 new 迁移到 running（两次 CAS 均失败但引擎在运行），
 	// 此时重试 CAS；状态机单调迁移（stopped 为终态），循环最多两次迭代即收敛
@@ -274,19 +281,16 @@ func (e *Engine) Stop() {
 		}
 		if e.state.Load() == stateStopped {
 			// 后到的 Stop 调用者：等待首个 Stop 完成排水后再返回，保证 Stop 返回即"已停止"
-			e.waitForStopped()
+			e.waitForStopped(ctx)
 			return
 		}
 	}
-
-	shutdownCtx, shutdownCancel := context.WithTimeout(e.ctx, defaultShutdownTimeout)
-	defer shutdownCancel()
 
 	// 锁内取 httpSvr 快照后关闭 HTTP 服务器（与 Run 的装配段互斥，消除无同步读写）
 	e.mu.Lock()
 	svr := e.httpSvr
 	e.mu.Unlock()
-	e.shutdownHTTPServer(shutdownCtx, svr)
+	e.shutdownHTTPServer(ctx, svr)
 
 	// 取消上下文并等待所有协程完成
 	e.cancel()
@@ -301,14 +305,12 @@ func (e *Engine) Stop() {
 // waitForStopped 使后到的 Stop 调用者等待首个 Stop 调用者完成在途请求排水与服务协程退出。
 // 先取得 mu 确保 Run 的装配段（httpSvr 赋值与 wg.Add）已结束，避免 wg.Add 与 wg.Wait 并发；
 // http.Server.Shutdown 可安全重复调用：排水未完成时等待同一批在途请求，已完成时立即返回
-func (e *Engine) waitForStopped() {
+func (e *Engine) waitForStopped(ctx context.Context) {
 	e.mu.Lock()
 	svr := e.httpSvr
 	e.mu.Unlock()
 
-	shutdownCtx, shutdownCancel := context.WithTimeout(e.ctx, defaultShutdownTimeout)
-	defer shutdownCancel()
-	e.shutdownHTTPServer(shutdownCtx, svr)
+	e.shutdownHTTPServer(ctx, svr)
 
 	e.wg.Wait()
 }

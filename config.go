@@ -42,6 +42,7 @@ type Config struct {
 	HttpReadHeaderTimeout uint32               `json:"httpReadHeaderTimeout,omitempty" yaml:"httpReadHeaderTimeout,omitempty"` // HTTP读取头部超时时间
 	HttpIdleTimeout       uint32               `json:"httpIdleTimeout,omitempty" yaml:"httpIdleTimeout,omitempty"`             // HTTP空闲超时时间
 	MaxHeaderBytes        uint32               `json:"maxHeaderBytes,omitempty" yaml:"maxHeaderBytes,omitempty"`               // HTTP最大头部字节数
+	ShutdownTimeout       uint32               `json:"shutdownTimeout,omitempty" yaml:"shutdownTimeout,omitempty"`              // 优雅关闭超时时间（毫秒）
 	TrustedProxies        []string             `json:"trustedProxies,omitempty" yaml:"trustedProxies,omitempty"`               // 可信代理CIDR列表
 	RemoteIPHeaders       []string             `json:"remoteIPHeaders,omitempty" yaml:"remoteIPHeaders,omitempty"`             // 真实客户端IP解析头
 	CORSPolicy            *com.CORSPolicy      `json:"corsPolicy,omitempty" yaml:"corsPolicy,omitempty"`                       // CORS 策略（nil 表示使用默认策略）
@@ -62,6 +63,7 @@ func NewConfig() *Config {
 		HttpReadHeaderTimeout: defaultIdleTimeout,
 		HttpIdleTimeout:       defaultIdleTimeout,
 		MaxHeaderBytes:        uint32(defaultMaxHeaderBytes),
+		ShutdownTimeout:       uint32(com.DefaultShutdownTimeoutSeconds * 1000),
 		TrustedProxies:        cloneStringSlice(defaultTrustedProxies),
 		RemoteIPHeaders:       cloneStringSlice(defaultRemoteIPHeaders),
 		CORSPolicy:            cloneCORSPolicyPtr(&defaultCORSPolicy),
@@ -123,6 +125,12 @@ func (c *Config) WithHttpIdleTimeout(timeout uint32) *Config {
 // 设置HTTP最大头部字节数
 func (c *Config) WithMaxHeaderBytes(bytes uint32) *Config {
 	c.MaxHeaderBytes = bytes
+	return c
+}
+
+// 设置优雅关闭超时时间（毫秒）
+func (c *Config) WithShutdownTimeout(timeout uint32) *Config {
+	c.ShutdownTimeout = timeout
 	return c
 }
 
@@ -208,6 +216,9 @@ func isConfigValid(conf *Config) *Config {
 	}
 	if conf.MaxHeaderBytes == 0 {
 		conf.MaxHeaderBytes = defaultConf.MaxHeaderBytes
+	}
+	if conf.ShutdownTimeout == 0 {
+		conf.ShutdownTimeout = defaultConf.ShutdownTimeout
 	}
 	if conf.TrustedProxies == nil {
 		conf.TrustedProxies = cloneStringSlice(defaultConf.TrustedProxies)
