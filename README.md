@@ -27,7 +27,7 @@ When plain Gin feels too bare for real services, Orbit fills the gap without get
 
 | Area               | What Orbit Provides                                                           |
 | ------------------ | ----------------------------------------------------------------------------- |
-| Runtime            | `Engine` lifecycle (`Run`, `Stop`), service and middleware registration       |
+| Runtime            | `Engine` lifecycle (`Run`, `Stop`, `StopWithContext`), service and middleware registration |
 | Built-in endpoints | `/ping`, optional `/metrics`, `/docs/*any`, `/debug/pprof/*any`               |
 | Observability      | `logr`-based logging, Prometheus middleware, panic recovery, access logging   |
 | Reliability        | graceful shutdown, read/write/header/idle timeout controls, max header limits |
@@ -119,6 +119,24 @@ go test ./...
 go test -tags jsoniter ./...
 go test -tags sonic ./...
 ```
+
+## Graceful Shutdown
+
+`Stop()` uses the configured `ShutdownTimeout` (default 10s). For custom control — such as honoring a signal deadline — use `StopWithContext`:
+
+```go
+ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+defer cancel()
+
+engine.Run()
+
+<-ctx.Done()
+shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+defer shutdownCancel()
+engine.StopWithContext(shutdownCtx)
+```
+
+Configure via `NewConfig().WithShutdownTimeout(30000)` (milliseconds).
 
 ## Performance & Reliability Notes
 
